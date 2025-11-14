@@ -3,7 +3,15 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { DashboardLayout } from "./components/DashboardLayout";
 import Index from "./pages/Index";
+import Leaves from "./pages/Leaves";
+import Payslips from "./pages/Payslips";
+import Holidays from "./pages/Holidays";
+import Employees from "./pages/Employees";
+import Profile from "./pages/Profile";
+import Notifications from "./pages/Notifications";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -16,6 +24,13 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />
+          <Route path="/leaves" element={<DashboardLayout><Leaves /></DashboardLayout>} />
+          <Route path="/payslips" element={<DashboardLayout><Payslips /></DashboardLayout>} />
+          <Route path="/holidays" element={<DashboardLayout><Holidays /></DashboardLayout>} />
+          <Route path="/employees" element={<DashboardLayout><Employees /></DashboardLayout>} />
+          <Route path="/profile" element={<DashboardLayout><Profile /></DashboardLayout>} />
+          <Route path="/notifications" element={<DashboardLayout><Notifications /></DashboardLayout>} />
+          <Route path="/settings" element={<DashboardLayout><Settings /></DashboardLayout>} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
