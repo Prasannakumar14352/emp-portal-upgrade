@@ -3,6 +3,17 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Mail, Phone, MapPin, Calendar, Briefcase, Edit } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+
+import { Label } from "@/components/ui/label";
+import { useState } from "react";
+import { Input } from "@/components/ui/input";
 
 export default function Profile() {
   const user = {
@@ -16,6 +27,21 @@ export default function Profile() {
     location: "San Francisco, CA",
     manager: "Sarah Williams",
     status: "active",
+  };
+  const [open, setOpen] = useState(false);
+
+  const [form, setForm] = useState({
+    name: user.name,
+    email: user.email,
+    phone: user.phone,
+    position: user.position,
+    department: user.department,
+    location: user.location,
+  });
+
+  const handleSave = () => {
+    Object.assign(user, form); // update local user object
+    setOpen(false);
   };
 
   return (
@@ -39,7 +65,7 @@ export default function Profile() {
               <Badge className="mt-2" variant="default">
                 {user.status === 'active' ? 'Active' : 'Inactive'}
               </Badge>
-              <Button className="mt-4 w-full">
+              <Button className="mt-4 w-full" onClick={() => setOpen(true)}>
                 <Edit className="mr-2 h-4 w-4" />
                 Edit Profile
               </Button>
@@ -88,10 +114,10 @@ export default function Profile() {
                   <div>
                     <p className="text-sm text-muted-foreground">Join Date</p>
                     <p className="font-medium">
-                      {new Date(user.joinDate).toLocaleDateString('en-US', { 
-                        year: 'numeric', 
-                        month: 'long', 
-                        day: 'numeric' 
+                      {new Date(user.joinDate).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
                       })}
                     </p>
                   </div>
@@ -151,6 +177,73 @@ export default function Profile() {
           </Card>
         </div>
       </div>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Profile</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="grid gap-2">
+              <Label>Name</Label>
+              <Input
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <Label>Email</Label>
+              <Input
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <Label>Phone</Label>
+              <Input
+                value={form.phone}
+                onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <Label>Location</Label>
+              <Input
+                value={form.location}
+                onChange={(e) => setForm({ ...form, location: e.target.value })}
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <Label>Position</Label>
+              <Input
+                value={form.position}
+                onChange={(e) => setForm({ ...form, position: e.target.value })}
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <Label>Department</Label>
+              <Input
+                value={form.department}
+                onChange={(e) => setForm({ ...form, department: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSave}>
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }

@@ -5,8 +5,11 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Settings as SettingsIcon, Moon, Bell, Lock, Globe } from "lucide-react";
 import { toast } from "sonner";
+import { useTheme } from "next-themes";
 
 export default function Settings() {
+  const { theme, setTheme } = useTheme();
+
   const handleSave = () => {
     toast.success("Settings saved successfully!");
   };
@@ -19,7 +22,7 @@ export default function Settings() {
       </div>
 
       <div className="grid gap-6">
-        <Card>
+        {/* <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
               <SettingsIcon className="h-5 w-5" />
@@ -45,7 +48,7 @@ export default function Settings() {
                 </SelectContent>
               </Select>
             </div>
-            
+
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
                 <Label>Timezone</Label>
@@ -64,7 +67,7 @@ export default function Settings() {
               </Select>
             </div>
           </CardContent>
-        </Card>
+        </Card> */}
 
         <Card>
           <CardHeader>
@@ -80,9 +83,12 @@ export default function Settings() {
                 <Label>Dark Mode</Label>
                 <p className="text-sm text-muted-foreground">Enable dark mode theme</p>
               </div>
-              <Switch />
+              <Switch
+                checked={theme === "dark"}
+                onCheckedChange={(checked) => setTheme(checked ? "dark" : "light")}
+              />
             </div>
-            
+
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
                 <Label>Compact View</Label>
@@ -109,7 +115,7 @@ export default function Settings() {
               </div>
               <Switch defaultChecked />
             </div>
-            
+
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
                 <Label>Push Notifications</Label>
@@ -144,7 +150,7 @@ export default function Settings() {
               </div>
               <Button variant="outline" size="sm">Enable</Button>
             </div>
-            
+
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
                 <Label>Password</Label>

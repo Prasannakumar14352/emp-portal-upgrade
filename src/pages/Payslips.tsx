@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,6 +7,7 @@ import { Download, FileText, Search, Eye } from "lucide-react";
 import { toast } from "sonner";
 
 export default function Payslips() {
+
   const payslips = [
     { id: 1, month: "December 2025", amount: "₹75,000", status: "paid", date: "2025-12-31" },
     { id: 2, month: "November 2025", amount: "₹75,000", status: "paid", date: "2025-11-30" },
@@ -14,7 +16,7 @@ export default function Payslips() {
     { id: 5, month: "August 2025", amount: "₹75,000", status: "paid", date: "2025-08-31" },
     { id: 6, month: "July 2025", amount: "₹75,000", status: "paid", date: "2025-07-31" },
   ];
-
+  const [search, setSearch] = useState("");
   const handleDownload = (month: string) => {
     toast.success(`Downloading payslip for ${month}`);
   };
@@ -22,6 +24,15 @@ export default function Payslips() {
   const handleView = (month: string) => {
     toast.info(`Opening payslip for ${month}`);
   };
+
+  const filteredPayslips = payslips.filter((p) => {
+    const s = search.toLowerCase();
+    return (
+      p.month.toLowerCase().includes(s) ||
+      p.amount.toLowerCase().includes(s) ||
+      new Date(p.date).toLocaleDateString().toLowerCase().includes(s)
+    );
+  });
 
   return (
     <div className="space-y-6">
@@ -36,13 +47,13 @@ export default function Payslips() {
             <CardTitle>All Payslips</CardTitle>
             <div className="relative w-full sm:w-64">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input placeholder="Search payslips..." className="pl-9" />
+              <Input placeholder="Search payslips..." className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
             </div>
           </div>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {payslips.map((payslip) => (
+            {filteredPayslips.map((payslip) => (
               <div key={payslip.id} className="flex items-center justify-between rounded-lg border p-4 transition-colors hover:bg-muted/50">
                 <div className="flex items-center gap-4">
                   <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">

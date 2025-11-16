@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import { StatCard } from "@/components/StatCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,7 @@ import {
 } from "lucide-react";
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const stats = [
     {
       title: "Leave Balance",
@@ -96,7 +98,7 @@ export default function Dashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Recent Leave Requests</CardTitle>
-            <Button size="sm" variant="outline">View All</Button>
+            <Button size="sm" variant="outline" onClick={() => navigate("/leaves")}>View All</Button>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -116,7 +118,7 @@ export default function Dashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Upcoming Holidays</CardTitle>
-            <Button size="sm" variant="outline">View Calendar</Button>
+            <Button size="sm" variant="outline" onClick={() => navigate("/holidays")}>View Calendar</Button>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -142,11 +144,11 @@ export default function Dashboard() {
         </CardHeader>
         <CardContent>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <Button className="h-auto flex-col gap-2 py-4">
+            <Button className="h-auto flex-col gap-2 py-4" >
               <Calendar className="h-5 w-5" />
               Apply for Leave
             </Button>
-            <Button variant="outline" className="h-auto flex-col gap-2 py-4">
+            <Button variant="outline" className="h-auto flex-col gap-2 py-4" onClick={() => navigate("/payslips")}>
               <FileText className="h-5 w-5" />
               View Payslips
             </Button>

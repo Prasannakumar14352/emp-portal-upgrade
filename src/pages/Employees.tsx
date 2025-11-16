@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -63,10 +64,25 @@ export default function Employees() {
   ];
 
   const departments = [...new Set(employees.map(e => e.department))];
-
+  const [search, setSearch] = useState('');
   const getInitials = (name: string) => {
     return name.split(' ').map(n => n[0]).join('');
   };
+
+  const filteredEmployees = employees.filter(emp => {
+    const s = search.toLowerCase();
+    return (
+      emp.name.toLowerCase().includes(s) ||
+      emp.email.toLowerCase().includes(s) ||
+      emp.department.toLowerCase().includes(s) ||
+      emp.position.toLowerCase().includes(s) ||
+      emp.status.toLowerCase().includes(s)
+    );
+  });
+
+  const filteredDepartments = [...new Set(
+    filteredEmployees.map(e => e.department)
+  )];
 
   return (
     <div className="space-y-6">
@@ -81,13 +97,13 @@ export default function Employees() {
             <CardTitle>All Employees ({employees.length})</CardTitle>
             <div className="relative w-full sm:w-64">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input placeholder="Search employees..." className="pl-9" />
+              <Input placeholder="Search employees..." className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
             </div>
           </div>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {employees.map((employee) => (
+            {filteredEmployees.map((employee) => (
               <div
                 key={employee.id}
                 className="flex items-center gap-4 rounded-lg border p-4 transition-colors hover:bg-muted/50"
@@ -130,13 +146,25 @@ export default function Employees() {
         </CardHeader>
         <CardContent>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {departments.map((dept) => {
+            {/* {departments.map((dept) => {
               const deptCount = employees.filter(e => e.department === dept).length;
               return (
                 <div key={dept} className="rounded-lg border p-4">
                   <p className="font-medium">{dept}</p>
                   <p className="text-sm text-muted-foreground">
                     {deptCount} employee{deptCount !== 1 ? 's' : ''}
+                  </p>
+                </div>
+              );
+            })} */}
+            {filteredDepartments.map((dept) => {
+              const deptCount = filteredEmployees.filter(e => e.department === dept).length;
+
+              return (
+                <div key={dept} className="rounded-lg border p-4">
+                  <p className="font-medium">{dept}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {deptCount} employee{deptCount !== 1 ? "s" : ""}
                   </p>
                 </div>
               );
