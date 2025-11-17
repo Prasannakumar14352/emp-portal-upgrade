@@ -51,6 +51,9 @@ router.post('/users',
             continue;
           }
 
+          // Hash password if provided
+          const hashedPassword = password ? await bcrypt.hash(password, 10) : null;
+
           // Create profile
           const profileResult = await transaction.request()
             .input('email', sql.NVarChar, email)
@@ -58,10 +61,11 @@ router.post('/users',
             .input('department', sql.NVarChar, department || null)
             .input('position', sql.NVarChar, position || null)
             .input('phone', sql.NVarChar, phone || null)
+            .input('password_hash', sql.NVarChar, hashedPassword)
             .query(`
-              INSERT INTO profiles (email, full_name, department, position, phone, created_at)
+              INSERT INTO profiles (email, full_name, department, position, phone, password_hash, created_at)
               OUTPUT INSERTED.id, INSERTED.email, INSERTED.full_name
-              VALUES (@email, @full_name, @department, @position, @phone, GETDATE())
+              VALUES (@email, @full_name, @department, @position, @phone, @password_hash, GETDATE())
             `);
 
           const newProfile = profileResult.recordset[0];
