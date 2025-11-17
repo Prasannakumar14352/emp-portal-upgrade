@@ -1,12 +1,14 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { statisticsService, type EmployeeStatistics, type AttendanceStatistics } from "@/services/statisticsService";
 import { toast } from "sonner";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
-import { Calendar, TrendingUp, Award, Clock } from "lucide-react";
+import { Calendar, TrendingUp, Award, Clock, Download, FileSpreadsheet } from "lucide-react";
 import { StatCard } from "@/components/StatCard";
+import { exportStatisticsToExcel, exportStatisticsToPDF } from "@/lib/exportUtils";
 
 export default function Statistics() {
   const { user } = useAuth();
@@ -37,6 +39,42 @@ export default function Statistics() {
     }
   };
 
+  const handleExportExcel = () => {
+    if (!employeeStats || !attendanceStats) {
+      toast.error("No data to export");
+      return;
+    }
+
+    try {
+      exportStatisticsToExcel({
+        employeeStats,
+        attendanceStats,
+      });
+      toast.success("Statistics exported to Excel successfully");
+    } catch (error) {
+      console.error("Export failed:", error);
+      toast.error("Failed to export statistics");
+    }
+  };
+
+  const handleExportPDF = () => {
+    if (!employeeStats || !attendanceStats) {
+      toast.error("No data to export");
+      return;
+    }
+
+    try {
+      exportStatisticsToPDF({
+        employeeStats,
+        attendanceStats,
+      });
+      toast.success("Statistics exported to PDF successfully");
+    } catch (error) {
+      console.error("Export failed:", error);
+      toast.error("Failed to export statistics");
+    }
+  };
+
   if (loading) {
     return <div className="space-y-6">Loading statistics...</div>;
   }
@@ -55,9 +93,21 @@ export default function Statistics() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">My Statistics</h1>
-        <p className="text-muted-foreground">Comprehensive overview of your leave and attendance data</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">My Statistics</h1>
+          <p className="text-muted-foreground">Comprehensive overview of your leave and attendance data</p>
+        </div>
+        <div className="flex gap-2">
+          <Button onClick={handleExportExcel} variant="outline" className="gap-2">
+            <FileSpreadsheet className="h-4 w-4" />
+            Export Excel
+          </Button>
+          <Button onClick={handleExportPDF} variant="outline" className="gap-2">
+            <Download className="h-4 w-4" />
+            Export PDF
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

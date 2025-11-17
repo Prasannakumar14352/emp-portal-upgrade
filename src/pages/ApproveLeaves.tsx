@@ -31,7 +31,7 @@ interface LeaveRequest {
 }
 
 export default function ApproveLeaves() {
-  const { role } = useUserRole();
+  const { role, loading: roleLoading } = useUserRole();
   const navigate = useNavigate();
   const [requests, setRequests] = useState<LeaveRequest[]>([]);
   const [selectedRequests, setSelectedRequests] = useState<string[]>([]);
@@ -46,6 +46,8 @@ export default function ApproveLeaves() {
   const [newComment, setNewComment] = useState("");
 
   useEffect(() => {
+    if (roleLoading) return;
+    
     // Check if user has permission
     if (role !== "hr" && role !== "manager") {
       navigate("/");
@@ -97,7 +99,7 @@ export default function ApproveLeaves() {
     } else {
       setRequests(JSON.parse(storedRequests));
     }
-  }, [role, navigate]);
+  }, [role, roleLoading, navigate]);
 
   const handleApprove = async (id: string) => {
     const request = requests.find(req => req.id === id);
