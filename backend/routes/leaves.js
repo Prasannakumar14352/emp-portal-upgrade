@@ -124,43 +124,71 @@ router.post('/', authenticateToken, async (req, res) => {
         VALUES (@user_id, @manager_id, @leave_type, @start_date, @end_date, @days, @reason, @cc_emails, 'Pending', 'Pending', 'Pending', GETDATE())
       `);
 
-    // Send email notification to manager
-    if (manager_id) {
-      try {
-        const managerResult = await pool.request()
-          .input('manager_id', sql.Int, manager_id)
-          .query('SELECT email, full_name FROM profiles WHERE id = @manager_id');
+    // Send email notifications
+    try {
+      const userResult = await pool.request()
+        .input('user_id', sql.Int, req.user.id)
+        .query('SELECT email, full_name FROM profiles WHERE id = @user_id');
+
+      if (userResult.recordset.length > 0) {
+        const employee = userResult.recordset[0];
         
-        const userResult = await pool.request()
-          .input('user_id', sql.Int, req.user.id)
-          .query('SELECT email, full_name FROM profiles WHERE id = @user_id');
+        const transporter = nodemailer.createTransport({
+          host: process.env.SMTP_HOST,
+          port: 587,
+          secure: false,
+          auth: {
+            user: process.env.GMAIL_USER,
+            pass: process.env.GMAIL_APP_PASSWORD
+          }
+        });
 
-        if (managerResult.recordset.length > 0 && userResult.recordset.length > 0) {
-          const manager = managerResult.recordset[0];
-          const employee = userResult.recordset[0];
+        const emailSubject = 'New Leave Request Requires Your Approval';
+        const emailHtml = `
+          <h2>New Leave Request</h2>
+          <p><strong>${employee.full_name}</strong> has applied for leave and requires approval.</p>
+          <p><strong>Leave Type:</strong> ${leave_type}</p>
+          <p><strong>Duration:</strong> ${start_date} to ${end_date} (${days} days)</p>
+          <p><strong>Reason:</strong> ${reason}</p>
+          <p>Please log in to the system to review and approve/reject this request.</p>
+        `;
+
+        // Collect all recipients
+        const recipients = [];
+
+        // Add manager email
+        if (manager_id) {
+          const managerResult = await pool.request()
+            .input('manager_id', sql.Int, manager_id)
+            .query('SELECT email, full_name FROM profiles WHERE id = @manager_id');
           
-          const transporter = nodemailer.createTransport({
-            host: process.env.SMTP_SERVER,
-            port: 587,
-            secure: false,
-            auth: {
-              user: process.env.GMAIL_USER,
-              pass: process.env.GMAIL_APP_PASSWORD
-            }
-          });
+          if (managerResult.recordset.length > 0) {
+            recipients.push(managerResult.recordset[0].email);
+          }
+        }
 
+        // Add all HR users
+        const hrResult = await pool.request()
+          .query(`
+            SELECT p.email 
+            FROM profiles p
+            INNER JOIN user_roles ur ON p.id = ur.user_id
+            WHERE ur.role = 'hr'
+          `);
+        
+        hrResult.recordset.forEach(hr => {
+          if (!recipients.includes(hr.email)) {
+            recipients.push(hr.email);
+          }
+        });
+
+        // Send to all recipients (manager + HR)
+        if (recipients.length > 0) {
           const emailOptions = {
             from: process.env.GMAIL_USER,
-            to: manager.email,
-            subject: 'New Leave Request Requires Your Approval',
-            html: `
-              <h2>New Leave Request</h2>
-              <p><strong>${employee.full_name}</strong> has applied for leave and requires your approval.</p>
-              <p><strong>Leave Type:</strong> ${leave_type}</p>
-              <p><strong>Duration:</strong> ${start_date} to ${end_date} (${days} days)</p>
-              <p><strong>Reason:</strong> ${reason}</p>
-              <p>Please log in to the system to review and approve/reject this request.</p>
-            `
+            to: recipients.join(', '),
+            subject: emailSubject,
+            html: emailHtml
           };
 
           // Add CC recipients if provided
@@ -169,10 +197,14 @@ router.post('/', authenticateToken, async (req, res) => {
           }
 
           await transporter.sendMail(emailOptions);
+          console.log('Leave notification sent to:', recipients.join(', '));
+          if (cc_emails && cc_emails.length > 0) {
+            console.log('CC sent to:', cc_emails.join(', '));
+          }
         }
-      } catch (emailErr) {
-        console.error('Failed to send email notification:', emailErr);
       }
+    } catch (emailErr) {
+      console.error('Failed to send email notification:', emailErr);
     }
 
     res.status(201).json(result.recordset[0]);

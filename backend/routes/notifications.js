@@ -6,12 +6,12 @@ const router = express.Router();
 
 // Configure email transporter
 const transporter = nodemailer.createTransport({
-  server: process.env.SMTP_SERVER,
+  host: process.env.SMTP_HOST,
   port: parseInt(process.env.SMTP_PORT || '587'),
   secure: false,
   auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASSWORD
+    user: process.env.GMAIL_USER,
+    pass: process.env.GMAIL_APP_PASSWORD
   }
 });
 
