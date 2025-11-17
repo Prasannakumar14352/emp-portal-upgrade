@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Building2 } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
 
 export default function Auth() {
   const navigate = useNavigate();
@@ -57,6 +58,26 @@ export default function Auth() {
     }, 500);
   };
 
+  const handleMicrosoftLogin = () => {
+    setLoading(true);
+    
+    // Simulate Microsoft OAuth flow
+    setTimeout(() => {
+      const mockUser = {
+        id: "microsoft-" + Date.now(),
+        email: "user@company.com",
+        full_name: "Microsoft User",
+      };
+
+      localStorage.setItem("mockUser", JSON.stringify(mockUser));
+      localStorage.setItem("mockUserRole", "employee");
+      
+      toast.success("Signed in with Microsoft Teams successfully!");
+      navigate("/");
+      setLoading(false);
+    }, 1500);
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 via-background to-secondary/5 p-4">
       <Card className="w-full max-w-md shadow-elegant">
@@ -75,7 +96,7 @@ export default function Auth() {
               <TabsTrigger value="login">Login</TabsTrigger>
               <TabsTrigger value="signup">Sign Up</TabsTrigger>
             </TabsList>
-            <TabsContent value="login">
+            <TabsContent value="login" className="space-y-4">
               <form onSubmit={handleLogin} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
@@ -102,6 +123,31 @@ export default function Auth() {
                   {loading ? "Signing in..." : "Sign In"}
                 </Button>
               </form>
+
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <Separator />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
+                </div>
+              </div>
+
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={handleMicrosoftLogin}
+                disabled={loading}
+              >
+                <svg className="mr-2 h-4 w-4" viewBox="0 0 23 23" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M0 0h10.87v10.87H0z" fill="#f25022"/>
+                  <path d="M12.13 0H23v10.87H12.13z" fill="#00a4ef"/>
+                  <path d="M0 12.13h10.87V23H0z" fill="#7fba00"/>
+                  <path d="M12.13 12.13H23V23H12.13z" fill="#ffb900"/>
+                </svg>
+                Sign in with Microsoft Teams
+              </Button>
             </TabsContent>
             <TabsContent value="signup">
               <form onSubmit={handleSignup} className="space-y-4">

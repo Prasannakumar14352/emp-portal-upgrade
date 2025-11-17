@@ -3,10 +3,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { CheckCircle, XCircle, Clock, Calendar, User } from "lucide-react";
+import { CheckCircle, XCircle, Clock, Calendar, User, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useNavigate } from "react-router-dom";
+import { Checkbox } from "@/components/ui/checkbox";
+import { EmployeeDetailModal } from "@/components/EmployeeDetailModal";
 
 interface LeaveRequest {
   id: number;
@@ -25,6 +27,9 @@ export default function ApproveLeaves() {
   const { role } = useUserRole();
   const navigate = useNavigate();
   const [requests, setRequests] = useState<LeaveRequest[]>([]);
+  const [selectedRequests, setSelectedRequests] = useState<number[]>([]);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [selectedEmployee, setSelectedEmployee] = useState<{ name: string; email: string } | null>(null);
 
   useEffect(() => {
     // Check if user has permission
@@ -119,6 +124,75 @@ export default function ApproveLeaves() {
     });
   };
 
+  const handleBulkApprove = () => {
+    if (selectedRequests.length === 0) {
+      toast.error("Please select at least one request");
+      return;
+    }
+
+    const updatedRequests = requests.map((req) =>
+      selectedRequests.includes(req.id) ? { ...req, status: "approved" as const } : req
+    );
+    setRequests(updatedRequests);
+    localStorage.setItem("mockLeaveRequests", JSON.stringify(updatedRequests));
+    
+    selectedRequests.forEach((id) => {
+      const request = requests.find((r) => r.id === id);
+      addNotification({
+        type: "leave",
+        title: "Leave Request Approved",
+        message: `Your ${request?.type} request for ${request?.from} to ${request?.to} has been approved`,
+      });
+    });
+
+    toast.success(`${selectedRequests.length} leave request(s) approved successfully!`);
+    setSelectedRequests([]);
+  };
+
+  const handleBulkReject = () => {
+    if (selectedRequests.length === 0) {
+      toast.error("Please select at least one request");
+      return;
+    }
+
+    const updatedRequests = requests.map((req) =>
+      selectedRequests.includes(req.id) ? { ...req, status: "rejected" as const } : req
+    );
+    setRequests(updatedRequests);
+    localStorage.setItem("mockLeaveRequests", JSON.stringify(updatedRequests));
+    
+    selectedRequests.forEach((id) => {
+      const request = requests.find((r) => r.id === id);
+      addNotification({
+        type: "leave",
+        title: "Leave Request Rejected",
+        message: `Your ${request?.type} request for ${request?.from} to ${request?.to} has been rejected`,
+      });
+    });
+
+    toast.error(`${selectedRequests.length} leave request(s) rejected`);
+    setSelectedRequests([]);
+  };
+
+  const toggleSelectRequest = (id: number) => {
+    setSelectedRequests((prev) =>
+      prev.includes(id) ? prev.filter((reqId) => reqId !== id) : [...prev, id]
+    );
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedRequests.length === pendingRequests.length) {
+      setSelectedRequests([]);
+    } else {
+      setSelectedRequests(pendingRequests.map((req) => req.id));
+    }
+  };
+
+  const openEmployeeModal = (name: string, email: string) => {
+    setSelectedEmployee({ name, email });
+    setModalOpen(true);
+  };
+
   const addNotification = (notification: { type: string; title: string; message: string }) => {
     const storedNotifications = localStorage.getItem("mockNotifications");
     const notifications = storedNotifications ? JSON.parse(storedNotifications) : [];
@@ -174,9 +248,39 @@ export default function ApproveLeaves() {
       <div className="grid gap-6">
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Pending Requests</CardTitle>
-              <Badge variant="secondary">{pendingRequests.length} pending</Badge>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-3">
+                <CardTitle>Pending Requests</CardTitle>
+                <Badge variant="secondary">{pendingRequests.length} pending</Badge>
+              </div>
+              {pendingRequests.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={toggleSelectAll}
+                  >
+                    {selectedRequests.length === pendingRequests.length ? "Deselect All" : "Select All"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={handleBulkApprove}
+                    disabled={selectedRequests.length === 0}
+                  >
+                    <CheckCircle className="mr-2 h-4 w-4" />
+                    Approve Selected ({selectedRequests.length})
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={handleBulkReject}
+                    disabled={selectedRequests.length === 0}
+                  >
+                    <XCircle className="mr-2 h-4 w-4" />
+                    Reject Selected ({selectedRequests.length})
+                  </Button>
+                </div>
+              )}
             </div>
           </CardHeader>
           <CardContent>
@@ -195,6 +299,10 @@ export default function ApproveLeaves() {
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-3">
+                        <Checkbox
+                          checked={selectedRequests.includes(request.id)}
+                          onCheckedChange={() => toggleSelectRequest(request.id)}
+                        />
                         <Avatar className="h-10 w-10">
                           <AvatarFallback className="bg-primary/10 text-primary">
                             {getInitials(request.userName)}
@@ -205,7 +313,16 @@ export default function ApproveLeaves() {
                           <p className="text-sm text-muted-foreground">{request.userEmail}</p>
                         </div>
                       </div>
-                      {getStatusBadge(request.status)}
+                      <div className="flex items-center gap-2">
+                        {getStatusBadge(request.status)}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => openEmployeeModal(request.userName, request.userEmail)}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                     
                     <div className="grid gap-2 sm:grid-cols-2">
@@ -292,6 +409,15 @@ export default function ApproveLeaves() {
           </Card>
         )}
       </div>
+
+      {selectedEmployee && (
+        <EmployeeDetailModal
+          isOpen={modalOpen}
+          onClose={() => setModalOpen(false)}
+          employeeName={selectedEmployee.name}
+          employeeEmail={selectedEmployee.email}
+        />
+      )}
     </div>
   );
 }
