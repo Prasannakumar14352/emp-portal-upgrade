@@ -8,7 +8,8 @@ import {
   Bell,
   Settings,
   ClipboardCheck,
-  BarChart3
+  BarChart3,
+  TrendingUp
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -33,6 +34,7 @@ const mainItems = [
   { title: "Payslips", url: "/payslips", icon: FileText },
   { title: "Holidays", url: "/holidays", icon: CalendarClock },
   { title: "Employees", url: "/employees", icon: Users },
+  { title: "Statistics", url: "/statistics", icon: TrendingUp },
 ];
 
 const hrManagerItems = [

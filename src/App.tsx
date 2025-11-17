@@ -18,6 +18,7 @@ import ApproveLeaves from "./pages/ApproveLeaves";
 import HRDashboard from "./pages/HRDashboard";
 import LeaveCalendar from "./pages/LeaveCalendar";
 import AdvancedReports from "./pages/AdvancedReports";
+import Statistics from "./pages/Statistics";
 import NotFound from "./pages/NotFound";
 import OAuthCallback from "./pages/OAuthCallback";
 
@@ -37,6 +38,7 @@ const App = () => (
           <Route path="/payslips" element={<ProtectedRoute><DashboardLayout><Payslips /></DashboardLayout></ProtectedRoute>} />
           <Route path="/holidays" element={<ProtectedRoute><DashboardLayout><Holidays /></DashboardLayout></ProtectedRoute>} />
           <Route path="/employees" element={<ProtectedRoute><DashboardLayout><Employees /></DashboardLayout></ProtectedRoute>} />
+          <Route path="/statistics" element={<ProtectedRoute><DashboardLayout><Statistics /></DashboardLayout></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><DashboardLayout><Profile /></DashboardLayout></ProtectedRoute>} />
           <Route path="/notifications" element={<ProtectedRoute><DashboardLayout><Notifications /></DashboardLayout></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><DashboardLayout><Settings /></DashboardLayout></ProtectedRoute>} />
