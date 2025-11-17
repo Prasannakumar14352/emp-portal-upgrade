@@ -1,13 +1,30 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Building2 } from "lucide-react";
+import { Loader2, Building2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { z } from "zod";
 import { Separator } from "@/components/ui/separator";
+
+const loginSchema = z.object({
+  email: z.string().trim().email("Invalid email address").max(255, "Email must be less than 255 characters"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+});
+
+const signupSchema = z.object({
+  email: z.string().trim().email("Invalid email address").max(255, "Email must be less than 255 characters"),
+  password: z.string()
+    .min(12, "Password must be at least 12 characters")
+    .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+    .regex(/[a-z]/, "Password must contain at least one lowercase letter")
+    .regex(/[0-9]/, "Password must contain at least one number"),
+  fullName: z.string().trim().min(1, "Name is required").max(100, "Name must be less than 100 characters"),
+});
 
 export default function Auth() {
   const navigate = useNavigate();
@@ -16,66 +33,115 @@ export default function Auth() {
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
 
+  useEffect(() => {
+    // Check if user is already logged in
+    const checkUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        navigate("/");
+      }
+    };
+    checkUser();
+  }, [navigate]);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    // Mock login - simulate API delay
-    setTimeout(() => {
-      const mockUser = {
-        id: "mock-user-id",
-        email,
-        full_name: email.split("@")[0],
-      };
+    try {
+      // Validate input
+      loginSchema.parse({ email, password });
 
-      localStorage.setItem("mockUser", JSON.stringify(mockUser));
-      localStorage.setItem("mockUserRole", "employee");
-      
-      toast.success("Successfully logged in!");
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        if (error.message.includes("Invalid login credentials")) {
+          toast.error("Invalid email or password");
+        } else {
+          toast.error(error.message);
+        }
+        return;
+      }
+
+      toast.success("Login successful!");
       navigate("/");
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        toast.error(error.errors[0].message);
+      } else {
+        toast.error("An error occurred during login");
+      }
+    } finally {
       setLoading(false);
-    }, 500);
+    }
   };
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    // Mock signup - simulate API delay
-    setTimeout(() => {
-      const mockUser = {
-        id: "mock-user-" + Date.now(),
-        email,
-        full_name: fullName,
-      };
+    try {
+      // Validate input
+      signupSchema.parse({ email, password, fullName });
 
-      localStorage.setItem("mockUser", JSON.stringify(mockUser));
-      localStorage.setItem("mockUserRole", "employee");
-      
+      const redirectUrl = `${window.location.origin}/`;
+
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: redirectUrl,
+          data: {
+            full_name: fullName,
+          },
+        },
+      });
+
+      if (error) {
+        if (error.message.includes("already registered")) {
+          toast.error("This email is already registered. Please login instead.");
+        } else {
+          toast.error(error.message);
+        }
+        return;
+      }
+
       toast.success("Account created successfully!");
       navigate("/");
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        toast.error(error.errors[0].message);
+      } else {
+        toast.error("An error occurred during signup");
+      }
+    } finally {
       setLoading(false);
-    }, 500);
+    }
   };
 
-  const handleMicrosoftLogin = () => {
+  const handleMicrosoftLogin = async () => {
     setLoading(true);
     
-    // Simulate Microsoft OAuth flow
-    setTimeout(() => {
-      const mockUser = {
-        id: "microsoft-" + Date.now(),
-        email: "user@company.com",
-        full_name: "Microsoft User",
-      };
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "azure",
+        options: {
+          scopes: "email openid profile",
+          redirectTo: `${window.location.origin}/`,
+        },
+      });
 
-      localStorage.setItem("mockUser", JSON.stringify(mockUser));
-      localStorage.setItem("mockUserRole", "employee");
-      
-      toast.success("Signed in with Microsoft Teams successfully!");
-      navigate("/");
+      if (error) {
+        toast.error("Microsoft Teams login not configured. Please contact your administrator.");
+      }
+    } catch (error) {
+      toast.error("An error occurred during Microsoft login");
+    } finally {
       setLoading(false);
-    }, 1500);
+    }
   };
 
   return (
@@ -120,7 +186,14 @@ export default function Auth() {
                   />
                 </div>
                 <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? "Signing in..." : "Sign In"}
+                  {loading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Signing in...
+                    </>
+                  ) : (
+                    "Sign In"
+                  )}
                 </Button>
               </form>
 
@@ -129,7 +202,9 @@ export default function Auth() {
                   <Separator />
                 </div>
                 <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
+                  <span className="bg-background px-2 text-muted-foreground">
+                    Or continue with
+                  </span>
                 </div>
               </div>
 
@@ -140,22 +215,25 @@ export default function Auth() {
                 onClick={handleMicrosoftLogin}
                 disabled={loading}
               >
-                <svg className="mr-2 h-4 w-4" viewBox="0 0 23 23" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M0 0h10.87v10.87H0z" fill="#f25022"/>
-                  <path d="M12.13 0H23v10.87H12.13z" fill="#00a4ef"/>
-                  <path d="M0 12.13h10.87V23H0z" fill="#7fba00"/>
-                  <path d="M12.13 12.13H23V23H12.13z" fill="#ffb900"/>
-                </svg>
+                {loading ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <svg className="mr-2 h-4 w-4" viewBox="0 0 21 21">
+                    <rect x="1" y="1" width="9" height="9" fill="#f25022" />
+                    <rect x="1" y="11" width="9" height="9" fill="#00a4ef" />
+                    <rect x="11" y="1" width="9" height="9" fill="#7fba00" />
+                    <rect x="11" y="11" width="9" height="9" fill="#ffb900" />
+                  </svg>
+                )}
                 Sign in with Microsoft Teams
               </Button>
             </TabsContent>
-            <TabsContent value="signup">
+            <TabsContent value="signup" className="space-y-4">
               <form onSubmit={handleSignup} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="signup-name">Full Name</Label>
                   <Input
                     id="signup-name"
-                    type="text"
                     placeholder="John Doe"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
@@ -182,9 +260,19 @@ export default function Auth() {
                     onChange={(e) => setPassword(e.target.value)}
                     required
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Must be at least 12 characters with uppercase, lowercase, and numbers
+                  </p>
                 </div>
                 <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? "Creating account..." : "Create Account"}
+                  {loading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Creating account...
+                    </>
+                  ) : (
+                    "Create Account"
+                  )}
                 </Button>
               </form>
             </TabsContent>
