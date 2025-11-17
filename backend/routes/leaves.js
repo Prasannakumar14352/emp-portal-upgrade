@@ -393,4 +393,43 @@ router.get('/:leaveId/comments', authenticateToken, async (req, res) => {
   }
 });
 
+// DELETE /api/leaves/:leaveId - Cancel leave request (Employee only)
+router.delete('/:leaveId', authenticateToken, async (req, res) => {
+  try {
+    const { leaveId } = req.params;
+    const pool = await getConnection();
+    
+    // Get leave request details
+    const leaveResult = await pool.request()
+      .input('leave_id', sql.Int, leaveId)
+      .query('SELECT * FROM leaves WHERE id = @leave_id');
+    
+    if (leaveResult.recordset.length === 0) {
+      return res.status(404).json({ error: 'Leave request not found' });
+    }
+
+    const leave = leaveResult.recordset[0];
+    
+    // Only the employee who created the request can cancel it
+    if (parseInt(req.user.id) !== leave.user_id) {
+      return res.status(403).json({ error: 'You can only cancel your own leave requests' });
+    }
+
+    // Only allow cancellation of pending requests
+    if (leave.status !== 'Pending') {
+      return res.status(400).json({ error: 'Only pending leave requests can be cancelled' });
+    }
+
+    // Delete the leave request
+    await pool.request()
+      .input('leave_id', sql.Int, leaveId)
+      .query('DELETE FROM leaves WHERE id = @leave_id');
+
+    res.json({ message: 'Leave request cancelled successfully' });
+  } catch (err) {
+    console.error('Cancel leave error:', err);
+    res.status(500).json({ error: 'Failed to cancel leave request' });
+  }
+});
+
 module.exports = router;

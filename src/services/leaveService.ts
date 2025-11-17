@@ -88,6 +88,11 @@ class LeaveService {
   async getLeaveComments(leaveId: string): Promise<any[]> {
     return apiClient.get(`/leaves/${leaveId}/comments`);
   }
+
+  // Cancel leave request
+  async cancelLeave(leaveId: string): Promise<void> {
+    return apiClient.delete(`/leaves/${leaveId}`);
+  }
 }
 
 export const leaveService = new LeaveService();

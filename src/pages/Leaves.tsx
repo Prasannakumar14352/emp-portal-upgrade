@@ -8,13 +8,24 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calendar, Plus, CheckCircle, XCircle, Clock } from "lucide-react";
+import { Calendar, Plus, CheckCircle, XCircle, Clock, Trash2, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { leaveService, type Leave, type LeaveBalance } from "@/services/leaveService";
 import { leaveTypeService, type LeaveType } from "@/services/leaveTypeService";
 import { managerService, type Manager } from "@/services/managerService";
 import { LeaveBalanceCard } from "@/components/LeaveBalanceCard";
+import { LeaveHistoryTimeline } from "@/components/LeaveHistoryTimeline";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export default function Leaves() {
   const [open, setOpen] = useState(false);
@@ -24,6 +35,10 @@ export default function Leaves() {
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
   const [managers, setManagers] = useState<Manager[]>([]);
   const [loading, setLoading] = useState(true);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [selectedLeaveId, setSelectedLeaveId] = useState<string | null>(null);
+  const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
+  const [selectedLeave, setSelectedLeave] = useState<Leave | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -99,6 +114,25 @@ export default function Leaves() {
       default:
         return null;
     }
+  };
+
+  const handleCancelLeave = async () => {
+    if (!selectedLeaveId) return;
+    
+    try {
+      await leaveService.cancelLeave(selectedLeaveId);
+      toast.success("Leave request cancelled successfully");
+      setCancelDialogOpen(false);
+      setSelectedLeaveId(null);
+      loadLeaveData();
+    } catch (error) {
+      toast.error("Failed to cancel leave request");
+    }
+  };
+
+  const handleViewDetails = (leave: Leave) => {
+    setSelectedLeave(leave);
+    setDetailsDialogOpen(true);
   };
 
   if (loading) {
@@ -211,11 +245,11 @@ export default function Leaves() {
             <TabsContent value="all" className="space-y-4 mt-4">
               {leaveHistory.map((leave) => (
                 <div key={leave.id} className="flex items-center justify-between rounded-lg border p-4">
-                  <div className="flex items-start gap-4">
+                  <div className="flex items-start gap-4 flex-1">
                     <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
                       <Calendar className="h-5 w-5 text-primary" />
                     </div>
-                    <div className="space-y-1">
+                    <div className="space-y-1 flex-1">
                       <div className="flex items-center gap-2">
                         <p className="font-medium">{leave.leave_type}</p>
                         <Badge variant={getStatusColor(leave.status.toLowerCase()) as any} className="gap-1">
@@ -227,14 +261,218 @@ export default function Leaves() {
                         {new Date(leave.start_date).toLocaleDateString()} - {new Date(leave.end_date).toLocaleDateString()} • {leave.days} day{leave.days > 1 ? 's' : ''}
                       </p>
                       <p className="text-sm text-muted-foreground">Reason: {leave.reason}</p>
+                      <div className="flex flex-col gap-1 mt-2">
+                        <p className="text-xs text-muted-foreground">
+                          Manager: {leave.manager_status} {leave.manager_approved_at && `on ${new Date(leave.manager_approved_at).toLocaleDateString()}`}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          HR: {leave.hr_status} {leave.hr_approved_at && `on ${new Date(leave.hr_approved_at).toLocaleDateString()}`}
+                        </p>
+                      </div>
                     </div>
                   </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleViewDetails(leave)}
+                    >
+                      <Eye className="h-4 w-4 mr-1" />
+                      Details
+                    </Button>
+                    {leave.status === "Pending" && (
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedLeaveId(leave.id);
+                          setCancelDialogOpen(true);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4 mr-1" />
+                        Cancel
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {leaveHistory.length === 0 && (
+                <p className="text-center text-muted-foreground py-8">No leave requests found</p>
+              )}
+            </TabsContent>
+            <TabsContent value="approved" className="space-y-4 mt-4">
+              {leaveHistory.filter(l => l.status === "Approved").map((leave) => (
+                <div key={leave.id} className="flex items-center justify-between rounded-lg border p-4">
+                  <div className="flex items-start gap-4 flex-1">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                      <Calendar className="h-5 w-5 text-primary" />
+                    </div>
+                    <div className="space-y-1 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium">{leave.leave_type}</p>
+                        <Badge variant="default" className="gap-1">
+                          <CheckCircle className="h-4 w-4" />
+                          {leave.status}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        {new Date(leave.start_date).toLocaleDateString()} - {new Date(leave.end_date).toLocaleDateString()} • {leave.days} day{leave.days > 1 ? 's' : ''}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleViewDetails(leave)}
+                  >
+                    <Eye className="h-4 w-4 mr-1" />
+                    Details
+                  </Button>
+                </div>
+              ))}
+            </TabsContent>
+            <TabsContent value="pending" className="space-y-4 mt-4">
+              {leaveHistory.filter(l => l.status === "Pending").map((leave) => (
+                <div key={leave.id} className="flex items-center justify-between rounded-lg border p-4">
+                  <div className="flex items-start gap-4 flex-1">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                      <Calendar className="h-5 w-5 text-primary" />
+                    </div>
+                    <div className="space-y-1 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium">{leave.leave_type}</p>
+                        <Badge variant="secondary" className="gap-1">
+                          <Clock className="h-4 w-4" />
+                          {leave.status}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        {new Date(leave.start_date).toLocaleDateString()} - {new Date(leave.end_date).toLocaleDateString()} • {leave.days} day{leave.days > 1 ? 's' : ''}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleViewDetails(leave)}
+                    >
+                      <Eye className="h-4 w-4 mr-1" />
+                      Details
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedLeaveId(leave.id);
+                        setCancelDialogOpen(true);
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4 mr-1" />
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </TabsContent>
+            <TabsContent value="rejected" className="space-y-4 mt-4">
+              {leaveHistory.filter(l => l.status === "Rejected").map((leave) => (
+                <div key={leave.id} className="flex items-center justify-between rounded-lg border p-4">
+                  <div className="flex items-start gap-4 flex-1">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                      <Calendar className="h-5 w-5 text-primary" />
+                    </div>
+                    <div className="space-y-1 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium">{leave.leave_type}</p>
+                        <Badge variant="destructive" className="gap-1">
+                          <XCircle className="h-4 w-4" />
+                          {leave.status}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        {new Date(leave.start_date).toLocaleDateString()} - {new Date(leave.end_date).toLocaleDateString()} • {leave.days} day{leave.days > 1 ? 's' : ''}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleViewDetails(leave)}
+                  >
+                    <Eye className="h-4 w-4 mr-1" />
+                    Details
+                  </Button>
                 </div>
               ))}
             </TabsContent>
           </Tabs>
         </CardContent>
       </Card>
+
+      {/* Cancel Confirmation Dialog */}
+      <AlertDialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel Leave Request</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to cancel this leave request? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>No, keep it</AlertDialogCancel>
+            <AlertDialogAction onClick={handleCancelLeave}>Yes, cancel request</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Leave Details Dialog */}
+      <Dialog open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Leave Request Details</DialogTitle>
+          </DialogHeader>
+          {selectedLeave && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Leave Type</p>
+                  <p className="text-base font-semibold">{selectedLeave.leave_type}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Status</p>
+                  <Badge variant={getStatusColor(selectedLeave.status.toLowerCase()) as any}>
+                    {selectedLeave.status}
+                  </Badge>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Start Date</p>
+                  <p className="text-base">{new Date(selectedLeave.start_date).toLocaleDateString()}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">End Date</p>
+                  <p className="text-base">{new Date(selectedLeave.end_date).toLocaleDateString()}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Duration</p>
+                  <p className="text-base">{selectedLeave.days} day{selectedLeave.days > 1 ? 's' : ''}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Applied On</p>
+                  <p className="text-base">{new Date(selectedLeave.created_at).toLocaleDateString()}</p>
+                </div>
+              </div>
+              
+              <div>
+                <p className="text-sm font-medium text-muted-foreground mb-2">Reason</p>
+                <p className="text-base">{selectedLeave.reason}</p>
+              </div>
+
+              <LeaveHistoryTimeline leave={selectedLeave} />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
