@@ -1,8 +1,8 @@
-import { supabase } from '@/integrations/supabase/client';
+import { apiClient } from './apiClient';
 
 export interface UserSession {
-  id: string;
-  user_id: string;
+  id: number;
+  user_id: number;
   login_time: string;
   logout_time?: string;
   session_duration?: number;
@@ -19,7 +19,7 @@ export interface SessionStatistics {
 }
 
 export interface EmployeeSessionStats {
-  user_id: string;
+  user_id: number;
   full_name: string;
   email: string;
   department: string;
@@ -31,44 +31,27 @@ export interface EmployeeSessionStats {
 }
 
 class SessionService {
-  private currentSessionId: string | null = null;
+  private currentSessionId: number | null = null;
 
-  async createSession(userId: string): Promise<string | null> {
+  async createSession(userId: string | number): Promise<number | null> {
     try {
-      const { data, error } = await supabase
-        .from('user_sessions')
-        .insert({
-          user_id: userId,
-          login_time: new Date().toISOString(),
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-      
-      this.currentSessionId = data.id;
-      localStorage.setItem('current_session_id', data.id);
-      return data.id;
+      const session = await apiClient.post<UserSession>('/sessions', {});
+      this.currentSessionId = session.id;
+      localStorage.setItem('current_session_id', session.id.toString());
+      return session.id;
     } catch (error) {
       console.error('Error creating session:', error);
       return null;
     }
   }
 
-  async endSession(sessionId?: string): Promise<void> {
+  async endSession(sessionId?: number): Promise<void> {
     try {
-      const id = sessionId || this.currentSessionId || localStorage.getItem('current_session_id');
+      const id = sessionId || this.currentSessionId || parseInt(localStorage.getItem('current_session_id') || '0');
       
       if (!id) return;
 
-      const { error } = await supabase
-        .from('user_sessions')
-        .update({
-          logout_time: new Date().toISOString(),
-        })
-        .eq('id', id);
-
-      if (error) throw error;
+      await apiClient.patch(`/sessions/${id}/end`, {});
 
       this.currentSessionId = null;
       localStorage.removeItem('current_session_id');
@@ -77,61 +60,27 @@ class SessionService {
     }
   }
 
-  async getUserSessions(userId: string, startDate?: string, endDate?: string): Promise<UserSession[]> {
+  async getUserSessions(userId: string | number, startDate?: string, endDate?: string): Promise<UserSession[]> {
     try {
-      let query = supabase
-        .from('user_sessions')
-        .select('*')
-        .eq('user_id', userId)
-        .order('login_time', { ascending: false });
-
-      if (startDate) {
-        query = query.gte('login_time', startDate);
-      }
-      if (endDate) {
-        query = query.lte('login_time', endDate);
-      }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-      return data || [];
+      const params = new URLSearchParams();
+      if (startDate) params.append('startDate', startDate);
+      if (endDate) params.append('endDate', endDate);
+      
+      const queryString = params.toString();
+      const endpoint = `/sessions/user/${userId}${queryString ? `?${queryString}` : ''}`;
+      
+      return await apiClient.get<UserSession[]>(endpoint);
     } catch (error) {
       console.error('Error fetching user sessions:', error);
       return [];
     }
   }
 
-  async getUserStatistics(userId: string): Promise<SessionStatistics> {
+  async getUserStatistics(userId: string | number): Promise<SessionStatistics> {
     try {
-      const sessions = await this.getUserSessions(userId);
-      
-      const now = new Date();
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      const monthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
-
-      const totalDuration = sessions.reduce((sum, s) => sum + (s.session_duration || 0), 0);
-      const todayDuration = sessions
-        .filter(s => new Date(s.login_time) >= today)
-        .reduce((sum, s) => sum + (s.session_duration || 0), 0);
-      const weekDuration = sessions
-        .filter(s => new Date(s.login_time) >= weekAgo)
-        .reduce((sum, s) => sum + (s.session_duration || 0), 0);
-      const monthDuration = sessions
-        .filter(s => new Date(s.login_time) >= monthAgo)
-        .reduce((sum, s) => sum + (s.session_duration || 0), 0);
-
-      return {
-        total_sessions: sessions.length,
-        total_duration: Math.round(totalDuration),
-        average_duration: sessions.length > 0 ? Math.round(totalDuration / sessions.length) : 0,
-        today_duration: Math.round(todayDuration),
-        this_week_duration: Math.round(weekDuration),
-        this_month_duration: Math.round(monthDuration),
-      };
+      return await apiClient.get<SessionStatistics>(`/sessions/user/${userId}/stats`);
     } catch (error) {
-      console.error('Error calculating statistics:', error);
+      console.error('Error fetching user statistics:', error);
       return {
         total_sessions: 0,
         total_duration: 0,
@@ -145,33 +94,14 @@ class SessionService {
 
   async getAllEmployeeSessions(startDate?: string, endDate?: string): Promise<EmployeeSessionStats[]> {
     try {
-      const { data: profiles, error: profilesError } = await supabase
-        .from('profiles')
-        .select('id, full_name, email, department, position');
-
-      if (profilesError) throw profilesError;
-
-      const stats: EmployeeSessionStats[] = [];
-
-      for (const profile of profiles || []) {
-        const sessions = await this.getUserSessions(profile.id, startDate, endDate);
-        const totalDuration = sessions.reduce((sum, s) => sum + (s.session_duration || 0), 0);
-        const lastSession = sessions[0];
-
-        stats.push({
-          user_id: profile.id,
-          full_name: profile.full_name,
-          email: profile.email,
-          department: profile.department || 'N/A',
-          position: profile.position || 'N/A',
-          total_sessions: sessions.length,
-          total_duration: Math.round(totalDuration),
-          average_duration: sessions.length > 0 ? Math.round(totalDuration / sessions.length) : 0,
-          last_login: lastSession?.login_time || 'Never',
-        });
-      }
-
-      return stats.sort((a, b) => b.total_duration - a.total_duration);
+      const params = new URLSearchParams();
+      if (startDate) params.append('startDate', startDate);
+      if (endDate) params.append('endDate', endDate);
+      
+      const queryString = params.toString();
+      const endpoint = `/sessions/all${queryString ? `?${queryString}` : ''}`;
+      
+      return await apiClient.get<EmployeeSessionStats[]>(endpoint);
     } catch (error) {
       console.error('Error fetching employee sessions:', error);
       return [];
