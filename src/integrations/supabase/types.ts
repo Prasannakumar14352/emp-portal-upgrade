@@ -292,6 +292,33 @@ export type Database = {
         }
         Relationships: []
       }
+      user_sessions: {
+        Row: {
+          created_at: string
+          id: string
+          login_time: string
+          logout_time: string | null
+          session_duration: number | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          login_time?: string
+          logout_time?: string | null
+          session_duration?: number | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          login_time?: string
+          logout_time?: string | null
+          session_duration?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
