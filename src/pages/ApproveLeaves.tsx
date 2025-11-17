@@ -9,7 +9,8 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { useNavigate } from "react-router-dom";
 import { Checkbox } from "@/components/ui/checkbox";
 import { EmployeeDetailModal } from "@/components/EmployeeDetailModal";
-import { exportToCSV, exportToPDF, sendMockEmail, getEmailTemplate } from "@/lib/exportUtils";
+import { exportToCSV, exportToPDF } from "@/lib/exportUtils";
+import { sendLeaveNotification } from "@/lib/emailService";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -98,82 +99,134 @@ export default function ApproveLeaves() {
     }
   }, [role, navigate]);
 
-  const handleApprove = (id: string) => {
+  const handleApprove = async (id: string) => {
     const request = requests.find(req => req.id === id);
     if (!request) return;
 
-    const updatedRequests = requests.map((req) =>
-      req.id === id ? { ...req, status: "Approved" } : req
-    );
-    setRequests(updatedRequests);
-    localStorage.setItem("leaveRequests", JSON.stringify(updatedRequests));
-    
-    // Send mock email notification
-    const template = getEmailTemplate("approved", request.employeeName, request.leaveType, request.startDate, request.endDate);
-    sendMockEmail(request.employeeName, template.subject, template.body);
-    
-    toast.success("Leave request approved and notification sent");
+    try {
+      const updatedRequests = requests.map((req) =>
+        req.id === id ? { ...req, status: "Approved" } : req
+      );
+      setRequests(updatedRequests);
+      localStorage.setItem("leaveRequests", JSON.stringify(updatedRequests));
+      
+      // Send real email notification
+      await sendLeaveNotification({
+        to: `${request.employeeName.toLowerCase().replace(/\s+/g, '.')}@company.com`,
+        employeeName: request.employeeName,
+        leaveType: request.leaveType,
+        startDate: request.startDate,
+        endDate: request.endDate,
+        days: request.days,
+        status: "approved",
+        reason: request.reason,
+      });
+      
+      toast.success("Leave request approved and email notification sent");
+    } catch (error) {
+      toast.error("Leave approved but failed to send email notification");
+      console.error("Email error:", error);
+    }
   };
 
-  const handleReject = (id: string) => {
+  const handleReject = async (id: string) => {
     const request = requests.find(req => req.id === id);
     if (!request) return;
 
-    const updatedRequests = requests.map((req) =>
-      req.id === id ? { ...req, status: "Rejected" } : req
-    );
-    setRequests(updatedRequests);
-    localStorage.setItem("leaveRequests", JSON.stringify(updatedRequests));
-    
-    // Send mock email notification
-    const template = getEmailTemplate("rejected", request.employeeName, request.leaveType, request.startDate, request.endDate);
-    sendMockEmail(request.employeeName, template.subject, template.body);
-    
-    toast.error("Leave request rejected and notification sent");
+    try {
+      const updatedRequests = requests.map((req) =>
+        req.id === id ? { ...req, status: "Rejected" } : req
+      );
+      setRequests(updatedRequests);
+      localStorage.setItem("leaveRequests", JSON.stringify(updatedRequests));
+      
+      // Send real email notification
+      await sendLeaveNotification({
+        to: `${request.employeeName.toLowerCase().replace(/\s+/g, '.')}@company.com`,
+        employeeName: request.employeeName,
+        leaveType: request.leaveType,
+        startDate: request.startDate,
+        endDate: request.endDate,
+        days: request.days,
+        status: "rejected",
+        reason: request.reason,
+      });
+      
+      toast.error("Leave request rejected and email notification sent");
+    } catch (error) {
+      toast.error("Leave rejected but failed to send email notification");
+      console.error("Email error:", error);
+    }
   };
 
-  const handleBulkApprove = () => {
+  const handleBulkApprove = async () => {
     if (selectedRequests.length === 0) {
       toast.error("No requests selected");
       return;
     }
 
-    const updatedRequests = requests.map((req) => {
-      if (selectedRequests.includes(req.id)) {
-        // Send notification for each approved request
-        const template = getEmailTemplate("approved", req.employeeName, req.leaveType, req.startDate, req.endDate);
-        sendMockEmail(req.employeeName, template.subject, template.body);
-        return { ...req, status: "Approved" };
-      }
-      return req;
-    });
-    setRequests(updatedRequests);
-    localStorage.setItem("leaveRequests", JSON.stringify(updatedRequests));
-    setSelectedRequests([]);
-    
-    toast.success(`${selectedRequests.length} leave requests approved and notifications sent`);
+    try {
+      const updatedRequests = requests.map((req) => {
+        if (selectedRequests.includes(req.id)) {
+          // Send notification for each approved request
+          sendLeaveNotification({
+            to: `${req.employeeName.toLowerCase().replace(/\s+/g, '.')}@company.com`,
+            employeeName: req.employeeName,
+            leaveType: req.leaveType,
+            startDate: req.startDate,
+            endDate: req.endDate,
+            days: req.days,
+            status: "approved",
+            reason: req.reason,
+          });
+          return { ...req, status: "Approved" };
+        }
+        return req;
+      });
+      setRequests(updatedRequests);
+      localStorage.setItem("leaveRequests", JSON.stringify(updatedRequests));
+      setSelectedRequests([]);
+      
+      toast.success(`${selectedRequests.length} leave requests approved and notifications sent`);
+    } catch (error) {
+      toast.error("Some email notifications may have failed");
+      console.error("Bulk email error:", error);
+    }
   };
 
-  const handleBulkReject = () => {
+  const handleBulkReject = async () => {
     if (selectedRequests.length === 0) {
       toast.error("No requests selected");
       return;
     }
 
-    const updatedRequests = requests.map((req) => {
-      if (selectedRequests.includes(req.id)) {
-        // Send notification for each rejected request
-        const template = getEmailTemplate("rejected", req.employeeName, req.leaveType, req.startDate, req.endDate);
-        sendMockEmail(req.employeeName, template.subject, template.body);
-        return { ...req, status: "Rejected" };
-      }
-      return req;
-    });
-    setRequests(updatedRequests);
-    localStorage.setItem("leaveRequests", JSON.stringify(updatedRequests));
-    setSelectedRequests([]);
-    
-    toast.error(`${selectedRequests.length} leave requests rejected and notifications sent`);
+    try {
+      const updatedRequests = requests.map((req) => {
+        if (selectedRequests.includes(req.id)) {
+          // Send notification for each rejected request
+          sendLeaveNotification({
+            to: `${req.employeeName.toLowerCase().replace(/\s+/g, '.')}@company.com`,
+            employeeName: req.employeeName,
+            leaveType: req.leaveType,
+            startDate: req.startDate,
+            endDate: req.endDate,
+            days: req.days,
+            status: "rejected",
+            reason: req.reason,
+          });
+          return { ...req, status: "Rejected" };
+        }
+        return req;
+      });
+      setRequests(updatedRequests);
+      localStorage.setItem("leaveRequests", JSON.stringify(updatedRequests));
+      setSelectedRequests([]);
+      
+      toast.error(`${selectedRequests.length} leave requests rejected and notifications sent`);
+    } catch (error) {
+      toast.error("Some email notifications may have failed");
+      console.error("Bulk email error:", error);
+    }
   };
 
   const handleAddComment = () => {

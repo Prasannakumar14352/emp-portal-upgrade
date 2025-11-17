@@ -1,1 +1,7 @@
 project_id = "ieemfrbifclloaqfbdox"
+
+[functions.sql-server-sync]
+verify_jwt = false
+
+[functions.send-leave-notification]
+verify_jwt = false
