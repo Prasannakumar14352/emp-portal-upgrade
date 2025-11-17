@@ -80,6 +80,77 @@ export type Database = {
         }
         Relationships: []
       }
+      leave_balances: {
+        Row: {
+          carry_forward_days: number | null
+          created_at: string | null
+          id: string
+          leave_type: string
+          remaining_days: number
+          total_days: number
+          updated_at: string | null
+          used_days: number
+          user_id: string
+          year: number
+        }
+        Insert: {
+          carry_forward_days?: number | null
+          created_at?: string | null
+          id?: string
+          leave_type: string
+          remaining_days?: number
+          total_days?: number
+          updated_at?: string | null
+          used_days?: number
+          user_id: string
+          year: number
+        }
+        Update: {
+          carry_forward_days?: number | null
+          created_at?: string | null
+          id?: string
+          leave_type?: string
+          remaining_days?: number
+          total_days?: number
+          updated_at?: string | null
+          used_days?: number
+          user_id?: string
+          year?: number
+        }
+        Relationships: []
+      }
+      leave_comments: {
+        Row: {
+          comment: string
+          created_at: string | null
+          id: string
+          leave_id: string
+          user_id: string
+        }
+        Insert: {
+          comment: string
+          created_at?: string | null
+          id?: string
+          leave_id: string
+          user_id: string
+        }
+        Update: {
+          comment?: string
+          created_at?: string | null
+          id?: string
+          leave_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leave_comments_leave_id_fkey"
+            columns: ["leave_id"]
+            isOneToOne: false
+            referencedRelation: "leaves"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       leaves: {
         Row: {
           approved_by: string | null
