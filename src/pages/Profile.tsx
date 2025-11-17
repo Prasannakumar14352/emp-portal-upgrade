@@ -1,8 +1,9 @@
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Mail, Phone, MapPin, Calendar, Briefcase, Edit } from "lucide-react";
+import { Mail, Phone, Calendar, Briefcase, Edit } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -10,39 +11,78 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-
 import { Label } from "@/components/ui/label";
-import { useState } from "react";
 import { Input } from "@/components/ui/input";
+import { useAuth } from "@/hooks/useAuth";
+import { userService, type UserProfile } from "@/services/userService";
+import { toast } from "sonner";
 
 export default function Profile() {
-  const user = {
-    name: "John Doe",
-    email: "john.doe@company.com",
-    phone: "+1 234 567 8900",
-    position: "Senior Software Engineer",
-    department: "Engineering",
-    employeeId: "EMP001",
-    joinDate: "2020-03-15",
-    location: "San Francisco, CA",
-    manager: "Sarah Williams",
-    status: "active",
-  };
+  const { user } = useAuth();
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
-
   const [form, setForm] = useState({
-    name: user.name,
-    email: user.email,
-    phone: user.phone,
-    position: user.position,
-    department: user.department,
-    location: user.location,
+    full_name: '',
+    email: '',
+    phone: '',
+    position: '',
+    department: '',
   });
 
-  const handleSave = () => {
-    Object.assign(user, form); // update local user object
-    setOpen(false);
+  useEffect(() => {
+    if (user) {
+      loadProfile();
+    }
+  }, [user]);
+
+  const loadProfile = async () => {
+    try {
+      setLoading(true);
+      const data = await userService.getUserProfile(user!.id);
+      setProfile(data);
+      setForm({
+        full_name: data.full_name,
+        email: data.email,
+        phone: data.phone || '',
+        position: data.position || '',
+        department: data.department || '',
+      });
+    } catch (error) {
+      console.error('Failed to load profile:', error);
+      toast.error('Failed to load profile');
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const handleSave = async () => {
+    try {
+      const updated = await userService.updateUserProfile(user!.id, form);
+      setProfile(updated);
+      setOpen(false);
+      toast.success('Profile updated successfully');
+    } catch (error) {
+      console.error('Failed to update profile:', error);
+      toast.error('Failed to update profile');
+    }
+  };
+
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase();
+  };
+
+  if (loading) {
+    return <div className="space-y-6">Loading profile...</div>;
+  }
+
+  if (!profile) {
+    return <div className="space-y-6">Profile not found</div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -57,13 +97,13 @@ export default function Profile() {
             <div className="flex flex-col items-center text-center">
               <Avatar className="h-24 w-24">
                 <AvatarFallback className="bg-primary text-2xl text-primary-foreground">
-                  JD
+                  {getInitials(profile.full_name)}
                 </AvatarFallback>
               </Avatar>
-              <h2 className="mt-4 text-2xl font-bold">{user.name}</h2>
-              <p className="text-muted-foreground">{user.position}</p>
+              <h2 className="mt-4 text-2xl font-bold">{profile.full_name}</h2>
+              <p className="text-muted-foreground">{profile.position || 'Employee'}</p>
               <Badge className="mt-2" variant="default">
-                {user.status === 'active' ? 'Active' : 'Inactive'}
+                Active
               </Badge>
               <Button className="mt-4 w-full" onClick={() => setOpen(true)}>
                 <Edit className="mr-2 h-4 w-4" />
@@ -86,164 +126,144 @@ export default function Profile() {
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Email</p>
-                    <p className="font-medium">{user.email}</p>
+                    <p className="font-medium">{profile.email}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-                    <Phone className="h-5 w-5 text-primary" />
+                {profile.phone && (
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                      <Phone className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Phone</p>
+                      <p className="font-medium">{profile.phone}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Phone</p>
-                    <p className="font-medium">{user.phone}</p>
+                )}
+                {profile.department && (
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                      <Briefcase className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Department</p>
+                      <p className="font-medium">{profile.department}</p>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-                    <MapPin className="h-5 w-5 text-primary" />
+                )}
+                {profile.hire_date && (
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                      <Calendar className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Join Date</p>
+                      <p className="font-medium">
+                        {new Date(profile.hire_date).toLocaleDateString('en-US', { 
+                          year: 'numeric', 
+                          month: 'long', 
+                          day: 'numeric' 
+                        })}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Location</p>
-                    <p className="font-medium">{user.location}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-                    <Calendar className="h-5 w-5 text-primary" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Join Date</p>
-                    <p className="font-medium">
-                      {new Date(user.joinDate).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric'
-                      })}
-                    </p>
-                  </div>
-                </div>
+                )}
               </div>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle>Employment Details</CardTitle>
+              <CardTitle>Account Information</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <p className="text-sm text-muted-foreground">Employee ID</p>
-                  <p className="font-medium">{user.employeeId}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Department</p>
-                  <p className="font-medium">{user.department}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Position</p>
-                  <p className="font-medium">{user.position}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Reporting Manager</p>
-                  <p className="font-medium">{user.manager}</p>
-                </div>
+            <CardContent className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">User ID</span>
+                <span className="font-medium font-mono text-sm">{profile.id.slice(0, 8)}...</span>
               </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Quick Stats</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 sm:grid-cols-3">
-                <div className="rounded-lg border p-4">
-                  <p className="text-sm text-muted-foreground">Years at Company</p>
-                  <p className="text-2xl font-bold">
-                    {Math.floor((new Date().getTime() - new Date(user.joinDate).getTime()) / (365.25 * 24 * 60 * 60 * 1000))}
-                  </p>
-                </div>
-                <div className="rounded-lg border p-4">
-                  <p className="text-sm text-muted-foreground">Leave Balance</p>
-                  <p className="text-2xl font-bold text-success">12 days</p>
-                </div>
-                <div className="rounded-lg border p-4">
-                  <p className="text-sm text-muted-foreground">Attendance Rate</p>
-                  <p className="text-2xl font-bold text-accent">96%</p>
-                </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Account Created</span>
+                <span className="font-medium">
+                  {new Date(profile.created_at || '').toLocaleDateString('en-US', { 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                  })}
+                </span>
               </div>
+              {profile.updated_at && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Last Updated</span>
+                  <span className="font-medium">
+                    {new Date(profile.updated_at).toLocaleDateString('en-US', { 
+                      year: 'numeric', 
+                      month: 'long', 
+                      day: 'numeric' 
+                    })}
+                  </span>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
       </div>
+
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit Profile</DialogTitle>
           </DialogHeader>
-
-          <div className="space-y-4">
+          <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label>Name</Label>
+              <Label htmlFor="name">Full Name</Label>
               <Input
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                id="name"
+                value={form.full_name}
+                onChange={(e) => setForm({ ...form, full_name: e.target.value })}
               />
             </div>
-
             <div className="grid gap-2">
-              <Label>Email</Label>
+              <Label htmlFor="email">Email</Label>
               <Input
+                id="email"
+                type="email"
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
               />
             </div>
-
             <div className="grid gap-2">
-              <Label>Phone</Label>
+              <Label htmlFor="phone">Phone</Label>
               <Input
+                id="phone"
                 value={form.phone}
                 onChange={(e) => setForm({ ...form, phone: e.target.value })}
               />
             </div>
-
             <div className="grid gap-2">
-              <Label>Location</Label>
+              <Label htmlFor="position">Position</Label>
               <Input
-                value={form.location}
-                onChange={(e) => setForm({ ...form, location: e.target.value })}
-              />
-            </div>
-
-            <div className="grid gap-2">
-              <Label>Position</Label>
-              <Input
+                id="position"
                 value={form.position}
                 onChange={(e) => setForm({ ...form, position: e.target.value })}
               />
             </div>
-
             <div className="grid gap-2">
-              <Label>Department</Label>
+              <Label htmlFor="department">Department</Label>
               <Input
+                id="department"
                 value={form.department}
                 onChange={(e) => setForm({ ...form, department: e.target.value })}
               />
             </div>
           </div>
-
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSave}>
-              Save Changes
-            </Button>
+            <Button onClick={handleSave}>Save Changes</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
     </div>
   );
 }

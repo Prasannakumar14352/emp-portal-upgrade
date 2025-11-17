@@ -11,6 +11,8 @@ export interface UserProfile {
   position?: string;
   avatar_url?: string;
   hire_date?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface UserRoleResponse {
