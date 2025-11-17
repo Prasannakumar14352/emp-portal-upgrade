@@ -1,7 +1,7 @@
-import { supabase } from "@/integrations/supabase/client";
+import { apiClient } from './apiClient';
 
 export interface LeaveType {
-  id: string;
+  id: number;
   name: string;
   default_days: number;
   description: string | null;
@@ -25,56 +25,23 @@ export interface UpdateLeaveTypeRequest {
 
 class LeaveTypeService {
   async getAllLeaveTypes(): Promise<LeaveType[]> {
-    const { data, error } = await supabase
-      .from('leave_types')
-      .select('*')
-      .order('name');
-    
-    if (error) throw error;
-    return data || [];
+    return apiClient.get<LeaveType[]>('/leave-types');
   }
 
   async getActiveLeaveTypes(): Promise<LeaveType[]> {
-    const { data, error } = await supabase
-      .from('leave_types')
-      .select('*')
-      .eq('is_active', true)
-      .order('name');
-    
-    if (error) throw error;
-    return data || [];
+    return apiClient.get<LeaveType[]>('/leave-types/active');
   }
 
   async createLeaveType(leaveType: CreateLeaveTypeRequest): Promise<LeaveType> {
-    const { data, error } = await supabase
-      .from('leave_types')
-      .insert(leaveType)
-      .select()
-      .single();
-    
-    if (error) throw error;
-    return data;
+    return apiClient.post<LeaveType>('/leave-types', leaveType);
   }
 
-  async updateLeaveType(id: string, updates: UpdateLeaveTypeRequest): Promise<LeaveType> {
-    const { data, error } = await supabase
-      .from('leave_types')
-      .update(updates)
-      .eq('id', id)
-      .select()
-      .single();
-    
-    if (error) throw error;
-    return data;
+  async updateLeaveType(id: string | number, updates: UpdateLeaveTypeRequest): Promise<LeaveType> {
+    return apiClient.patch<LeaveType>(`/leave-types/${id}`, updates);
   }
 
-  async deleteLeaveType(id: string): Promise<void> {
-    const { error } = await supabase
-      .from('leave_types')
-      .delete()
-      .eq('id', id);
-    
-    if (error) throw error;
+  async deleteLeaveType(id: string | number): Promise<void> {
+    return apiClient.delete(`/leave-types/${id}`);
   }
 }
 

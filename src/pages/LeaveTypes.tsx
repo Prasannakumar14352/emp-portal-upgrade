@@ -62,7 +62,7 @@ export default function LeaveTypes() {
 
   const handleToggleActive = async (leaveType: LeaveType) => {
     try {
-      await leaveTypeService.updateLeaveType(leaveType.id, {
+      await leaveTypeService.updateLeaveType(leaveType.id.toString(), {
         is_active: !leaveType.is_active
       });
       toast.success(`Leave type ${leaveType.is_active ? 'deactivated' : 'activated'}`);
@@ -76,7 +76,7 @@ export default function LeaveTypes() {
     if (!confirm('Are you sure you want to delete this leave type?')) return;
     
     try {
-      await leaveTypeService.deleteLeaveType(id);
+      await leaveTypeService.deleteLeaveType(id.toString());
       toast.success("Leave type deleted successfully!");
       loadLeaveTypes();
     } catch (error) {
@@ -211,7 +211,7 @@ export default function LeaveTypes() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => handleDelete(leaveType.id)}
+                      onClick={() => handleDelete(leaveType.id.toString())}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>

@@ -12,6 +12,8 @@ const payslipRoutes = require('./routes/payslips');
 const dashboardRoutes = require('./routes/dashboard');
 const statisticsRoutes = require('./routes/statistics');
 const bulkRoutes = require('./routes/bulk');
+const leaveTypeRoutes = require('./routes/leaveTypes');
+const sessionRoutes = require('./routes/sessions');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -105,6 +107,8 @@ app.use('/api/payslips', payslipRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/statistics', statisticsRoutes);
 app.use('/api/bulk', bulkRoutes);
+app.use('/api/leave-types', leaveTypeRoutes);
+app.use('/api/sessions', sessionRoutes);
 
 // Root endpoint - API info
 app.get('/', (req, res) => {
