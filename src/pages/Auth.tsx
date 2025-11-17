@@ -1,116 +1,60 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Building2 } from "lucide-react";
 
 export default function Auth() {
   const navigate = useNavigate();
-  const [isLoading, setIsLoading] = useState(false);
-  const [loginEmail, setLoginEmail] = useState("");
-  const [loginPassword, setLoginPassword] = useState("");
-  const [signupEmail, setSignupEmail] = useState("");
-  const [signupPassword, setSignupPassword] = useState("");
-  const [signupFullName, setSignupFullName] = useState("");
-
-  useEffect(() => {
-    // Check if user is already logged in
-    const checkUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        navigate("/");
-      }
-    };
-    checkUser();
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' && session) {
-        navigate("/");
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [navigate]);
+  const [loading, setLoading] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!loginEmail || !loginPassword) {
-      toast.error("Please fill in all fields");
-      return;
-    }
+    setLoading(true);
 
-    setIsLoading(true);
-    try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email: loginEmail,
-        password: loginPassword,
-      });
+    // Mock login - simulate API delay
+    setTimeout(() => {
+      const mockUser = {
+        id: "mock-user-id",
+        email,
+        full_name: email.split("@")[0],
+      };
 
-      if (error) {
-        if (error.message.includes("Invalid login credentials")) {
-          toast.error("Invalid email or password");
-        } else {
-          toast.error(error.message);
-        }
-        return;
-      }
-
-      toast.success("Login successful!");
-    } catch (error: any) {
-      toast.error("An unexpected error occurred");
-    } finally {
-      setIsLoading(false);
-    }
+      localStorage.setItem("mockUser", JSON.stringify(mockUser));
+      localStorage.setItem("mockUserRole", "employee");
+      
+      toast.success("Successfully logged in!");
+      navigate("/");
+      setLoading(false);
+    }, 500);
   };
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!signupEmail || !signupPassword || !signupFullName) {
-      toast.error("Please fill in all fields");
-      return;
-    }
+    setLoading(true);
 
-    if (signupPassword.length < 6) {
-      toast.error("Password must be at least 6 characters");
-      return;
-    }
+    // Mock signup - simulate API delay
+    setTimeout(() => {
+      const mockUser = {
+        id: "mock-user-" + Date.now(),
+        email,
+        full_name: fullName,
+      };
 
-    setIsLoading(true);
-    try {
-      const { error } = await supabase.auth.signUp({
-        email: signupEmail,
-        password: signupPassword,
-        options: {
-          data: {
-            full_name: signupFullName,
-          },
-          emailRedirectTo: `${window.location.origin}/`,
-        },
-      });
-
-      if (error) {
-        if (error.message.includes("already registered")) {
-          toast.error("This email is already registered. Please login instead.");
-        } else {
-          toast.error(error.message);
-        }
-        return;
-      }
-
-      toast.success("Account created successfully! Logging you in...");
-    } catch (error: any) {
-      toast.error("An unexpected error occurred");
-    } finally {
-      setIsLoading(false);
-    }
+      localStorage.setItem("mockUser", JSON.stringify(mockUser));
+      localStorage.setItem("mockUserRole", "employee");
+      
+      toast.success("Account created successfully!");
+      navigate("/");
+      setLoading(false);
+    }, 500);
   };
 
   return (
@@ -122,8 +66,8 @@ export default function Auth() {
               <Building2 className="h-6 w-6 text-primary" />
             </div>
           </div>
-          <CardTitle className="text-2xl font-bold">EMP Portal</CardTitle>
-          <CardDescription>Employee Management System</CardDescription>
+          <CardTitle className="text-2xl">Employee Portal</CardTitle>
+          <CardDescription>Sign in to access your account</CardDescription>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="login" className="w-full">
@@ -131,39 +75,34 @@ export default function Auth() {
               <TabsTrigger value="login">Login</TabsTrigger>
               <TabsTrigger value="signup">Sign Up</TabsTrigger>
             </TabsList>
-
             <TabsContent value="login">
               <form onSubmit={handleLogin} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="login-email">Email</Label>
+                  <Label htmlFor="email">Email</Label>
                   <Input
-                    id="login-email"
+                    id="email"
                     type="email"
-                    placeholder="john@company.com"
-                    value={loginEmail}
-                    onChange={(e) => setLoginEmail(e.target.value)}
-                    disabled={isLoading}
+                    placeholder="john.doe@company.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                     required
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="login-password">Password</Label>
+                  <Label htmlFor="password">Password</Label>
                   <Input
-                    id="login-password"
+                    id="password"
                     type="password"
-                    placeholder="••••••••"
-                    value={loginPassword}
-                    onChange={(e) => setLoginPassword(e.target.value)}
-                    disabled={isLoading}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
                     required
                   />
                 </div>
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? "Logging in..." : "Login"}
+                <Button type="submit" className="w-full" disabled={loading}>
+                  {loading ? "Signing in..." : "Sign In"}
                 </Button>
               </form>
             </TabsContent>
-
             <TabsContent value="signup">
               <form onSubmit={handleSignup} className="space-y-4">
                 <div className="space-y-2">
@@ -172,9 +111,8 @@ export default function Auth() {
                     id="signup-name"
                     type="text"
                     placeholder="John Doe"
-                    value={signupFullName}
-                    onChange={(e) => setSignupFullName(e.target.value)}
-                    disabled={isLoading}
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
                     required
                   />
                 </div>
@@ -183,10 +121,9 @@ export default function Auth() {
                   <Input
                     id="signup-email"
                     type="email"
-                    placeholder="john@company.com"
-                    value={signupEmail}
-                    onChange={(e) => setSignupEmail(e.target.value)}
-                    disabled={isLoading}
+                    placeholder="john.doe@company.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                     required
                   />
                 </div>
@@ -195,18 +132,13 @@ export default function Auth() {
                   <Input
                     id="signup-password"
                     type="password"
-                    placeholder="••••••••"
-                    value={signupPassword}
-                    onChange={(e) => setSignupPassword(e.target.value)}
-                    disabled={isLoading}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
                     required
                   />
-                  <p className="text-xs text-muted-foreground">
-                    Password must be at least 6 characters
-                  </p>
                 </div>
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? "Creating account..." : "Sign Up"}
+                <Button type="submit" className="w-full" disabled={loading}>
+                  {loading ? "Creating account..." : "Create Account"}
                 </Button>
               </form>
             </TabsContent>
