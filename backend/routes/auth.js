@@ -329,6 +329,15 @@ router.get('/oauth/callback/azure', async (req, res) => {
       user_id = existing.recordset[0].id;
     }
 
+    // Sync OAuth user to employees table (create/update employee record)
+    await pool.request()
+      .input("user_id", sql.UniqueIdentifier, user_id)
+      .input("email", sql.NVarChar, email)
+      .input("full_name", sql.NVarChar, fullName)
+      .input("department", sql.NVarChar, userInfo.department || "Not Assigned")
+      .input("position", sql.NVarChar, userInfo.jobTitle || "Employee")
+      .execute("sp_sync_oauth_user");
+
     /* 4) Generate Tokens */
     const tokens = generateTokens({
       id: user_id,

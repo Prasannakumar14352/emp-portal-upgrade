@@ -303,6 +303,82 @@ INSERT INTO holidays (name, date, type, description) VALUES
 ('Christmas Day', '2026-12-25', 'Religious', 'Christian holiday');
 
 -- ============================================================================
+-- OAUTH USER SYNC PROCEDURE
+-- ============================================================================
+-- This procedure handles automatic employee record creation for OAuth users
+-- Call this when a user logs in via Microsoft OAuth (or any OAuth provider)
+
+GO
+CREATE PROCEDURE sp_sync_oauth_user
+    @user_id UNIQUEIDENTIFIER,
+    @email NVARCHAR(255),
+    @full_name NVARCHAR(255),
+    @department NVARCHAR(255) = 'Not Assigned',
+    @position NVARCHAR(255) = 'Employee'
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    BEGIN TRY
+        BEGIN TRANSACTION;
+        
+        -- Check if profile exists, if not create it
+        IF NOT EXISTS (SELECT 1 FROM profiles WHERE id = @user_id)
+        BEGIN
+            INSERT INTO profiles (id, email, full_name, created_at, updated_at)
+            VALUES (@user_id, @email, @full_name, GETDATE(), GETDATE());
+            
+            PRINT 'Profile created for user: ' + @email;
+        END
+        
+        -- Check if employee record exists, if not create it
+        IF NOT EXISTS (SELECT 1 FROM employees WHERE user_id = @user_id)
+        BEGIN
+            INSERT INTO employees (user_id, full_name, email, department, position, status, created_at, updated_at)
+            VALUES (@user_id, @full_name, @email, @department, @position, 'Active', GETDATE(), GETDATE());
+            
+            PRINT 'Employee record created for: ' + @email;
+        END
+        ELSE
+        BEGIN
+            -- Update existing employee record with latest info
+            UPDATE employees
+            SET full_name = @full_name,
+                email = @email,
+                updated_at = GETDATE()
+            WHERE user_id = @user_id;
+            
+            PRINT 'Employee record updated for: ' + @email;
+        END
+        
+        -- Assign default employee role if not exists
+        IF NOT EXISTS (SELECT 1 FROM user_roles WHERE user_id = @user_id AND role = 'employee')
+        BEGIN
+            INSERT INTO user_roles (user_id, role, created_at)
+            VALUES (@user_id, 'employee', GETDATE());
+            
+            PRINT 'Employee role assigned to: ' + @email;
+        END
+        
+        COMMIT TRANSACTION;
+        
+        PRINT 'OAuth user sync completed successfully for: ' + @email;
+        
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0
+            ROLLBACK TRANSACTION;
+            
+        DECLARE @ErrorMessage NVARCHAR(4000) = ERROR_MESSAGE();
+        DECLARE @ErrorSeverity INT = ERROR_SEVERITY();
+        DECLARE @ErrorState INT = ERROR_STATE();
+        
+        RAISERROR(@ErrorMessage, @ErrorSeverity, @ErrorState);
+    END CATCH
+END;
+GO
+
+-- ============================================================================
 -- SCHEMA CREATION COMPLETE
 -- ============================================================================
 PRINT '';
@@ -322,15 +398,20 @@ PRINT '  - leave_balances (leave balance tracking)';
 PRINT '  - leave_comments (leave request comments)';
 PRINT '  - payslips (salary information)';
 PRINT '';
+PRINT 'Stored Procedures:';
+PRINT '  - sp_sync_oauth_user (OAuth user sync for employees)';
+PRINT '';
 PRINT 'Automated Features:';
 PRINT '  - Session duration auto-calculation on logout';
 PRINT '  - Leave balance auto-update on leave approval';
 PRINT '  - Timestamp management (updated_at triggers)';
+PRINT '  - OAuth user sync (creates employee records automatically)';
 PRINT '';
 PRINT 'Next Steps:';
 PRINT '  1. Run setup-hr-role.sql to grant HR access';
 PRINT '  2. Create user accounts in profiles table';
 PRINT '  3. Sync with your authentication system';
+PRINT '  4. OAuth users will auto-create employee records';
 PRINT '';
 PRINT 'For detailed documentation, see DATABASE_SYNC_GUIDE.md';
 PRINT '========================================';

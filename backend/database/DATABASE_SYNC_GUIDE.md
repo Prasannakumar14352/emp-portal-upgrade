@@ -21,6 +21,10 @@ This guide explains how to sync all Supabase tables and features to your local S
 2. **Leave Balance Updates** - Automatically updates balances when leave is approved
 3. **Timestamp Management** - Auto-updates `updated_at` fields on changes
 4. **Low Balance Tracking** - Changed to DECIMAL for fractional day support
+5. **OAuth User Sync** - Automatically creates/updates employee records for OAuth users
+
+### Stored Procedures
+- `sp_sync_oauth_user` - Syncs OAuth users to profiles and employees tables
 
 ### Triggers Created
 - `trg_calculate_session_duration` - Calculates session duration on logout
@@ -32,8 +36,9 @@ This guide explains how to sync all Supabase tables and features to your local S
 
 ### 1. Drop and Recreate Database (Clean Setup)
 ```sql
--- Execute schema.sql to create all tables, indexes, and triggers
+-- Execute schema.sql to create all tables, indexes, triggers, and stored procedures
 -- This includes sample data for holidays and leave types
+-- OAuth sync procedure: sp_sync_oauth_user
 ```
 
 ### 2. Grant HR Access to Your User
@@ -42,7 +47,25 @@ This guide explains how to sync all Supabase tables and features to your local S
 -- Replace 'YOUR_EMAIL@example.com' with your actual email
 ```
 
-### 3. Verify Setup
+### 3. OAuth User Synchronization
+When users log in via Microsoft OAuth (or any OAuth provider), call the stored procedure to sync their employee record:
+
+```sql
+-- Example: Sync OAuth user after authentication
+EXEC sp_sync_oauth_user 
+  @user_id = 'USER_GUID_HERE',
+  @email = 'user@company.com',
+  @full_name = 'John Doe',
+  @department = 'Engineering',  -- Optional, defaults to 'Not Assigned'
+  @position = 'Developer';       -- Optional, defaults to 'Employee'
+```
+
+This procedure will:
+- Create a profile record if it doesn't exist
+- Create or update the employee record
+- Assign the default 'employee' role if not already assigned
+
+### 4. Verify Setup
 ```sql
 -- Check all tables exist
 SELECT TABLE_NAME 
