@@ -1,4 +1,5 @@
 import { apiClient } from './apiClient';
+import { sessionService } from './sessionService';
 
 export interface User {
   id: string;
@@ -43,6 +44,10 @@ class AuthService {
 
     if (response.session) {
       this.setSession(response.session);
+      // Create session for time tracking
+      if (response.user?.id) {
+        await sessionService.createSession(response.user.id);
+      }
     }
 
     return response;
@@ -62,6 +67,8 @@ class AuthService {
 
 
   async signOut(): Promise<void> {
+    // End the current session before signing out
+    await sessionService.endSession();
     await apiClient.post('/auth/logout');
     this.clearSession();
   }

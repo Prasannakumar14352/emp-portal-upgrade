@@ -9,7 +9,9 @@ import {
   Settings,
   ClipboardCheck,
   BarChart3,
-  TrendingUp
+  TrendingUp,
+  Upload,
+  Clock
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -42,6 +44,8 @@ const hrManagerItems = [
   { title: "Approve Leaves", url: "/approve-leaves", icon: ClipboardCheck },
   { title: "Leave Calendar", url: "/leave-calendar", icon: CalendarClock },
   { title: "Advanced Reports", url: "/advanced-reports", icon: BarChart3 },
+  { title: "Bulk Operations", url: "/bulk-operations", icon: Upload },
+  { title: "Team Time Tracking", url: "/team-time-tracking", icon: Clock },
 ];
 
 const secondaryItems = [
