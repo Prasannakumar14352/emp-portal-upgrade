@@ -52,7 +52,7 @@ export default function TeamTimeTracking() {
   }
 
   if (role !== "hr" && role !== "manager") {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to="/" replace />;
   }
 
   const formatDuration = (minutes: number) => {
