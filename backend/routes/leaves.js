@@ -71,21 +71,67 @@ router.get('/', authenticateToken, authorizeRole('hr', 'manager'), async (req, r
 // POST /api/leaves - Create new leave request
 router.post('/', authenticateToken, async (req, res) => {
   try {
-    const { leave_type, start_date, end_date, days, reason } = req.body;
+    const { leave_type, start_date, end_date, days, reason, manager_id } = req.body;
     const pool = await getConnection();
+    const nodemailer = require('nodemailer');
 
     const result = await pool.request()
       .input('user_id', sql.Int, req.user.id)
+      .input('manager_id', sql.Int, manager_id || null)
       .input('leave_type', sql.NVarChar, leave_type)
       .input('start_date', sql.Date, start_date)
       .input('end_date', sql.Date, end_date)
       .input('days', sql.Int, days)
       .input('reason', sql.NVarChar, reason)
       .query(`
-        INSERT INTO leaves (user_id, leave_type, start_date, end_date, days, reason, status, created_at)
+        INSERT INTO leaves (user_id, manager_id, leave_type, start_date, end_date, days, reason, status, manager_status, hr_status, created_at)
         OUTPUT INSERTED.*
-        VALUES (@user_id, @leave_type, @start_date, @end_date, @days, @reason, 'Pending', GETDATE())
+        VALUES (@user_id, @manager_id, @leave_type, @start_date, @end_date, @days, @reason, 'Pending', 'Pending', 'Pending', GETDATE())
       `);
+
+    // Send email notification to manager
+    if (manager_id) {
+      try {
+        const managerResult = await pool.request()
+          .input('manager_id', sql.Int, manager_id)
+          .query('SELECT email, full_name FROM profiles WHERE id = @manager_id');
+        
+        const userResult = await pool.request()
+          .input('user_id', sql.Int, req.user.id)
+          .query('SELECT email, full_name FROM profiles WHERE id = @user_id');
+
+        if (managerResult.recordset.length > 0 && userResult.recordset.length > 0) {
+          const manager = managerResult.recordset[0];
+          const employee = userResult.recordset[0];
+          
+          const transporter = nodemailer.createTransport({
+            host: process.env.SMTP_SERVER,
+            port: 587,
+            secure: false,
+            auth: {
+              user: process.env.GMAIL_USER,
+              pass: process.env.GMAIL_APP_PASSWORD
+            }
+          });
+
+          await transporter.sendMail({
+            from: process.env.GMAIL_USER,
+            to: manager.email,
+            subject: 'New Leave Request Requires Your Approval',
+            html: `
+              <h2>New Leave Request</h2>
+              <p><strong>${employee.full_name}</strong> has applied for leave and requires your approval.</p>
+              <p><strong>Leave Type:</strong> ${leave_type}</p>
+              <p><strong>Duration:</strong> ${start_date} to ${end_date} (${days} days)</p>
+              <p><strong>Reason:</strong> ${reason}</p>
+              <p>Please log in to the system to review and approve/reject this request.</p>
+            `
+          });
+        }
+      } catch (emailErr) {
+        console.error('Failed to send email notification:', emailErr);
+      }
+    }
 
     res.status(201).json(result.recordset[0]);
   } catch (err) {
@@ -94,42 +140,156 @@ router.post('/', authenticateToken, async (req, res) => {
   }
 });
 
-// PATCH /api/leaves/:leaveId - Update leave status (HR/Manager only)
+// PATCH /api/leaves/:leaveId - Update leave status (Two-tier approval)
 router.patch('/:leaveId', authenticateToken, authorizeRole('hr', 'manager'), async (req, res) => {
   try {
     const { leaveId } = req.params;
-    const { status, approved_by } = req.body;
+    const { status, comments } = req.body;
+    const nodemailer = require('nodemailer');
 
     if (!['Approved', 'Rejected'].includes(status)) {
       return res.status(400).json({ error: 'Invalid status' });
     }
 
     const pool = await getConnection();
-    const result = await pool.request()
+    
+    // Get current leave request
+    const leaveResult = await pool.request()
       .input('leave_id', sql.Int, leaveId)
-      .input('status', sql.NVarChar, status)
-      .input('approved_by', sql.Int, approved_by || req.user.id)
-      .query(`
-        UPDATE leaves
-        SET status = @status, approved_by = @approved_by, updated_at = GETDATE()
-        OUTPUT INSERTED.*
-        WHERE id = @leave_id
-      `);
-
-    if (result.recordset.length === 0) {
+      .query('SELECT * FROM leaves WHERE id = @leave_id');
+    
+    if (leaveResult.recordset.length === 0) {
       return res.status(404).json({ error: 'Leave request not found' });
     }
 
-    // Update leave balance if approved
-    if (status === 'Approved') {
-      const leave = result.recordset[0];
-      const year = new Date(leave.start_date).getFullYear();
+    const leave = leaveResult.recordset[0];
+    const isManager = req.user.role === 'manager';
+    const isHR = req.user.role === 'hr';
+
+    let result;
+
+    if (isManager) {
+      // Manager approval/rejection
+      result = await pool.request()
+        .input('leave_id', sql.Int, leaveId)
+        .input('status', sql.NVarChar, status)
+        .input('approved_by', sql.Int, req.user.id)
+        .input('comments', sql.NVarChar, comments || null)
+        .query(`
+          UPDATE leaves
+          SET manager_status = @status,
+              manager_approved_by = @approved_by,
+              manager_approved_at = GETDATE(),
+              manager_comments = @comments,
+              status = CASE WHEN @status = 'Rejected' THEN 'Rejected' ELSE 'Pending' END,
+              updated_at = GETDATE()
+          OUTPUT INSERTED.*
+          WHERE id = @leave_id
+        `);
+    } else if (isHR) {
+      // HR approval/rejection
+      result = await pool.request()
+        .input('leave_id', sql.Int, leaveId)
+        .input('status', sql.NVarChar, status)
+        .input('approved_by', sql.Int, req.user.id)
+        .input('comments', sql.NVarChar, comments || null)
+        .query(`
+          UPDATE leaves
+          SET hr_status = @status,
+              hr_approved_by = @approved_by,
+              hr_approved_at = GETDATE(),
+              hr_comments = @comments,
+              status = @status,
+              approved_by = @approved_by,
+              updated_at = GETDATE()
+          OUTPUT INSERTED.*
+          WHERE id = @leave_id
+        `);
+    }
+
+    const updatedLeave = result.recordset[0];
+
+    // Send email notifications
+    try {
+      const transporter = nodemailer.createTransporter({
+        host: process.env.SMTP_SERVER,
+        port: 587,
+        secure: false,
+        auth: {
+          user: process.env.GMAIL_USER,
+          pass: process.env.GMAIL_APP_PASSWORD
+        }
+      });
+
+      // Get employee and approver details
+      const employeeResult = await pool.request()
+        .input('user_id', sql.Int, updatedLeave.user_id)
+        .query('SELECT email, full_name FROM profiles WHERE id = @user_id');
+      
+      const approverResult = await pool.request()
+        .input('approver_id', sql.Int, req.user.id)
+        .query('SELECT email, full_name FROM profiles WHERE id = @approver_id');
+
+      if (employeeResult.recordset.length > 0 && approverResult.recordset.length > 0) {
+        const employee = employeeResult.recordset[0];
+        const approver = approverResult.recordset[0];
+        
+        // Notify employee
+        await transporter.sendMail({
+          from: process.env.GMAIL_USER,
+          to: employee.email,
+          subject: `Leave Request ${status} by ${isManager ? 'Manager' : 'HR'}`,
+          html: `
+            <h2>Leave Request Update</h2>
+            <p>Your leave request has been <strong>${status}</strong> by ${isManager ? 'your manager' : 'HR'} (${approver.full_name}).</p>
+            <p><strong>Leave Type:</strong> ${updatedLeave.leave_type}</p>
+            <p><strong>Duration:</strong> ${updatedLeave.start_date} to ${updatedLeave.end_date} (${updatedLeave.days} days)</p>
+            ${comments ? `<p><strong>Comments:</strong> ${comments}</p>` : ''}
+            ${isManager && status === 'Approved' ? '<p><em>Your request now awaits HR approval.</em></p>' : ''}
+          `
+        });
+
+        // If manager approved, notify HR
+        if (isManager && status === 'Approved') {
+          const hrResult = await pool.request()
+            .query(`
+              SELECT p.email, p.full_name 
+              FROM profiles p
+              JOIN user_roles ur ON p.id = ur.user_id
+              WHERE ur.role = 'hr'
+            `);
+          
+          if (hrResult.recordset.length > 0) {
+            const hrEmails = hrResult.recordset.map(hr => hr.email);
+            await transporter.sendMail({
+              from: process.env.GMAIL_USER,
+              to: hrEmails,
+              subject: 'Leave Request Requires HR Approval',
+              html: `
+                <h2>Leave Request Awaiting HR Approval</h2>
+                <p><strong>${employee.full_name}</strong>'s leave request has been approved by the manager and now requires HR approval.</p>
+                <p><strong>Leave Type:</strong> ${updatedLeave.leave_type}</p>
+                <p><strong>Duration:</strong> ${updatedLeave.start_date} to ${updatedLeave.end_date} (${updatedLeave.days} days)</p>
+                <p><strong>Manager:</strong> ${approver.full_name}</p>
+                <p>Please log in to the system to review and approve/reject this request.</p>
+              `
+            });
+          }
+        }
+      }
+    } catch (emailErr) {
+      console.error('Failed to send email notification:', emailErr);
+    }
+
+    // Update leave balance if HR approved
+    if (isHR && status === 'Approved') {
+      const year = new Date(updatedLeave.start_date).getFullYear();
 
       await pool.request()
-        .input('user_id', sql.Int, leave.user_id)
+        .input('user_id', sql.Int, updatedLeave.user_id)
         .input('year', sql.Int, year)
-        .input('leave_type', sql.NVarChar, leave.leave_type)
-        .input('days', sql.Int, leave.days)
+        .input('leave_type', sql.NVarChar, updatedLeave.leave_type)
+        .input('days', sql.Int, updatedLeave.days)
         .query(`
           MERGE leave_balances AS target
           USING (SELECT @user_id as user_id, @year as year, @leave_type as leave_type) AS source
@@ -137,17 +297,18 @@ router.patch('/:leaveId', authenticateToken, authorizeRole('hr', 'manager'), asy
           WHEN MATCHED THEN
             UPDATE SET 
               used_days = used_days + @days,
-              remaining_days = total_days - (used_days + @days)
+              remaining_days = total_days - (used_days + @days),
+              updated_at = GETDATE()
           WHEN NOT MATCHED THEN
-            INSERT (user_id, year, leave_type, total_days, used_days, remaining_days)
-            VALUES (@user_id, @year, @leave_type, 20, @days, 20 - @days);
+            INSERT (user_id, year, leave_type, total_days, used_days, remaining_days, created_at)
+            VALUES (@user_id, @year, @leave_type, 20, @days, 20 - @days, GETDATE());
         `);
     }
 
-    res.json(result.recordset[0]);
+    res.json(updatedLeave);
   } catch (err) {
     console.error('Update leave error:', err);
-    res.status(500).json({ error: 'Failed to update leave request' });
+    res.status(500).json({ error: 'Failed to update leave status' });
   }
 });
 
