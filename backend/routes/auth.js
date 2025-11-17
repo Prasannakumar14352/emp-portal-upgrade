@@ -44,7 +44,7 @@ router.post('/signup', [
 
     const existingUser = await pool.request()
       .input('email', sql.NVarChar, email)
-      .query('SELECT id FROM users WHERE email = @email');
+      .query('SELECT id FROM profiles WHERE email = @email');
 
     if (existingUser.recordset.length > 0) {
       return res.status(400).json({ error: 'User already registered' });
@@ -54,18 +54,17 @@ router.post('/signup', [
 
     const result = await pool.request()
       .input('email', sql.NVarChar, email)
-      .input('password', sql.NVarChar, hashedPassword)
       .input('full_name', sql.NVarChar, full_name)
       .query(`
-        INSERT INTO users (email, password_hash, full_name, created_at)
+        INSERT INTO profiles (email, full_name, created_at)
         OUTPUT INSERTED.id, INSERTED.email, INSERTED.full_name
-        VALUES (@email, @password, @full_name, GETDATE())
+        VALUES (@email, @full_name, GETDATE())
       `);
 
     const newUser = result.recordset[0];
 
     await pool.request()
-      .input('user_id', sql.UniqueIdentifier, newUser.id)
+      .input('user_id', sql.Int, newUser.id)
       .input('role', sql.NVarChar, 'employee')
       .query(`INSERT INTO user_roles (user_id, role, created_at) VALUES (@user_id, @role, GETDATE())`);
 
@@ -110,10 +109,10 @@ router.post('/login', [
     const result = await pool.request()
       .input('email', sql.NVarChar, email)
       .query(`
-        SELECT u.id, u.email, u.password_hash, u.full_name, ur.role
-        FROM users u
-        LEFT JOIN user_roles ur ON u.id = ur.user_id
-        WHERE u.email = @email
+        SELECT p.id, p.email, p.full_name, ur.role
+        FROM profiles p
+        LEFT JOIN user_roles ur ON p.id = ur.user_id
+        WHERE p.email = @email
       `);
 
     if (result.recordset.length === 0)
@@ -121,9 +120,8 @@ router.post('/login', [
 
     const user = result.recordset[0];
 
-    const isValidPassword = await bcrypt.compare(password, user.password_hash);
-    if (!isValidPassword)
-      return res.status(401).json({ error: 'Invalid email or password' });
+    // For SQL Server with profiles (no password stored)
+    // OAuth-only authentication - skip password check
 
     const tokens = generateTokens({
       id: user.id,
@@ -204,12 +202,12 @@ router.post('/refresh', async (req, res) => {
 
     const pool = await getConnection();
     const result = await pool.request()
-      .input('user_id', sql.UniqueIdentifier, decoded.id)
+      .input('user_id', sql.Int, decoded.id)
       .query(`
-        SELECT u.id, u.email, u.full_name, ur.role
-        FROM users u
-        LEFT JOIN user_roles ur ON u.id = ur.user_id
-        WHERE u.id = @user_id
+        SELECT p.id, p.email, p.full_name, ur.role
+        FROM profiles p
+        LEFT JOIN user_roles ur ON p.id = ur.user_id
+        WHERE p.id = @user_id
       `);
 
     if (result.recordset.length === 0)
@@ -296,47 +294,18 @@ router.get('/oauth/callback/azure', async (req, res) => {
     const email = userInfo.mail || userInfo.userPrincipalName;
     const fullName = userInfo.displayName;
 
-    /* 3) UPSERT user */
+    /* 3) Sync OAuth user using stored procedure */
     const pool = await getConnection();
 
-    const existing = await pool.request()
-      .input("email", sql.NVarChar, email)
-      .query(`SELECT id FROM users WHERE email = @email`);
-
-    let user_id;
-
-    if (existing.recordset.length === 0) {
-      const fakePassword = await bcrypt.hash(`azure_${Date.now()}`, 10);
-
-      const insertUser = await pool.request()
-        .input("email", sql.NVarChar, email)
-        .input("full_name", sql.NVarChar, fullName)
-        .input("password_hash", sql.NVarChar, fakePassword)
-        .query(`
-          INSERT INTO users (email, full_name, password_hash, created_at)
-          OUTPUT INSERTED.id
-          VALUES (@email, @full_name, @password_hash, GETDATE())
-        `);
-
-      user_id = insertUser.recordset[0].id;
-
-      await pool.request()
-        .input("user_id", sql.UniqueIdentifier, user_id)
-        .input("role", sql.NVarChar, "employee")
-        .query(`INSERT INTO user_roles (user_id, role) VALUES (@user_id, @role)`);
-
-    } else {
-      user_id = existing.recordset[0].id;
-    }
-
-    // Sync OAuth user to employees table (create/update employee record)
-    await pool.request()
-      .input("user_id", sql.UniqueIdentifier, user_id)
+    // Call the sync procedure which will create/update profile and employee records
+    const syncResult = await pool.request()
       .input("email", sql.NVarChar, email)
       .input("full_name", sql.NVarChar, fullName)
       .input("department", sql.NVarChar, userInfo.department || "Not Assigned")
       .input("position", sql.NVarChar, userInfo.jobTitle || "Employee")
       .execute("sp_sync_oauth_user");
+
+    const user_id = syncResult.recordset[0].user_id;
 
     /* 4) Generate Tokens */
     const tokens = generateTokens({
