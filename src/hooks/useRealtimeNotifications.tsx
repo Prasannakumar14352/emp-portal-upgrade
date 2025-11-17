@@ -105,6 +105,48 @@ export const useRealtimeNotifications = () => {
           setUnreadCount((prev) => prev + 1);
         }
       )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'leaves',
+        },
+        async (payload) => {
+          console.log('New leave created (all):', payload);
+          
+          // Check if current user is manager or HR to notify them
+          const { data: userRoles } = await supabase
+            .from('user_roles')
+            .select('role')
+            .eq('user_id', user.id);
+
+          const isManagerOrHR = userRoles?.some(r => r.role === 'hr' || r.role === 'manager');
+          
+          if (isManagerOrHR && payload.new.user_id !== user.id) {
+            // Get employee name
+            const { data: employee } = await supabase
+              .from('profiles')
+              .select('full_name')
+              .eq('id', payload.new.user_id)
+              .single();
+
+            const leave = payload.new;
+            const notification: RealtimeNotification = {
+              id: leave.id,
+              type: 'leave_pending',
+              title: '🔔 New Leave Request',
+              message: `${employee?.full_name || 'An employee'} has submitted a ${leave.leave_type} request for ${leave.days} day(s)`,
+              timestamp: new Date().toISOString(),
+              data: leave,
+            };
+
+            toast.info(notification.title, { description: notification.message });
+            setNotifications((prev) => [notification, ...prev]);
+            setUnreadCount((prev) => prev + 1);
+          }
+        }
+      )
       .subscribe((status) => {
         console.log('Realtime subscription status:', status);
       });
