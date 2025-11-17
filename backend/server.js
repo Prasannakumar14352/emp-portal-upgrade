@@ -24,13 +24,22 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Enhanced request logging middleware
+// Performance monitoring configuration
+const SLOW_REQUEST_THRESHOLD = 1000; // Log requests taking longer than 1 second
+
+// Enhanced request logging and performance monitoring middleware
 app.use((req, res, next) => {
   const startTime = Date.now();
   const timestamp = new Date().toISOString();
   
   // Log incoming request
   console.log(`[${timestamp}] --> ${req.method} ${req.path}`);
+  logInfo(`Incoming request: ${req.method} ${req.path}`, {
+    method: req.method,
+    path: req.path,
+    query: req.query,
+    ip: req.ip
+  });
   
   // Log request body for POST/PUT/PATCH (excluding passwords)
   if (['POST', 'PUT', 'PATCH'].includes(req.method) && req.body) {
@@ -38,6 +47,7 @@ app.use((req, res, next) => {
     if (sanitizedBody.password) sanitizedBody.password = '***';
     if (sanitizedBody.current_password) sanitizedBody.current_password = '***';
     if (sanitizedBody.new_password) sanitizedBody.new_password = '***';
+    if (sanitizedBody.refresh_token) sanitizedBody.refresh_token = '***';
     console.log(`    Body:`, JSON.stringify(sanitizedBody));
   }
   
@@ -49,6 +59,31 @@ app.use((req, res, next) => {
     const resetColor = '\x1b[0m';
     
     console.log(`[${timestamp}] <-- ${req.method} ${req.path} ${statusColor}${res.statusCode}${resetColor} - ${duration}ms`);
+    
+    // Log response details
+    logInfo(`Response: ${req.method} ${req.path}`, {
+      method: req.method,
+      path: req.path,
+      statusCode: res.statusCode,
+      duration: `${duration}ms`
+    });
+    
+    // Performance monitoring: detect and log slow requests
+    if (duration > SLOW_REQUEST_THRESHOLD) {
+      const warningColor = '\x1b[33m';
+      console.log(`${warningColor}⚠️  SLOW REQUEST: ${req.method} ${req.path} took ${duration}ms (threshold: ${SLOW_REQUEST_THRESHOLD}ms)${resetColor}`);
+      
+      logWarning(`Slow API endpoint detected`, {
+        method: req.method,
+        path: req.path,
+        duration: `${duration}ms`,
+        threshold: `${SLOW_REQUEST_THRESHOLD}ms`,
+        statusCode: res.statusCode,
+        query: req.query,
+        ip: req.ip,
+        userAgent: req.get('user-agent')
+      });
+    }
     
     return originalSend.call(this, data);
   };
