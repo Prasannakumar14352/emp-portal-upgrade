@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const { logError, logInfo, logWarning, clearOldLogs } = require('./utils/logger');
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
 const leaveRoutes = require('./routes/leaves');
@@ -90,7 +91,12 @@ app.get('/api/health', (req, res) => {
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error('Error:', err);
+  // Log error with full details
+  logError(err, req, {
+    status: err.status || 500,
+    body: req.body
+  });
+  
   res.status(err.status || 500).json({
     error: err.message || 'Internal Server Error',
     ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
@@ -104,9 +110,19 @@ app.use((req, res) => {
 
 // Start server
 app.listen(PORT, () => {
+  logInfo('Server started', {
+    port: PORT,
+    environment: process.env.NODE_ENV || 'development',
+    corsOrigin: process.env.FRONTEND_URL || 'http://localhost:8080'
+  });
+  
   console.log(`Server running on http://localhost:${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`CORS enabled for: ${process.env.FRONTEND_URL || 'http://localhost:8080'}`);
+  console.log(`Error logs: backend/logs/error.log`);
+  
+  // Clear old logs on startup (keep last 30 days)
+  clearOldLogs(30);
 });
 
 module.exports = app;
