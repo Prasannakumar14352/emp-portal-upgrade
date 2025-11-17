@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,27 +10,58 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar, Plus, CheckCircle, XCircle, Clock } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "@/hooks/useAuth";
+import { leaveService, type Leave, type LeaveBalance } from "@/services/leaveService";
 
 export default function Leaves() {
   const [open, setOpen] = useState(false);
+  const { user } = useAuth();
+  const [leaveBalance, setLeaveBalance] = useState<LeaveBalance[]>([]);
+  const [leaveHistory, setLeaveHistory] = useState<Leave[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const leaveBalance = [
-    { type: "Annual Leave", available: 12, used: 8, total: 20 },
-    { type: "Sick Leave", available: 7, used: 3, total: 10 },
-    { type: "Casual Leave", available: 5, used: 2, total: 7 },
-  ];
+  useEffect(() => {
+    if (user) {
+      loadLeaveData();
+    }
+  }, [user]);
 
-  const leaveHistory = [
-    { id: 1, type: "Sick Leave", from: "2025-12-15", to: "2025-12-16", days: 2, status: "approved", reason: "Medical appointment" },
-    { id: 2, type: "Annual Leave", from: "2025-11-20", to: "2025-11-24", days: 5, status: "approved", reason: "Family vacation" },
-    { id: 3, type: "Work From Home", from: "2025-12-10", to: "2025-12-10", days: 1, status: "pending", reason: "Personal work" },
-    { id: 4, type: "Casual Leave", from: "2025-10-05", to: "2025-10-06", days: 2, status: "rejected", reason: "Emergency" },
-  ];
+  const loadLeaveData = async () => {
+    try {
+      setLoading(true);
+      const [balances, history] = await Promise.all([
+        leaveService.getUserLeaveBalances(user!.id),
+        leaveService.getUserLeaves(user!.id),
+      ]);
+      setLeaveBalance(balances);
+      setLeaveHistory(history);
+    } catch (error) {
+      console.error('Failed to load leave data:', error);
+      toast.error('Failed to load leave data');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast.success("Leave request submitted successfully!");
-    setOpen(false);
+    const formData = new FormData(e.target as HTMLFormElement);
+    
+    try {
+      await leaveService.createLeave({
+        leave_type: formData.get('leave_type') as string,
+        start_date: formData.get('from') as string,
+        end_date: formData.get('to') as string,
+        days: parseInt(formData.get('days') as string),
+        reason: formData.get('reason') as string,
+      });
+      
+      toast.success("Leave request submitted successfully!");
+      setOpen(false);
+      loadLeaveData();
+    } catch (error) {
+      toast.error("Failed to submit leave request");
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -59,6 +90,10 @@ export default function Leaves() {
     }
   };
 
+  if (loading) {
+    return <div className="space-y-6">Loading...</div>;
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -84,15 +119,15 @@ export default function Leaves() {
               <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
                   <Label htmlFor="leave-type">Leave Type</Label>
-                  <Select>
+                  <Select name="leave_type" required>
                     <SelectTrigger id="leave-type">
                       <SelectValue placeholder="Select leave type" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="annual">Annual Leave</SelectItem>
-                      <SelectItem value="sick">Sick Leave</SelectItem>
-                      <SelectItem value="casual">Casual Leave</SelectItem>
-                      <SelectItem value="wfh">Work From Home</SelectItem>
+                      <SelectItem value="Annual Leave">Annual Leave</SelectItem>
+                      <SelectItem value="Sick Leave">Sick Leave</SelectItem>
+                      <SelectItem value="Casual Leave">Casual Leave</SelectItem>
+                      <SelectItem value="Work From Home">Work From Home</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -119,25 +154,25 @@ export default function Leaves() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
-        {leaveBalance.map((leave, index) => (
-          <Card key={index}>
+        {leaveBalance.map((balance) => (
+          <Card key={balance.id}>
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg">{leave.type}</CardTitle>
+              <CardTitle className="text-lg">{balance.leave_type}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Available</span>
-                  <span className="text-2xl font-bold text-success">{leave.available}</span>
+                  <span className="text-2xl font-bold text-success">{balance.remaining_days}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Used: {leave.used}</span>
-                  <span className="text-muted-foreground">Total: {leave.total}</span>
+                  <span className="text-muted-foreground">Used: {balance.used_days}</span>
+                  <span className="text-muted-foreground">Total: {balance.total_days}</span>
                 </div>
                 <div className="h-2 rounded-full bg-secondary">
                   <div
                     className="h-full rounded-full bg-primary transition-all"
-                    style={{ width: `${(leave.available / leave.total) * 100}%` }}
+                    style={{ width: `${(balance.remaining_days / balance.total_days) * 100}%` }}
                   />
                 </div>
               </div>
@@ -167,14 +202,14 @@ export default function Leaves() {
                     </div>
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
-                        <p className="font-medium">{leave.type}</p>
-                        <Badge variant={getStatusColor(leave.status)} className="gap-1">
-                          {getStatusIcon(leave.status)}
-                          {leave.status.charAt(0).toUpperCase() + leave.status.slice(1)}
+                        <p className="font-medium">{leave.leave_type}</p>
+                        <Badge variant={getStatusColor(leave.status.toLowerCase()) as any} className="gap-1">
+                          {getStatusIcon(leave.status.toLowerCase())}
+                          {leave.status}
                         </Badge>
                       </div>
                       <p className="text-sm text-muted-foreground">
-                        {new Date(leave.from).toLocaleDateString()} - {new Date(leave.to).toLocaleDateString()} • {leave.days} day{leave.days > 1 ? 's' : ''}
+                        {new Date(leave.start_date).toLocaleDateString()} - {new Date(leave.end_date).toLocaleDateString()} • {leave.days} day{leave.days > 1 ? 's' : ''}
                       </p>
                       <p className="text-sm text-muted-foreground">Reason: {leave.reason}</p>
                     </div>

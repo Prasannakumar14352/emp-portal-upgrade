@@ -6,18 +6,12 @@ import { toast } from "sonner";
 import { StatCard } from "@/components/StatCard";
 import { CheckCircle, XCircle, Clock, TrendingUp } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, Legend } from "recharts";
-
-interface LeaveRequest {
-  id: number;
-  status: "pending" | "approved" | "rejected";
-  appliedDate: string;
-  type: string;
-}
+import { dashboardService } from "@/services/dashboardService";
 
 export default function HRDashboard() {
   const { role } = useUserRole();
   const navigate = useNavigate();
-  const [requests, setRequests] = useState<LeaveRequest[]>([]);
+  const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     total: 0,
     pending: 0,
@@ -25,6 +19,8 @@ export default function HRDashboard() {
     rejected: 0,
     approvalRate: 0,
   });
+  const [monthlyTrends, setMonthlyTrends] = useState<any[]>([]);
+  const [leaveTypeData, setLeaveTypeData] = useState<any[]>([]);
 
   useEffect(() => {
     if (role !== "hr" && role !== "manager") {
@@ -33,40 +29,40 @@ export default function HRDashboard() {
       return;
     }
 
-    const storedRequests = localStorage.getItem("mockLeaveRequests");
-    if (storedRequests) {
-      const parsedRequests: LeaveRequest[] = JSON.parse(storedRequests);
-      setRequests(parsedRequests);
-
-      const total = parsedRequests.length;
-      const pending = parsedRequests.filter((r) => r.status === "pending").length;
-      const approved = parsedRequests.filter((r) => r.status === "approved").length;
-      const rejected = parsedRequests.filter((r) => r.status === "rejected").length;
-      const approvalRate = total > 0 ? Math.round((approved / (approved + rejected)) * 100) : 0;
-
-      setStats({ total, pending, approved, rejected, approvalRate });
-    }
+    loadDashboardData();
   }, [role, navigate]);
 
-  // Monthly trends data
-  const monthlyTrends = [
-    { month: "Jan", approved: 12, rejected: 2 },
-    { month: "Feb", approved: 15, rejected: 3 },
-    { month: "Mar", approved: 18, rejected: 1 },
-    { month: "Apr", approved: 14, rejected: 4 },
-    { month: "May", approved: 20, rejected: 2 },
-    { month: "Jun", approved: 16, rejected: 3 },
-  ];
+  const loadDashboardData = async () => {
+    try {
+      setLoading(true);
+      const [hrStats, trends, leaveTypes] = await Promise.all([
+        dashboardService.getHRDashboardStats(),
+        dashboardService.getMonthlyTrends(),
+        dashboardService.getLeaveTypeDistribution(),
+      ]);
 
-  // Leave type distribution
-  const leaveTypeData = [
-    { name: "Annual Leave", value: 45 },
-    { name: "Sick Leave", value: 25 },
-    { name: "Work From Home", value: 20 },
-    { name: "Other", value: 10 },
-  ];
+      setStats({
+        total: hrStats.total_requests,
+        pending: hrStats.pending_requests,
+        approved: hrStats.approved_requests,
+        rejected: hrStats.rejected_requests,
+        approvalRate: hrStats.approval_rate,
+      });
+      setMonthlyTrends(trends);
+      setLeaveTypeData(leaveTypes);
+    } catch (error) {
+      console.error('Failed to load HR dashboard data:', error);
+      toast.error('Failed to load dashboard data');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const COLORS = ["hsl(var(--primary))", "hsl(var(--secondary))", "hsl(var(--accent))", "hsl(var(--muted))"];
+
+  if (loading) {
+    return <div className="space-y-6">Loading...</div>;
+  }
 
   return (
     <div className="space-y-6">

@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { StatCard } from "@/components/StatCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,45 +13,80 @@ import {
   AlertCircle,
   XCircle
 } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { leaveService, type Leave } from "@/services/leaveService";
+import { holidayService, type Holiday } from "@/services/holidayService";
+import { dashboardService } from "@/services/dashboardService";
+import { toast } from "sonner";
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const stats = [
+  const { user } = useAuth();
+  const [stats, setStats] = useState({
+    leaveBalance: 0,
+    pendingApprovals: 0,
+    payslipsCount: 0,
+    attendanceRate: 0,
+  });
+  const [recentLeaves, setRecentLeaves] = useState<Leave[]>([]);
+  const [upcomingHolidays, setUpcomingHolidays] = useState<Holiday[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (user) {
+      loadDashboardData();
+    }
+  }, [user]);
+
+  const loadDashboardData = async () => {
+    try {
+      setLoading(true);
+      const [dashboardStats, leaves, holidays] = await Promise.all([
+        dashboardService.getEmployeeDashboardStats(user!.id),
+        leaveService.getUserLeaves(user!.id),
+        holidayService.getUpcomingHolidays(3),
+      ]);
+
+      setStats({
+        leaveBalance: dashboardStats.leave_balance,
+        pendingApprovals: dashboardStats.pending_approvals,
+        payslipsCount: dashboardStats.payslips_count,
+        attendanceRate: dashboardStats.attendance_rate,
+      });
+      setRecentLeaves(leaves.slice(0, 3));
+      setUpcomingHolidays(holidays);
+    } catch (error) {
+      console.error('Failed to load dashboard data:', error);
+      toast.error('Failed to load dashboard data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const statsData = [
     {
       title: "Leave Balance",
-      value: "12 days",
+      value: `${stats.leaveBalance} days`,
       icon: Calendar,
-      trend: { value: "2 more than last year", positive: true }
+      trend: { value: "Annual quota", positive: true }
     },
     {
       title: "Pending Approvals",
-      value: "3",
+      value: stats.pendingApprovals.toString(),
       icon: Clock,
-      trend: { value: "2 new requests", positive: false }
+      trend: { value: "Awaiting response", positive: false }
     },
     {
       title: "Payslips",
-      value: "24",
+      value: stats.payslipsCount.toString(),
       icon: FileText,
     },
     {
       title: "Attendance Rate",
-      value: "96%",
+      value: `${stats.attendanceRate}%`,
       icon: TrendingUp,
-      trend: { value: "3% increase", positive: true }
+      trend: { value: "This year", positive: true }
     },
-  ];
-
-  const recentLeaves = [
-    { id: 1, type: "Sick Leave", dates: "Dec 15-16, 2025", status: "approved", days: 2 },
-    { id: 2, type: "Annual Leave", dates: "Nov 20-24, 2025", status: "approved", days: 5 },
-    { id: 3, type: "Work From Home", dates: "Dec 10, 2025", status: "pending", days: 1 },
-  ];
-
-  const upcomingHolidays = [
-    { name: "Christmas Day", date: "Dec 25, 2025" },
-    { name: "New Year's Day", date: "Jan 1, 2026" },
-    { name: "Republic Day", date: "Jan 26, 2026" },
   ];
 
   const getStatusIcon = (status: string) => {
@@ -81,6 +117,16 @@ export default function Dashboard() {
     );
   };
 
+  const formatDateRange = (startDate: string, endDate: string) => {
+    const start = new Date(startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const end = new Date(endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    return `${start} - ${end}`;
+  };
+
+  if (loading) {
+    return <div className="space-y-6">Loading...</div>;
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -89,7 +135,7 @@ export default function Dashboard() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat, index) => (
+        {statsData.map((stat, index) => (
           <StatCard key={index} {...stat} />
         ))}
       </div>
@@ -102,15 +148,21 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {recentLeaves.map((leave) => (
-                <div key={leave.id} className="flex items-center justify-between rounded-lg border p-4">
-                  <div className="space-y-1">
-                    <p className="font-medium">{leave.type}</p>
-                    <p className="text-sm text-muted-foreground">{leave.dates} • {leave.days} day{leave.days > 1 ? 's' : ''}</p>
+              {recentLeaves.length > 0 ? (
+                recentLeaves.map((leave) => (
+                  <div key={leave.id} className="flex items-center justify-between rounded-lg border p-4">
+                    <div className="space-y-1">
+                      <p className="font-medium">{leave.leave_type}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {formatDateRange(leave.start_date, leave.end_date)} • {leave.days} day{leave.days > 1 ? 's' : ''}
+                      </p>
+                    </div>
+                    {getStatusBadge(leave.status.toLowerCase())}
                   </div>
-                  {getStatusBadge(leave.status)}
-                </div>
-              ))}
+                ))
+              ) : (
+                <p className="text-center text-muted-foreground py-4">No recent leave requests</p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -122,17 +174,23 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {upcomingHolidays.map((holiday, index) => (
-                <div key={index} className="flex items-center gap-4 rounded-lg border p-4">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-accent/10">
-                    <Calendar className="h-6 w-6 text-accent" />
+              {upcomingHolidays.length > 0 ? (
+                upcomingHolidays.map((holiday) => (
+                  <div key={holiday.id} className="flex items-center gap-4 rounded-lg border p-4">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-accent/10">
+                      <Calendar className="h-6 w-6 text-accent" />
+                    </div>
+                    <div>
+                      <p className="font-medium">{holiday.name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {new Date(holiday.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-medium">{holiday.name}</p>
-                    <p className="text-sm text-muted-foreground">{holiday.date}</p>
-                  </div>
-                </div>
-              ))}
+                ))
+              ) : (
+                <p className="text-center text-muted-foreground py-4">No upcoming holidays</p>
+              )}
             </div>
           </CardContent>
         </Card>
