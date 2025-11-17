@@ -14,6 +14,7 @@ const statisticsRoutes = require('./routes/statistics');
 const bulkRoutes = require('./routes/bulk');
 const leaveTypeRoutes = require('./routes/leaveTypes');
 const sessionRoutes = require('./routes/sessions');
+const passwordResetRoutes = require('./routes/passwordReset');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -109,6 +110,7 @@ app.use('/api/statistics', statisticsRoutes);
 app.use('/api/bulk', bulkRoutes);
 app.use('/api/leave-types', leaveTypeRoutes);
 app.use('/api/sessions', sessionRoutes);
+app.use('/api/password-reset', passwordResetRoutes);
 
 // Root endpoint - API info
 app.get('/', (req, res) => {
