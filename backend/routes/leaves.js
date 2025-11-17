@@ -4,6 +4,40 @@ const { authenticateToken, authorizeRole } = require('../middleware/auth');
 
 const router = express.Router();
 
+// GET /api/leaves/conflicts - Check for leave conflicts
+router.get('/conflicts', authenticateToken, async (req, res) => {
+  try {
+    const { start_date, end_date, user_id } = req.query;
+    const pool = await getConnection();
+
+    const result = await pool.request()
+      .input('start_date', sql.Date, start_date)
+      .input('end_date', sql.Date, end_date)
+      .input('user_id', sql.Int, user_id ? parseInt(user_id) : null)
+      .query(`
+        SELECT 
+          l.id, l.user_id, l.leave_type, l.start_date, l.end_date, l.days,
+          u.full_name, u.department
+        FROM leaves l
+        JOIN profiles u ON l.user_id = u.id
+        WHERE l.status IN ('Pending', 'Approved')
+          AND (@user_id IS NULL OR l.user_id != @user_id)
+          AND (
+            (l.start_date BETWEEN @start_date AND @end_date)
+            OR (l.end_date BETWEEN @start_date AND @end_date)
+            OR (@start_date BETWEEN l.start_date AND l.end_date)
+            OR (@end_date BETWEEN l.start_date AND l.end_date)
+          )
+        ORDER BY l.start_date
+      `);
+
+    res.json(result.recordset);
+  } catch (err) {
+    console.error('Check conflicts error:', err);
+    res.status(500).json({ error: 'Failed to check conflicts' });
+  }
+});
+
 // GET /api/leaves/user/:userId - Get user's leave requests
 router.get('/user/:userId', authenticateToken, async (req, res) => {
   try {
@@ -71,7 +105,7 @@ router.get('/', authenticateToken, authorizeRole('hr', 'manager'), async (req, r
 // POST /api/leaves - Create new leave request
 router.post('/', authenticateToken, async (req, res) => {
   try {
-    const { leave_type, start_date, end_date, days, reason, manager_id } = req.body;
+    const { leave_type, start_date, end_date, days, reason, manager_id, cc_emails } = req.body;
     const pool = await getConnection();
     const nodemailer = require('nodemailer');
 
@@ -83,10 +117,11 @@ router.post('/', authenticateToken, async (req, res) => {
       .input('end_date', sql.Date, end_date)
       .input('days', sql.Int, days)
       .input('reason', sql.NVarChar, reason)
+      .input('cc_emails', sql.NVarChar, cc_emails ? JSON.stringify(cc_emails) : null)
       .query(`
-        INSERT INTO leaves (user_id, manager_id, leave_type, start_date, end_date, days, reason, status, manager_status, hr_status, created_at)
+        INSERT INTO leaves (user_id, manager_id, leave_type, start_date, end_date, days, reason, cc_emails, status, manager_status, hr_status, created_at)
         OUTPUT INSERTED.*
-        VALUES (@user_id, @manager_id, @leave_type, @start_date, @end_date, @days, @reason, 'Pending', 'Pending', 'Pending', GETDATE())
+        VALUES (@user_id, @manager_id, @leave_type, @start_date, @end_date, @days, @reason, @cc_emails, 'Pending', 'Pending', 'Pending', GETDATE())
       `);
 
     // Send email notification to manager
@@ -114,7 +149,7 @@ router.post('/', authenticateToken, async (req, res) => {
             }
           });
 
-          await transporter.sendMail({
+          const emailOptions = {
             from: process.env.GMAIL_USER,
             to: manager.email,
             subject: 'New Leave Request Requires Your Approval',
@@ -126,7 +161,14 @@ router.post('/', authenticateToken, async (req, res) => {
               <p><strong>Reason:</strong> ${reason}</p>
               <p>Please log in to the system to review and approve/reject this request.</p>
             `
-          });
+          };
+
+          // Add CC recipients if provided
+          if (cc_emails && Array.isArray(cc_emails) && cc_emails.length > 0) {
+            emailOptions.cc = cc_emails.join(', ');
+          }
+
+          await transporter.sendMail(emailOptions);
         }
       } catch (emailErr) {
         console.error('Failed to send email notification:', emailErr);
