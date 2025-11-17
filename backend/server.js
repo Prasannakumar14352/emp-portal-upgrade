@@ -11,6 +11,7 @@ const holidayRoutes = require('./routes/holidays');
 const payslipRoutes = require('./routes/payslips');
 const dashboardRoutes = require('./routes/dashboard');
 const statisticsRoutes = require('./routes/statistics');
+const bulkRoutes = require('./routes/bulk');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -103,6 +104,7 @@ app.use('/api/holidays', holidayRoutes);
 app.use('/api/payslips', payslipRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/statistics', statisticsRoutes);
+app.use('/api/bulk', bulkRoutes);
 
 // Root endpoint - API info
 app.get('/', (req, res) => {
