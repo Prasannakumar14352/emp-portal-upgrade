@@ -46,6 +46,7 @@ const hrManagerItems = [
   { title: "Advanced Reports", url: "/advanced-reports", icon: BarChart3 },
   { title: "Bulk Operations", url: "/bulk-operations", icon: Upload },
   { title: "Team Time Tracking", url: "/team-time-tracking", icon: Clock },
+  { title: "Leave Types", url: "/leave-types", icon: Calendar },
 ];
 
 const secondaryItems = [
