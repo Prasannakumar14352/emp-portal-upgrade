@@ -32,7 +32,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
     const pool = await getConnection();
     
     const result = await pool.request()
-      .input('id', sql.UniqueIdentifier, id)
+      .input('id', sql.Int, id)
       .query(`
         SELECT 
           e.id, e.user_id, e.full_name, e.email, e.phone,
@@ -61,7 +61,7 @@ router.post('/', authenticateToken, authorizeRole('hr', 'manager'), async (req, 
     const pool = await getConnection();
     
     const result = await pool.request()
-      .input('user_id', sql.UniqueIdentifier, user_id || null)
+      .input('user_id', sql.Int, user_id || null)
       .input('full_name', sql.NVarChar, full_name)
       .input('email', sql.NVarChar, email)
       .input('phone', sql.NVarChar, phone)
@@ -89,7 +89,7 @@ router.patch('/:id', authenticateToken, authorizeRole('hr', 'manager'), async (r
     const pool = await getConnection();
     
     const result = await pool.request()
-      .input('id', sql.UniqueIdentifier, id)
+      .input('id', sql.Int, id)
       .input('full_name', sql.NVarChar, full_name)
       .input('email', sql.NVarChar, email)
       .input('phone', sql.NVarChar, phone)
@@ -128,7 +128,7 @@ router.delete('/:id', authenticateToken, authorizeRole('hr'), async (req, res) =
     const pool = await getConnection();
     
     const result = await pool.request()
-      .input('id', sql.UniqueIdentifier, id)
+      .input('id', sql.Int, id)
       .query('DELETE FROM employees WHERE id = @id');
 
     if (result.rowsAffected[0] === 0) {

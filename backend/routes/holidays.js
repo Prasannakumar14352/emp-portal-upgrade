@@ -61,7 +61,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
     const pool = await getConnection();
     
     const result = await pool.request()
-      .input('id', sql.UniqueIdentifier, id)
+      .input('id', sql.Int, id)
       .query('SELECT * FROM holidays WHERE id = @id');
 
     if (result.recordset.length === 0) {
@@ -107,7 +107,7 @@ router.patch('/:id', authenticateToken, authorizeRole('hr', 'manager'), async (r
     const pool = await getConnection();
     
     const result = await pool.request()
-      .input('id', sql.UniqueIdentifier, id)
+      .input('id', sql.Int, id)
       .input('name', sql.NVarChar, name)
       .input('date', sql.Date, date)
       .input('type', sql.NVarChar, type)
@@ -141,7 +141,7 @@ router.delete('/:id', authenticateToken, authorizeRole('hr', 'manager'), async (
     const pool = await getConnection();
     
     const result = await pool.request()
-      .input('id', sql.UniqueIdentifier, id)
+      .input('id', sql.Int, id)
       .query('DELETE FROM holidays WHERE id = @id');
 
     if (result.rowsAffected[0] === 0) {

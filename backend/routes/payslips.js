@@ -24,7 +24,7 @@ router.get('/user/:userId', authenticateToken, async (req, res) => {
       WHERE user_id = @user_id
     `;
     
-    const request = pool.request().input('user_id', sql.UniqueIdentifier, userId);
+    const request = pool.request().input('user_id', sql.Int, userId);
     
     if (year) {
       query += ' AND year = @year';
@@ -58,7 +58,7 @@ router.get('/', authenticateToken, authorizeRole('hr', 'manager'), async (req, r
         p.allowances, p.deductions, p.net_salary, p.file_url, p.created_at,
         u.full_name as user_name, u.email as user_email
       FROM payslips p
-      JOIN users u ON p.user_id = u.id
+      JOIN profiles u ON p.user_id = u.id
     `;
     
     const conditions = [];
@@ -95,14 +95,14 @@ router.get('/:id', authenticateToken, async (req, res) => {
     const pool = await getConnection();
     
     const result = await pool.request()
-      .input('id', sql.UniqueIdentifier, id)
+      .input('id', sql.Int, id)
       .query(`
         SELECT 
           p.id, p.user_id, p.month, p.year, p.basic_salary, 
           p.allowances, p.deductions, p.net_salary, p.file_url, p.created_at,
           u.full_name as user_name, u.email as user_email
         FROM payslips p
-        JOIN users u ON p.user_id = u.id
+        JOIN profiles u ON p.user_id = u.id
         WHERE p.id = @id
       `);
 
@@ -134,7 +134,7 @@ router.post('/', authenticateToken, authorizeRole('hr'), async (req, res) => {
     
     const pool = await getConnection();
     const result = await pool.request()
-      .input('user_id', sql.UniqueIdentifier, user_id)
+      .input('user_id', sql.Int, user_id)
       .input('month', sql.NVarChar, month)
       .input('year', sql.Int, year)
       .input('basic_salary', sql.Decimal(10, 2), basic_salary)
@@ -165,7 +165,7 @@ router.patch('/:id', authenticateToken, authorizeRole('hr'), async (req, res) =>
     
     // First get the current payslip
     const current = await pool.request()
-      .input('id', sql.UniqueIdentifier, id)
+      .input('id', sql.Int, id)
       .query('SELECT * FROM payslips WHERE id = @id');
     
     if (current.recordset.length === 0) {
@@ -181,7 +181,7 @@ router.patch('/:id', authenticateToken, authorizeRole('hr'), async (req, res) =>
     const net_salary = newBasicSalary + newAllowances - newDeductions;
     
     const result = await pool.request()
-      .input('id', sql.UniqueIdentifier, id)
+      .input('id', sql.Int, id)
       .input('basic_salary', sql.Decimal(10, 2), basic_salary)
       .input('allowances', sql.Decimal(10, 2), allowances)
       .input('deductions', sql.Decimal(10, 2), deductions)
@@ -213,7 +213,7 @@ router.delete('/:id', authenticateToken, authorizeRole('hr'), async (req, res) =
     const pool = await getConnection();
     
     const result = await pool.request()
-      .input('id', sql.UniqueIdentifier, id)
+      .input('id', sql.Int, id)
       .query('DELETE FROM payslips WHERE id = @id');
 
     if (result.rowsAffected[0] === 0) {
