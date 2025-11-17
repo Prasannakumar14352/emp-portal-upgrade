@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -48,6 +48,15 @@ export default function Notifications() {
       color: "text-warning",
     },
   ];
+  useEffect(() => {
+    // Load notifications from localStorage
+    const stored = localStorage.getItem("notifications");
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      setNotifications(parsed);
+    }
+  }, []);
+
   const [preferences, setPreferences] = useState([
     { label: "Leave Updates", description: "Get notified about leave approvals and rejections", enabled: true },
     { label: "Payslip Notifications", description: "Receive alerts when new payslips are available", enabled: true },
