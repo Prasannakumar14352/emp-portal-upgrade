@@ -8,14 +8,17 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calendar, Plus, CheckCircle, XCircle, Clock, Trash2, Eye } from "lucide-react";
+import { Calendar, Plus, CheckCircle, XCircle, Clock, Trash2, Eye, Edit, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
-import { leaveService, type Leave, type LeaveBalance } from "@/services/leaveService";
+import { leaveService, type Leave, type LeaveBalance, type LeaveConflict } from "@/services/leaveService";
 import { leaveTypeService, type LeaveType } from "@/services/leaveTypeService";
 import { managerService, type Manager } from "@/services/managerService";
+import { employeeService, type Employee } from "@/services/employeeService";
 import { LeaveBalanceCard } from "@/components/LeaveBalanceCard";
 import { LeaveHistoryTimeline } from "@/components/LeaveHistoryTimeline";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,11 +37,32 @@ export default function Leaves() {
   const [leaveHistory, setLeaveHistory] = useState<Leave[]>([]);
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
   const [managers, setManagers] = useState<Manager[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [selectedLeaveId, setSelectedLeaveId] = useState<string | null>(null);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [selectedLeave, setSelectedLeave] = useState<Leave | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [leaveToEdit, setLeaveToEdit] = useState<Leave | null>(null);
+  const [conflicts, setConflicts] = useState<LeaveConflict[]>([]);
+  const [selectedCCEmails, setSelectedCCEmails] = useState<string[]>([]);
+  const [formData, setFormData] = useState({
+    leave_type: '',
+    manager_id: '',
+    start_date: '',
+    end_date: '',
+    days: 0,
+    reason: ''
+  });
+  const [editFormData, setEditFormData] = useState({
+    leave_type: '',
+    start_date: '',
+    end_date: '',
+    days: 0,
+    reason: '',
+    manager_id: undefined as number | undefined
+  });
 
   useEffect(() => {
     if (user) {
@@ -46,19 +70,34 @@ export default function Leaves() {
     }
   }, [user]);
 
+  useEffect(() => {
+    if (formData.start_date && formData.end_date) {
+      calculateDays(formData.start_date, formData.end_date);
+      checkForConflicts(formData.start_date, formData.end_date);
+    }
+  }, [formData.start_date, formData.end_date]);
+
+  useEffect(() => {
+    if (editFormData.start_date && editFormData.end_date) {
+      calculateEditDays(editFormData.start_date, editFormData.end_date);
+    }
+  }, [editFormData.start_date, editFormData.end_date]);
+
   const loadLeaveData = async () => {
     try {
       setLoading(true);
-      const [balances, history, types, managersList] = await Promise.all([
+      const [balances, history, types, managersList, employeesList] = await Promise.all([
         leaveService.getUserLeaveBalances(user!.id),
         leaveService.getUserLeaves(user!.id),
         leaveTypeService.getActiveLeaveTypes(),
         managerService.getAllManagers(),
+        employeeService.getAllEmployees(),
       ]);
       setLeaveBalance(balances);
       setLeaveHistory(history);
       setLeaveTypes(types);
       setManagers(managersList);
+      setEmployees(employeesList);
     } catch (error) {
       console.error('Failed to load leave data:', error);
       toast.error('Failed to load leave data');
@@ -67,23 +106,61 @@ export default function Leaves() {
     }
   };
 
+  const calculateDays = (startDate: string, endDate: string) => {
+    if (startDate && endDate) {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      const diffTime = Math.abs(end.getTime() - start.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+      setFormData(prev => ({ ...prev, days: diffDays }));
+    }
+  };
+
+  const calculateEditDays = (startDate: string, endDate: string) => {
+    if (startDate && endDate) {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      const diffTime = Math.abs(end.getTime() - start.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+      setEditFormData(prev => ({ ...prev, days: diffDays }));
+    }
+  };
+
+  const checkForConflicts = async (startDate: string, endDate: string) => {
+    try {
+      const conflictData = await leaveService.checkConflicts(startDate, endDate, user!.id);
+      setConflicts(conflictData);
+    } catch (error) {
+      console.error('Failed to check conflicts:', error);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const formData = new FormData(e.target as HTMLFormElement);
     
     try {
-      const managerId = formData.get('manager_id') as string;
       await leaveService.createLeave({
-        leave_type: formData.get('leave_type') as string,
-        start_date: formData.get('from') as string,
-        end_date: formData.get('to') as string,
-        days: parseInt(formData.get('days') as string),
-        reason: formData.get('reason') as string,
-        manager_id: managerId ? parseInt(managerId) : undefined,
+        leave_type: formData.leave_type,
+        start_date: formData.start_date,
+        end_date: formData.end_date,
+        days: formData.days,
+        reason: formData.reason,
+        manager_id: formData.manager_id ? parseInt(formData.manager_id) : undefined,
+        cc_emails: selectedCCEmails,
       });
       
-      toast.success("Leave request submitted successfully! Your manager will be notified.");
+      toast.success("Leave request submitted successfully! Notifications sent.");
       setOpen(false);
+      setFormData({
+        leave_type: '',
+        manager_id: '',
+        start_date: '',
+        end_date: '',
+        days: 0,
+        reason: ''
+      });
+      setSelectedCCEmails([]);
+      setConflicts([]);
       loadLeaveData();
     } catch (error) {
       toast.error("Failed to submit leave request");
@@ -135,6 +212,42 @@ export default function Leaves() {
     setDetailsDialogOpen(true);
   };
 
+  const handleEditClick = (leave: Leave) => {
+    setLeaveToEdit(leave);
+    setEditFormData({
+      leave_type: leave.leave_type,
+      start_date: leave.start_date,
+      end_date: leave.end_date,
+      days: leave.days,
+      reason: leave.reason,
+      manager_id: leave.manager_id ? parseInt(leave.manager_id) : undefined
+    });
+    setEditDialogOpen(true);
+  };
+
+  const handleEditLeave = async () => {
+    if (!leaveToEdit) return;
+
+    try {
+      await leaveService.updateLeave(leaveToEdit.id, editFormData);
+      toast.success('Leave request updated successfully. Manager and HR will be notified.');
+      loadLeaveData();
+      setEditDialogOpen(false);
+      setLeaveToEdit(null);
+    } catch (error) {
+      console.error('Failed to update leave:', error);
+      toast.error('Failed to update leave request');
+    }
+  };
+
+  const toggleCCEmail = (email: string) => {
+    setSelectedCCEmails(prev => 
+      prev.includes(email) 
+        ? prev.filter(e => e !== email)
+        : [...prev, email]
+    );
+  };
+
   if (loading) {
     return <div className="space-y-6">Loading...</div>;
   }
@@ -153,7 +266,7 @@ export default function Leaves() {
               Apply for Leave
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px]">
+          <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
             <form onSubmit={handleSubmit}>
               <DialogHeader>
                 <DialogTitle>Apply for Leave</DialogTitle>
@@ -164,7 +277,11 @@ export default function Leaves() {
               <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
                   <Label htmlFor="leave-type">Leave Type</Label>
-                  <Select name="leave_type" required>
+                  <Select 
+                    value={formData.leave_type}
+                    onValueChange={(value) => setFormData({...formData, leave_type: value})}
+                    required
+                  >
                     <SelectTrigger id="leave-type">
                       <SelectValue placeholder="Select leave type" />
                     </SelectTrigger>
@@ -179,7 +296,11 @@ export default function Leaves() {
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="manager">Select Manager *</Label>
-                  <Select name="manager_id" required>
+                  <Select 
+                    value={formData.manager_id}
+                    onValueChange={(value) => setFormData({...formData, manager_id: value})}
+                    required
+                  >
                     <SelectTrigger id="manager">
                       <SelectValue placeholder="Select your manager" />
                     </SelectTrigger>
@@ -192,21 +313,94 @@ export default function Leaves() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="from-date">From Date</Label>
-                  <Input id="from-date" name="from" type="date" required />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="to-date">To Date</Label>
-                  <Input id="to-date" name="to" type="date" required />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="from-date">From Date</Label>
+                    <Input 
+                      id="from-date" 
+                      type="date" 
+                      value={formData.start_date}
+                      onChange={(e) => setFormData({...formData, start_date: e.target.value})}
+                      required 
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="to-date">To Date</Label>
+                    <Input 
+                      id="to-date" 
+                      type="date" 
+                      value={formData.end_date}
+                      onChange={(e) => setFormData({...formData, end_date: e.target.value})}
+                      required 
+                    />
+                  </div>
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="days">Number of Days</Label>
-                  <Input id="days" name="days" type="number" min="1" required />
+                  <Input 
+                    id="days" 
+                    type="number" 
+                    value={formData.days}
+                    readOnly
+                    className="bg-muted"
+                  />
                 </div>
+
+                {conflicts.length > 0 && (
+                  <Alert>
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertDescription>
+                      <strong>Leave Conflicts Detected:</strong>
+                      <div className="mt-2 space-y-1 text-sm">
+                        {conflicts.map((conflict) => (
+                          <div key={conflict.id}>
+                            • {conflict.full_name} ({conflict.department}) - {conflict.leave_type} 
+                            ({new Date(conflict.start_date).toLocaleDateString()} to {new Date(conflict.end_date).toLocaleDateString()})
+                          </div>
+                        ))}
+                      </div>
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                <div className="grid gap-2">
+                  <Label>CC Employees (Optional)</Label>
+                  <div className="border rounded-md p-3 max-h-48 overflow-y-auto space-y-2">
+                    {employees
+                      .filter(emp => emp.id !== user?.id)
+                      .map((employee) => (
+                        <div key={employee.id} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`cc-${employee.id}`}
+                            checked={selectedCCEmails.includes(employee.email)}
+                            onCheckedChange={() => toggleCCEmail(employee.email)}
+                          />
+                          <label
+                            htmlFor={`cc-${employee.id}`}
+                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                          >
+                            {employee.full_name} - {employee.email}
+                          </label>
+                        </div>
+                      ))}
+                  </div>
+                  {selectedCCEmails.length > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      {selectedCCEmails.length} employee(s) will be CC'd
+                    </p>
+                  )}
+                </div>
+
                 <div className="grid gap-2">
                   <Label htmlFor="reason">Reason</Label>
-                  <Textarea id="reason" name="reason" placeholder="Please provide a reason for your leave" rows={3} required />
+                  <Textarea 
+                    id="reason" 
+                    placeholder="Please provide a reason for your leave" 
+                    rows={3}
+                    value={formData.reason}
+                    onChange={(e) => setFormData({...formData, reason: e.target.value})}
+                    required 
+                  />
                 </div>
               </div>
               <DialogFooter>
@@ -218,7 +412,6 @@ export default function Leaves() {
         </Dialog>
       </div>
 
-      {/* Leave Balance */}
       <LeaveBalanceCard 
         balances={leaveBalance.map(b => ({
           leaveType: b.leave_type,
@@ -281,17 +474,27 @@ export default function Leaves() {
                       Details
                     </Button>
                     {leave.status === "Pending" && (
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => {
-                          setSelectedLeaveId(leave.id);
-                          setCancelDialogOpen(true);
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4 mr-1" />
-                        Cancel
-                      </Button>
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleEditClick(leave)}
+                        >
+                          <Edit className="h-4 w-4 mr-1" />
+                          Edit
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedLeaveId(leave.id);
+                            setCancelDialogOpen(true);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          Cancel
+                        </Button>
+                      </>
                     )}
                   </div>
                 </div>
@@ -361,6 +564,14 @@ export default function Leaves() {
                       Details
                     </Button>
                     <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleEditClick(leave)}
+                    >
+                      <Edit className="h-4 w-4 mr-1" />
+                      Edit
+                    </Button>
+                    <Button
                       variant="destructive"
                       size="sm"
                       onClick={() => {
@@ -410,69 +621,127 @@ export default function Leaves() {
         </CardContent>
       </Card>
 
-      {/* Cancel Confirmation Dialog */}
       <AlertDialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Cancel Leave Request</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to cancel this leave request? This action cannot be undone.
+              Are you sure you want to cancel this leave request? Manager and HR will be notified.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>No, keep it</AlertDialogCancel>
-            <AlertDialogAction onClick={handleCancelLeave}>Yes, cancel request</AlertDialogAction>
+            <AlertDialogAction onClick={handleCancelLeave}>
+              Yes, cancel request
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Leave Details Dialog */}
-      <Dialog open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen}>
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Leave Request Details</DialogTitle>
+            <DialogTitle>Edit Leave Request</DialogTitle>
           </DialogHeader>
-          {selectedLeave && (
-            <div className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Leave Type</p>
-                  <p className="text-base font-semibold">{selectedLeave.leave_type}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Status</p>
-                  <Badge variant={getStatusColor(selectedLeave.status.toLowerCase()) as any}>
-                    {selectedLeave.status}
-                  </Badge>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Start Date</p>
-                  <p className="text-base">{new Date(selectedLeave.start_date).toLocaleDateString()}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">End Date</p>
-                  <p className="text-base">{new Date(selectedLeave.end_date).toLocaleDateString()}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Duration</p>
-                  <p className="text-base">{selectedLeave.days} day{selectedLeave.days > 1 ? 's' : ''}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Applied On</p>
-                  <p className="text-base">{new Date(selectedLeave.created_at).toLocaleDateString()}</p>
-                </div>
-              </div>
-              
-              <div>
-                <p className="text-sm font-medium text-muted-foreground mb-2">Reason</p>
-                <p className="text-base">{selectedLeave.reason}</p>
-              </div>
-
-              <LeaveHistoryTimeline leave={selectedLeave} />
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Leave Type</label>
+              <Select 
+                value={editFormData.leave_type} 
+                onValueChange={(value) => setEditFormData({...editFormData, leave_type: value})}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select leave type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {leaveTypes.map((type) => (
+                    <SelectItem key={type.id} value={type.name}>
+                      {type.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-          )}
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium">Start Date</label>
+                <Input
+                  type="date"
+                  value={editFormData.start_date}
+                  onChange={(e) => setEditFormData({...editFormData, start_date: e.target.value})}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">End Date</label>
+                <Input
+                  type="date"
+                  value={editFormData.end_date}
+                  onChange={(e) => setEditFormData({...editFormData, end_date: e.target.value})}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">Number of Days</label>
+              <Input
+                type="number"
+                value={editFormData.days}
+                readOnly
+                className="bg-muted"
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">Select Manager</label>
+              <Select 
+                value={editFormData.manager_id?.toString()} 
+                onValueChange={(value) => setEditFormData({...editFormData, manager_id: parseInt(value)})}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a manager" />
+                </SelectTrigger>
+                <SelectContent>
+                  {managers.map((manager) => (
+                    <SelectItem key={manager.id} value={manager.id.toString()}>
+                      {manager.full_name} - {manager.department}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">Reason</label>
+              <Textarea
+                value={editFormData.reason}
+                onChange={(e) => setEditFormData({...editFormData, reason: e.target.value})}
+                placeholder="Reason for leave"
+                rows={4}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleEditLeave}>
+              Update Leave Request
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {selectedLeave && (
+        <Dialog open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen}>
+          <DialogContent className="max-w-3xl">
+            <DialogHeader>
+              <DialogTitle>Leave Request Details</DialogTitle>
+            </DialogHeader>
+            <LeaveHistoryTimeline leave={selectedLeave} />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

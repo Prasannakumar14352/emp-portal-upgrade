@@ -40,6 +40,18 @@ export interface CreateLeaveRequest {
   days: number;
   reason: string;
   manager_id?: number;
+  cc_emails?: string[];
+}
+
+export interface LeaveConflict {
+  id: string;
+  user_id: string;
+  full_name: string;
+  department: string;
+  leave_type: string;
+  start_date: string;
+  end_date: string;
+  days: number;
 }
 
 export interface UpdateLeaveRequest {
@@ -97,6 +109,18 @@ class LeaveService {
   // Cancel leave request
   async cancelLeave(leaveId: string): Promise<void> {
     return apiClient.delete(`/leaves/${leaveId}`);
+  }
+
+  // Check for leave conflicts
+  async checkConflicts(startDate: string, endDate: string, userId?: string): Promise<LeaveConflict[]> {
+    const params = new URLSearchParams({
+      start_date: startDate,
+      end_date: endDate,
+    });
+    if (userId) {
+      params.append('user_id', userId);
+    }
+    return apiClient.get<LeaveConflict[]>(`/leaves/conflicts?${params.toString()}`);
   }
 }
 
