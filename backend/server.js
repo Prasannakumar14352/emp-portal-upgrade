@@ -38,6 +38,25 @@ app.use('/api/employees', employeeRoutes);
 app.use('/api/holidays', holidayRoutes);
 app.use('/api/payslips', payslipRoutes);
 
+// Root endpoint - API info
+app.get('/', (req, res) => {
+  res.json({
+    message: 'Employee Portal API',
+    version: '1.0.0',
+    endpoints: {
+      auth: '/api/auth (login, signup, logout)',
+      users: '/api/users',
+      leaves: '/api/leaves',
+      employees: '/api/employees',
+      holidays: '/api/holidays',
+      payslips: '/api/payslips',
+      notifications: '/api/notifications',
+      health: '/api/health'
+    },
+    documentation: 'See backend/README.md for full API documentation'
+  });
+});
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Backend server is running' });
