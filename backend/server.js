@@ -23,9 +23,35 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Request logging middleware
+// Enhanced request logging middleware
 app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+  const startTime = Date.now();
+  const timestamp = new Date().toISOString();
+  
+  // Log incoming request
+  console.log(`[${timestamp}] --> ${req.method} ${req.path}`);
+  
+  // Log request body for POST/PUT/PATCH (excluding passwords)
+  if (['POST', 'PUT', 'PATCH'].includes(req.method) && req.body) {
+    const sanitizedBody = { ...req.body };
+    if (sanitizedBody.password) sanitizedBody.password = '***';
+    if (sanitizedBody.current_password) sanitizedBody.current_password = '***';
+    if (sanitizedBody.new_password) sanitizedBody.new_password = '***';
+    console.log(`    Body:`, JSON.stringify(sanitizedBody));
+  }
+  
+  // Capture response
+  const originalSend = res.send;
+  res.send = function(data) {
+    const duration = Date.now() - startTime;
+    const statusColor = res.statusCode >= 400 ? '\x1b[31m' : '\x1b[32m';
+    const resetColor = '\x1b[0m';
+    
+    console.log(`[${timestamp}] <-- ${req.method} ${req.path} ${statusColor}${res.statusCode}${resetColor} - ${duration}ms`);
+    
+    return originalSend.call(this, data);
+  };
+  
   next();
 });
 
