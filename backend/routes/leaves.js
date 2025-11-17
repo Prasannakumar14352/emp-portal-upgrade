@@ -398,6 +398,7 @@ router.delete('/:leaveId', authenticateToken, async (req, res) => {
   try {
     const { leaveId } = req.params;
     const pool = await getConnection();
+    const nodemailer = require('nodemailer');
     
     // Get leave request details
     const leaveResult = await pool.request()
@@ -420,10 +421,82 @@ router.delete('/:leaveId', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Only pending leave requests can be cancelled' });
     }
 
+    // Get employee details
+    const employeeResult = await pool.request()
+      .input('user_id', sql.Int, leave.user_id)
+      .query('SELECT email, full_name FROM profiles WHERE id = @user_id');
+
     // Delete the leave request
     await pool.request()
       .input('leave_id', sql.Int, leaveId)
       .query('DELETE FROM leaves WHERE id = @leave_id');
+
+    // Send email notifications
+    try {
+      const transporter = nodemailer.createTransporter({
+        host: process.env.SMTP_SERVER,
+        port: 587,
+        secure: false,
+        auth: {
+          user: process.env.GMAIL_USER,
+          pass: process.env.GMAIL_APP_PASSWORD
+        }
+      });
+
+      if (employeeResult.recordset.length > 0) {
+        const employee = employeeResult.recordset[0];
+
+        // Notify manager if there is one
+        if (leave.manager_id) {
+          const managerResult = await pool.request()
+            .input('manager_id', sql.Int, leave.manager_id)
+            .query('SELECT email, full_name FROM profiles WHERE id = @manager_id');
+          
+          if (managerResult.recordset.length > 0) {
+            const manager = managerResult.recordset[0];
+            await transporter.sendMail({
+              from: process.env.GMAIL_USER,
+              to: manager.email,
+              subject: 'Leave Request Cancelled',
+              html: `
+                <h2>Leave Request Cancelled</h2>
+                <p><strong>${employee.full_name}</strong> has cancelled their leave request.</p>
+                <p><strong>Leave Type:</strong> ${leave.leave_type}</p>
+                <p><strong>Duration:</strong> ${leave.start_date} to ${leave.end_date} (${leave.days} days)</p>
+                <p><strong>Reason:</strong> ${leave.reason}</p>
+              `
+            });
+          }
+        }
+
+        // Notify all HR users
+        const hrResult = await pool.request()
+          .query(`
+            SELECT p.email, p.full_name 
+            FROM profiles p
+            JOIN user_roles ur ON p.id = ur.user_id
+            WHERE ur.role = 'hr'
+          `);
+        
+        if (hrResult.recordset.length > 0) {
+          const hrEmails = hrResult.recordset.map(hr => hr.email);
+          await transporter.sendMail({
+            from: process.env.GMAIL_USER,
+            to: hrEmails,
+            subject: 'Leave Request Cancelled',
+            html: `
+              <h2>Leave Request Cancelled</h2>
+              <p><strong>${employee.full_name}</strong> has cancelled their leave request.</p>
+              <p><strong>Leave Type:</strong> ${leave.leave_type}</p>
+              <p><strong>Duration:</strong> ${leave.start_date} to ${leave.end_date} (${leave.days} days)</p>
+              <p><strong>Reason:</strong> ${leave.reason}</p>
+            `
+          });
+        }
+      }
+    } catch (emailErr) {
+      console.error('Failed to send cancellation email notification:', emailErr);
+    }
 
     res.json({ message: 'Leave request cancelled successfully' });
   } catch (err) {
