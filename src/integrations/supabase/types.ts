@@ -151,6 +151,36 @@ export type Database = {
           },
         ]
       }
+      leave_types: {
+        Row: {
+          created_at: string | null
+          default_days: number
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          default_days?: number
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          default_days?: number
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       leaves: {
         Row: {
           approved_by: string | null

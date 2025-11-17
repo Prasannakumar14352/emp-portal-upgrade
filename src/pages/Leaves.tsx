@@ -12,12 +12,15 @@ import { Calendar, Plus, CheckCircle, XCircle, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { leaveService, type Leave, type LeaveBalance } from "@/services/leaveService";
+import { leaveTypeService, type LeaveType } from "@/services/leaveTypeService";
+import { LeaveBalanceCard } from "@/components/LeaveBalanceCard";
 
 export default function Leaves() {
   const [open, setOpen] = useState(false);
   const { user } = useAuth();
   const [leaveBalance, setLeaveBalance] = useState<LeaveBalance[]>([]);
   const [leaveHistory, setLeaveHistory] = useState<Leave[]>([]);
+  const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -29,12 +32,14 @@ export default function Leaves() {
   const loadLeaveData = async () => {
     try {
       setLoading(true);
-      const [balances, history] = await Promise.all([
+      const [balances, history, types] = await Promise.all([
         leaveService.getUserLeaveBalances(user!.id),
         leaveService.getUserLeaves(user!.id),
+        leaveTypeService.getActiveLeaveTypes(),
       ]);
       setLeaveBalance(balances);
       setLeaveHistory(history);
+      setLeaveTypes(types);
     } catch (error) {
       console.error('Failed to load leave data:', error);
       toast.error('Failed to load leave data');
@@ -124,24 +129,29 @@ export default function Leaves() {
                       <SelectValue placeholder="Select leave type" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Annual Leave">Annual Leave</SelectItem>
-                      <SelectItem value="Sick Leave">Sick Leave</SelectItem>
-                      <SelectItem value="Casual Leave">Casual Leave</SelectItem>
-                      <SelectItem value="Work From Home">Work From Home</SelectItem>
+                      {leaveTypes.map((type) => (
+                        <SelectItem key={type.id} value={type.name}>
+                          {type.name} ({type.default_days} days)
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="from-date">From Date</Label>
-                  <Input id="from-date" type="date" />
+                  <Input id="from-date" name="from" type="date" required />
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="to-date">To Date</Label>
-                  <Input id="to-date" type="date" />
+                  <Input id="to-date" name="to" type="date" required />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="days">Number of Days</Label>
+                  <Input id="days" name="days" type="number" min="1" required />
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="reason">Reason</Label>
-                  <Textarea id="reason" placeholder="Please provide a reason for your leave" rows={3} />
+                  <Textarea id="reason" name="reason" placeholder="Please provide a reason for your leave" rows={3} required />
                 </div>
               </div>
               <DialogFooter>
@@ -153,33 +163,17 @@ export default function Leaves() {
         </Dialog>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        {leaveBalance.map((balance) => (
-          <Card key={balance.id}>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg">{balance.leave_type}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Available</span>
-                  <span className="text-2xl font-bold text-success">{balance.remaining_days}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Used: {balance.used_days}</span>
-                  <span className="text-muted-foreground">Total: {balance.total_days}</span>
-                </div>
-                <div className="h-2 rounded-full bg-secondary">
-                  <div
-                    className="h-full rounded-full bg-primary transition-all"
-                    style={{ width: `${(balance.remaining_days / balance.total_days) * 100}%` }}
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      {/* Leave Balance */}
+      <LeaveBalanceCard 
+        balances={leaveBalance.map(b => ({
+          leaveType: b.leave_type,
+          totalDays: b.total_days,
+          usedDays: b.used_days,
+          remainingDays: b.remaining_days,
+          carryForward: b.carry_forward_days || 0
+        }))}
+        year={new Date().getFullYear()}
+      />
 
       <Card>
         <CardHeader>

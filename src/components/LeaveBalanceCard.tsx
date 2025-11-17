@@ -1,7 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, TrendingDown, ArrowRight } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Calendar, TrendingDown, ArrowRight, AlertTriangle } from "lucide-react";
 
 interface LeaveBalance {
   leaveType: string;
@@ -36,6 +37,14 @@ export function LeaveBalanceCard({ balances, year }: LeaveBalanceCardProps) {
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
+        {balances.some(b => (b.remainingDays / b.totalDays) < 0.25) && (
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              You're running low on leave days! Consider planning your leave carefully.
+            </AlertDescription>
+          </Alert>
+        )}
         {balances.map((balance, index) => {
           const usagePercentage = (balance.usedDays / balance.totalDays) * 100;
           
