@@ -162,12 +162,12 @@ router.get('/session', authenticateToken, async (req, res) => {
     const pool = await getConnection();
 
     const result = await pool.request()
-      .input('user_id', sql.UniqueIdentifier, req.user.id)
+      .input('user_id', sql.Int, req.user.id)
       .query(`
-        SELECT u.id, u.email, u.full_name, ur.role
-        FROM users u
-        LEFT JOIN user_roles ur ON u.id = ur.user_id
-        WHERE u.id = @user_id
+        SELECT p.id, p.email, p.full_name, p.department, p.position, ur.role
+        FROM profiles p
+        LEFT JOIN user_roles ur ON p.id = ur.user_id
+        WHERE p.id = @user_id
       `);
 
     if (result.recordset.length === 0)

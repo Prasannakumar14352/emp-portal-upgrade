@@ -16,7 +16,7 @@ router.get('/user/:userId', authenticateToken, async (req, res) => {
 
     const pool = await getConnection();
     const result = await pool.request()
-      .input('user_id', sql.UniqueIdentifier, userId)
+      .input('user_id', sql.Int, userId)
       .query(`
         SELECT 
           l.id, l.user_id, l.leave_type, l.start_date, l.end_date,
@@ -45,7 +45,7 @@ router.get('/', authenticateToken, authorizeRole('hr', 'manager'), async (req, r
         l.days, l.reason, l.status, l.approved_by, l.created_at, l.updated_at,
         u.full_name as user_name, u.email as user_email
       FROM leaves l
-      JOIN users u ON l.user_id = u.id
+      JOIN profiles u ON l.user_id = u.id
     `;
 
     if (status) {
@@ -74,7 +74,7 @@ router.post('/', authenticateToken, async (req, res) => {
     const pool = await getConnection();
 
     const result = await pool.request()
-      .input('user_id', sql.UniqueIdentifier, req.user.id)
+      .input('user_id', sql.Int, req.user.id)
       .input('leave_type', sql.NVarChar, leave_type)
       .input('start_date', sql.Date, start_date)
       .input('end_date', sql.Date, end_date)
@@ -105,9 +105,9 @@ router.patch('/:leaveId', authenticateToken, authorizeRole('hr', 'manager'), asy
 
     const pool = await getConnection();
     const result = await pool.request()
-      .input('leave_id', sql.UniqueIdentifier, leaveId)
+      .input('leave_id', sql.Int, leaveId)
       .input('status', sql.NVarChar, status)
-      .input('approved_by', sql.UniqueIdentifier, approved_by || req.user.id)
+      .input('approved_by', sql.Int, approved_by || req.user.id)
       .query(`
         UPDATE leaves
         SET status = @status, approved_by = @approved_by, updated_at = GETDATE()
@@ -125,7 +125,7 @@ router.patch('/:leaveId', authenticateToken, authorizeRole('hr', 'manager'), asy
       const year = new Date(leave.start_date).getFullYear();
 
       await pool.request()
-        .input('user_id', sql.UniqueIdentifier, leave.user_id)
+        .input('user_id', sql.Int, leave.user_id)
         .input('year', sql.Int, year)
         .input('leave_type', sql.NVarChar, leave.leave_type)
         .input('days', sql.Int, leave.days)
@@ -164,7 +164,7 @@ router.get('/balances/:userId', authenticateToken, async (req, res) => {
     const currentYear = year || new Date().getFullYear();
 
     const result = await pool.request()
-      .input('user_id', sql.UniqueIdentifier, userId)
+      .input('user_id', sql.Int, userId)
       .input('year', sql.Int, currentYear)
       .query(`
         SELECT 
@@ -189,8 +189,8 @@ router.post('/:leaveId/comments', authenticateToken, authorizeRole('hr', 'manage
 
     const pool = await getConnection();
     const result = await pool.request()
-      .input('leave_id', sql.UniqueIdentifier, leaveId)
-      .input('user_id', sql.UniqueIdentifier, req.user.id)
+      .input('leave_id', sql.Int, leaveId)
+      .input('user_id', sql.Int, req.user.id)
       .input('comment', sql.NVarChar, comment)
       .query(`
         INSERT INTO leave_comments (leave_id, user_id, comment, created_at)
@@ -212,13 +212,13 @@ router.get('/:leaveId/comments', authenticateToken, async (req, res) => {
     const pool = await getConnection();
 
     const result = await pool.request()
-      .input('leave_id', sql.UniqueIdentifier, leaveId)
+      .input('leave_id', sql.Int, leaveId)
       .query(`
         SELECT 
           lc.id, lc.leave_id, lc.user_id, lc.comment, lc.created_at,
           u.full_name as author_name
         FROM leave_comments lc
-        JOIN users u ON lc.user_id = u.id
+        JOIN profiles u ON lc.user_id = u.id
         WHERE lc.leave_id = @leave_id
         ORDER BY lc.created_at DESC
       `);

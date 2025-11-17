@@ -11,7 +11,7 @@ router.get('/:userId/role', authenticateToken, async (req, res) => {
     const pool = await getConnection();
 
     const result = await pool.request()
-      .input('user_id', sql.UniqueIdentifier, userId)
+      .input('user_id', sql.Int, userId)
       .query('SELECT role FROM user_roles WHERE user_id = @user_id');
 
     if (result.recordset.length === 0) {
@@ -32,13 +32,13 @@ router.get('/:userId/profile', authenticateToken, async (req, res) => {
     const pool = await getConnection();
 
     const result = await pool.request()
-      .input('user_id', sql.UniqueIdentifier, userId)
+      .input('user_id', sql.Int, userId)
       .query(`
         SELECT 
-          u.id, u.email, u.full_name, u.phone, 
-          u.department, u.position, u.avatar_url, u.hire_date
-        FROM users u
-        WHERE u.id = @user_id
+          p.id, p.email, p.full_name, p.phone, 
+          p.department, p.position, p.avatar_url, p.hire_date
+        FROM profiles p
+        WHERE p.id = @user_id
       `);
 
     if (result.recordset.length === 0) {
@@ -66,7 +66,7 @@ router.patch('/:userId/profile', authenticateToken, async (req, res) => {
     const pool = await getConnection();
 
     const result = await pool.request()
-      .input('user_id', sql.UniqueIdentifier, userId)
+      .input('user_id', sql.Int, userId)
       .input('full_name', sql.NVarChar, full_name)
       .input('phone', sql.NVarChar, phone)
       .input('department', sql.NVarChar, department)
@@ -74,7 +74,7 @@ router.patch('/:userId/profile', authenticateToken, async (req, res) => {
       .input('avatar_url', sql.NVarChar, avatar_url)
       .input('hire_date', sql.Date, hire_date)
       .query(`
-        UPDATE users
+        UPDATE profiles
         SET 
           full_name = COALESCE(@full_name, full_name),
           phone = COALESCE(@phone, phone),
@@ -105,10 +105,10 @@ router.get('/', authenticateToken, authorizeRole('hr', 'manager'), async (req, r
     const result = await pool.request()
       .query(`
         SELECT 
-          u.id, u.email, u.full_name, u.phone, 
-          u.department, u.position, u.avatar_url, u.hire_date
-        FROM users u
-        ORDER BY u.full_name
+          p.id, p.email, p.full_name, p.phone, 
+          p.department, p.position, p.avatar_url, p.hire_date
+        FROM profiles p
+        ORDER BY p.full_name
       `);
 
     res.json(result.recordset);

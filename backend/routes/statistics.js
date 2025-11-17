@@ -18,7 +18,7 @@ router.get('/employee/:userId', authenticateToken, async (req, res) => {
     
     // Get leave statistics
     const leaveStats = await pool.request()
-      .input('user_id', sql.UniqueIdentifier, userId)
+      .input('user_id', sql.Int, userId)
       .input('year', sql.Int, new Date().getFullYear())
       .query(`
         SELECT 
@@ -33,7 +33,7 @@ router.get('/employee/:userId', authenticateToken, async (req, res) => {
 
     // Get leave balance summary
     const balanceStats = await pool.request()
-      .input('user_id', sql.UniqueIdentifier, userId)
+      .input('user_id', sql.Int, userId)
       .input('year', sql.Int, new Date().getFullYear())
       .query(`
         SELECT 
@@ -47,7 +47,7 @@ router.get('/employee/:userId', authenticateToken, async (req, res) => {
 
     // Get leave type breakdown
     const leaveTypeBreakdown = await pool.request()
-      .input('user_id', sql.UniqueIdentifier, userId)
+      .input('user_id', sql.Int, userId)
       .input('year', sql.Int, new Date().getFullYear())
       .query(`
         SELECT 
@@ -61,7 +61,7 @@ router.get('/employee/:userId', authenticateToken, async (req, res) => {
 
     // Get monthly leave trends
     const monthlyTrends = await pool.request()
-      .input('user_id', sql.UniqueIdentifier, userId)
+      .input('user_id', sql.Int, userId)
       .input('year', sql.Int, new Date().getFullYear())
       .query(`
         SELECT 
@@ -123,7 +123,7 @@ router.get('/attendance/:userId', authenticateToken, async (req, res) => {
 
     // Get leave days taken
     const leaveDaysResult = await pool.request()
-      .input('user_id', sql.UniqueIdentifier, userId)
+      .input('user_id', sql.Int, userId)
       .input('start_date', sql.Date, startDate || new Date(new Date().getFullYear(), 0, 1))
       .input('end_date', sql.Date, endDate || new Date())
       .query(`
