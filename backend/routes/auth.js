@@ -66,7 +66,8 @@ router.post('/signup', [
     await pool.request()
       .input('user_id', sql.Int, newUser.id)
       .input('role', sql.NVarChar, 'employee')
-      .query(`INSERT INTO user_roles (user_id, role, created_at) VALUES (@user_id, @role, GETDATE())`);
+      .query(`IF NOT EXISTS (SELECT 1 FROM user_roles WHERE user_id = @user_id AND role = @role)
+        INSERT INTO user_roles (user_id, role, created_at) VALUES (@user_id, @role, GETDATE())`);
 
     const tokens = generateTokens({
       id: newUser.id,
