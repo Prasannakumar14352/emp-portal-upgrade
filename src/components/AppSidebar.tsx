@@ -7,7 +7,8 @@ import {
   User,
   Bell,
   Settings,
-  ClipboardCheck
+  ClipboardCheck,
+  BarChart3
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -38,6 +39,7 @@ const hrManagerItems = [
   { title: "HR Dashboard", url: "/hr-dashboard", icon: LayoutDashboard },
   { title: "Approve Leaves", url: "/approve-leaves", icon: ClipboardCheck },
   { title: "Leave Calendar", url: "/leave-calendar", icon: CalendarClock },
+  { title: "Advanced Reports", url: "/advanced-reports", icon: BarChart3 },
 ];
 
 const secondaryItems = [
