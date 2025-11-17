@@ -19,6 +19,7 @@ export type Database = {
           created_at: string | null
           department: string
           email: string
+          employee_id: number
           full_name: string
           id: string
           phone: string | null
@@ -31,6 +32,7 @@ export type Database = {
           created_at?: string | null
           department: string
           email: string
+          employee_id?: never
           full_name: string
           id?: string
           phone?: string | null
@@ -43,6 +45,7 @@ export type Database = {
           created_at?: string | null
           department?: string
           email?: string
+          employee_id?: never
           full_name?: string
           id?: string
           phone?: string | null
@@ -268,6 +271,7 @@ export type Database = {
           created_at: string | null
           department: string | null
           email: string
+          employee_id: number
           full_name: string
           hire_date: string | null
           id: string
@@ -280,6 +284,7 @@ export type Database = {
           created_at?: string | null
           department?: string | null
           email: string
+          employee_id?: never
           full_name: string
           hire_date?: string | null
           id: string
@@ -292,6 +297,7 @@ export type Database = {
           created_at?: string | null
           department?: string | null
           email?: string
+          employee_id?: never
           full_name?: string
           hire_date?: string | null
           id?: string

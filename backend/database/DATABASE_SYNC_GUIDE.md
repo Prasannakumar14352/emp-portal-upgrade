@@ -2,10 +2,17 @@
 
 This guide explains how to sync all Supabase tables and features to your local SQL Server database.
 
+## 🔑 Important: ID Types
+
+**Supabase (Cloud)**: Uses UUID (GUID) for user authentication (auth.users) + numeric `employee_id` field
+**SQL Server (Local)**: Uses INT IDENTITY (1, 2, 3...) for all user IDs for simpler management
+
+Both systems now include numeric employee IDs for human-readable identification.
+
 ## ✅ What's Included
 
-### Tables
-- **profiles** - User profiles and authentication data (maps to Supabase auth.users + profiles)
+### Tables (Using Numeric Employee IDs)
+- **profiles** - User profiles with numeric employee IDs (INT IDENTITY)
 - **user_roles** - Role-based access control (employee, hr, manager)
 - **user_sessions** - Session tracking for time management
 - **employees** - Employee directory and details
@@ -15,6 +22,8 @@ This guide explains how to sync all Supabase tables and features to your local S
 - **leave_balances** - Automated leave balance tracking per user/year/type
 - **leave_comments** - Comments on leave requests
 - **payslips** - Payroll information
+
+**Note**: SQL Server uses INT IDENTITY for employee IDs (1, 2, 3...) instead of GUIDs for easier management.
 
 ### Automated Features
 1. **Session Duration Calculation** - Automatically calculates session time when logout occurs
@@ -48,22 +57,23 @@ This guide explains how to sync all Supabase tables and features to your local S
 ```
 
 ### 3. OAuth User Synchronization
-When users log in via Microsoft OAuth (or any OAuth provider), call the stored procedure to sync their employee record:
+When users log in via Microsoft OAuth (or any OAuth provider), the stored procedure automatically syncs their employee record:
 
 ```sql
--- Example: Sync OAuth user after authentication
+-- Example: Sync OAuth user after authentication (called automatically by backend)
 EXEC sp_sync_oauth_user 
-  @user_id = 'USER_GUID_HERE',
   @email = 'user@company.com',
   @full_name = 'John Doe',
   @department = 'Engineering',  -- Optional, defaults to 'Not Assigned'
   @position = 'Developer';       -- Optional, defaults to 'Employee'
 ```
 
-This procedure will:
-- Create a profile record if it doesn't exist
+The procedure will:
+- Create a profile record if it doesn't exist (returns numeric employee ID)
 - Create or update the employee record
 - Assign the default 'employee' role if not already assigned
+
+Returns the numeric employee ID (INT) for the user.
 
 ### 4. Verify Setup
 ```sql
@@ -141,7 +151,7 @@ The `schema.sql` file mirrors all Supabase tables and functionality:
 | Triggers | SQL Server triggers |
 | Functions | Stored procedures & triggers |
 | Auto-updated timestamps | UPDATE triggers |
-| UUID generation | UNIQUEIDENTIFIER with NEWID() |
+| UUID IDs | INT IDENTITY (1, 2, 3...) for easier management |
 
 ## 📝 Common Operations
 

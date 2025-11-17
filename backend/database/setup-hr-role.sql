@@ -3,7 +3,7 @@
 
 -- STEP 1: Find your user ID
 -- Replace 'YOUR_EMAIL@example.com' with your actual email address
-DECLARE @user_id UNIQUEIDENTIFIER;
+DECLARE @user_id INT;
 
 SELECT @user_id = id 
 FROM profiles 
@@ -34,6 +34,7 @@ END
 SELECT 
     u.email,
     u.full_name,
+    u.id AS employee_id,
     ur.role,
     ur.created_at
 FROM profiles u

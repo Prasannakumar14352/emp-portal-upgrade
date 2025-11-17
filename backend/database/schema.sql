@@ -1,6 +1,6 @@
 -- Employee Portal Database Schema - Synced with Supabase
 -- Execute this script on your SQL Server database
--- This schema mirrors the Supabase database structure exactly
+-- This schema uses numeric employee IDs instead of GUIDs for easier management
 
 -- Drop existing tables if they exist (for fresh setup)
 IF OBJECT_ID('leave_comments', 'U') IS NOT NULL DROP TABLE leave_comments;
@@ -15,13 +15,10 @@ IF OBJECT_ID('user_roles', 'U') IS NOT NULL DROP TABLE user_roles;
 IF OBJECT_ID('profiles', 'U') IS NOT NULL DROP TABLE profiles;
 
 -- ============================================================================
--- PROFILES TABLE (Maps to Supabase auth.users + profiles)
+-- PROFILES TABLE (User Authentication and Profiles)
 -- ============================================================================
--- Note: In Supabase, authentication is handled by auth.users (managed by Supabase)
--- and additional user info is stored in profiles table. In SQL Server, you'll
--- need to manage authentication separately or integrate with your auth system.
 CREATE TABLE profiles (
-    id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+    id INT PRIMARY KEY IDENTITY(1,1),  -- Numeric employee ID
     email NVARCHAR(255) NOT NULL UNIQUE,
     full_name NVARCHAR(255) NOT NULL,
     phone NVARCHAR(50),
@@ -37,8 +34,8 @@ CREATE TABLE profiles (
 -- USER ROLES TABLE
 -- ============================================================================
 CREATE TABLE user_roles (
-    id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-    user_id UNIQUEIDENTIFIER NOT NULL,
+    id INT PRIMARY KEY IDENTITY(1,1),
+    user_id INT NOT NULL,
     role NVARCHAR(20) NOT NULL CHECK (role IN ('employee', 'hr', 'manager')),
     created_at DATETIME2 DEFAULT GETDATE(),
     CONSTRAINT FK_user_roles_profiles FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE,
@@ -49,8 +46,8 @@ CREATE TABLE user_roles (
 -- EMPLOYEES TABLE
 -- ============================================================================
 CREATE TABLE employees (
-    id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-    user_id UNIQUEIDENTIFIER,
+    id INT PRIMARY KEY IDENTITY(1,1),
+    user_id INT,
     full_name NVARCHAR(255) NOT NULL,
     email NVARCHAR(255) NOT NULL,
     phone NVARCHAR(50),
@@ -66,8 +63,8 @@ CREATE TABLE employees (
 -- USER SESSIONS TABLE (Time Tracking)
 -- ============================================================================
 CREATE TABLE user_sessions (
-    id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-    user_id UNIQUEIDENTIFIER NOT NULL,
+    id INT PRIMARY KEY IDENTITY(1,1),
+    user_id INT NOT NULL,
     login_time DATETIME2 NOT NULL DEFAULT GETDATE(),
     logout_time DATETIME2,
     session_duration INT, -- Duration in minutes
@@ -78,8 +75,10 @@ CREATE TABLE user_sessions (
 -- ============================================================================
 -- HOLIDAYS TABLE
 -- ============================================================================
+-- HOLIDAYS TABLE
+-- ============================================================================
 CREATE TABLE holidays (
-    id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+    id INT PRIMARY KEY IDENTITY(1,1),
     name NVARCHAR(255) NOT NULL,
     date DATE NOT NULL,
     type NVARCHAR(255) NOT NULL,
@@ -91,7 +90,7 @@ CREATE TABLE holidays (
 -- LEAVE TYPES TABLE
 -- ============================================================================
 CREATE TABLE leave_types (
-    id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+    id INT PRIMARY KEY IDENTITY(1,1),
     name NVARCHAR(255) NOT NULL,
     default_days INT NOT NULL DEFAULT 0,
     description NVARCHAR(MAX),
@@ -104,15 +103,15 @@ CREATE TABLE leave_types (
 -- LEAVES TABLE
 -- ============================================================================
 CREATE TABLE leaves (
-    id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-    user_id UNIQUEIDENTIFIER NOT NULL,
+    id INT PRIMARY KEY IDENTITY(1,1),
+    user_id INT NOT NULL,
     leave_type NVARCHAR(255) NOT NULL,
     start_date DATE NOT NULL,
     end_date DATE NOT NULL,
     days INT NOT NULL,
     reason NVARCHAR(MAX) NOT NULL,
     status NVARCHAR(50) DEFAULT 'Pending',
-    approved_by UNIQUEIDENTIFIER,
+    approved_by INT,
     created_at DATETIME2 DEFAULT GETDATE(),
     updated_at DATETIME2 DEFAULT GETDATE(),
     CONSTRAINT FK_leaves_profiles FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE,
@@ -123,8 +122,8 @@ CREATE TABLE leaves (
 -- LEAVE BALANCES TABLE
 -- ============================================================================
 CREATE TABLE leave_balances (
-    id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-    user_id UNIQUEIDENTIFIER NOT NULL,
+    id INT PRIMARY KEY IDENTITY(1,1),
+    user_id INT NOT NULL,
     year INT NOT NULL,
     leave_type NVARCHAR(255) NOT NULL,
     total_days DECIMAL(10, 2) NOT NULL DEFAULT 0,
@@ -141,9 +140,9 @@ CREATE TABLE leave_balances (
 -- LEAVE COMMENTS TABLE
 -- ============================================================================
 CREATE TABLE leave_comments (
-    id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-    leave_id UNIQUEIDENTIFIER NOT NULL,
-    user_id UNIQUEIDENTIFIER NOT NULL,
+    id INT PRIMARY KEY IDENTITY(1,1),
+    leave_id INT NOT NULL,
+    user_id INT NOT NULL,
     comment NVARCHAR(MAX) NOT NULL,
     created_at DATETIME2 DEFAULT GETDATE(),
     CONSTRAINT FK_leave_comments_leaves FOREIGN KEY (leave_id) REFERENCES leaves(id) ON DELETE CASCADE,
@@ -154,8 +153,8 @@ CREATE TABLE leave_comments (
 -- PAYSLIPS TABLE
 -- ============================================================================
 CREATE TABLE payslips (
-    id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-    user_id UNIQUEIDENTIFIER NOT NULL,
+    id INT PRIMARY KEY IDENTITY(1,1),
+    user_id INT NOT NULL,
     month NVARCHAR(50) NOT NULL,
     year INT NOT NULL,
     basic_salary DECIMAL(10, 2) NOT NULL,
@@ -310,7 +309,6 @@ INSERT INTO holidays (name, date, type, description) VALUES
 
 GO
 CREATE PROCEDURE sp_sync_oauth_user
-    @user_id UNIQUEIDENTIFIER,
     @email NVARCHAR(255),
     @full_name NVARCHAR(255),
     @department NVARCHAR(255) = 'Not Assigned',
@@ -319,16 +317,26 @@ AS
 BEGIN
     SET NOCOUNT ON;
     
+    DECLARE @user_id INT;
+    
     BEGIN TRY
         BEGIN TRANSACTION;
         
-        -- Check if profile exists, if not create it
-        IF NOT EXISTS (SELECT 1 FROM profiles WHERE id = @user_id)
+        -- Check if profile exists by email, if not create it
+        SELECT @user_id = id FROM profiles WHERE email = @email;
+        
+        IF @user_id IS NULL
         BEGIN
-            INSERT INTO profiles (id, email, full_name, created_at, updated_at)
-            VALUES (@user_id, @email, @full_name, GETDATE(), GETDATE());
+            INSERT INTO profiles (email, full_name, created_at, updated_at)
+            VALUES (@email, @full_name, GETDATE(), GETDATE());
             
-            PRINT 'Profile created for user: ' + @email;
+            SET @user_id = SCOPE_IDENTITY();
+            
+            PRINT 'Profile created for user: ' + @email + ' with ID: ' + CAST(@user_id AS NVARCHAR);
+        END
+        ELSE
+        BEGIN
+            PRINT 'Profile already exists for: ' + @email + ' with ID: ' + CAST(@user_id AS NVARCHAR);
         END
         
         -- Check if employee record exists, if not create it
@@ -345,6 +353,8 @@ BEGIN
             UPDATE employees
             SET full_name = @full_name,
                 email = @email,
+                department = @department,
+                position = @position,
                 updated_at = GETDATE()
             WHERE user_id = @user_id;
             
@@ -363,6 +373,9 @@ BEGIN
         COMMIT TRANSACTION;
         
         PRINT 'OAuth user sync completed successfully for: ' + @email;
+        
+        -- Return the user ID
+        SELECT @user_id AS user_id;
         
     END TRY
     BEGIN CATCH
@@ -386,8 +399,10 @@ PRINT '========================================';
 PRINT 'Database schema created successfully!';
 PRINT '========================================';
 PRINT '';
+PRINT 'ID System: INT IDENTITY (numeric employee IDs: 1, 2, 3...)';
+PRINT '';
 PRINT 'Tables created:';
-PRINT '  - profiles (user authentication and profiles)';
+PRINT '  - profiles (user authentication with numeric IDs)';
 PRINT '  - user_roles (role management: employee, hr, manager)';
 PRINT '  - user_sessions (time tracking)';
 PRINT '  - employees (employee details)';
@@ -399,7 +414,7 @@ PRINT '  - leave_comments (leave request comments)';
 PRINT '  - payslips (salary information)';
 PRINT '';
 PRINT 'Stored Procedures:';
-PRINT '  - sp_sync_oauth_user (OAuth user sync for employees)';
+PRINT '  - sp_sync_oauth_user (OAuth user sync - uses email lookup)';
 PRINT '';
 PRINT 'Automated Features:';
 PRINT '  - Session duration auto-calculation on logout';
@@ -409,7 +424,7 @@ PRINT '  - OAuth user sync (creates employee records automatically)';
 PRINT '';
 PRINT 'Next Steps:';
 PRINT '  1. Run setup-hr-role.sql to grant HR access';
-PRINT '  2. Create user accounts in profiles table';
+PRINT '  2. Create user accounts in profiles table (auto-increment IDs)';
 PRINT '  3. Sync with your authentication system';
 PRINT '  4. OAuth users will auto-create employee records';
 PRINT '';
