@@ -6,10 +6,12 @@ import {
   Users, 
   User,
   Bell,
-  Settings
+  Settings,
+  ClipboardCheck
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
+import { useUserRole } from "@/hooks/useUserRole";
 
 import {
   Sidebar,
@@ -32,6 +34,10 @@ const mainItems = [
   { title: "Employees", url: "/employees", icon: Users },
 ];
 
+const hrManagerItems = [
+  { title: "Approve Leaves", url: "/approve-leaves", icon: ClipboardCheck },
+];
+
 const secondaryItems = [
   { title: "Profile", url: "/profile", icon: User },
   { title: "Notifications", url: "/notifications", icon: Bell },
@@ -42,11 +48,14 @@ export function AppSidebar() {
   const { open } = useSidebar();
   const location = useLocation();
   const currentPath = location.pathname;
+  const { role } = useUserRole();
 
   const isActive = (path: string) => {
     if (path === "/") return currentPath === "/";
     return currentPath.startsWith(path);
   };
+
+  const isHROrManager = role === "hr" || role === "manager";
 
   return (
     <Sidebar collapsible="icon">
@@ -86,6 +95,29 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {isHROrManager && (
+          <SidebarGroup>
+            <SidebarGroupLabel>HR / Manager</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {hrManagerItems.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild isActive={isActive(item.url)}>
+                      <NavLink 
+                        to={item.url}
+                        className="flex items-center gap-2"
+                      >
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.title}</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
         <SidebarGroup>
           <SidebarGroupLabel>Account</SidebarGroupLabel>

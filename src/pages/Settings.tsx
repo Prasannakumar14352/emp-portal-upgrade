@@ -3,15 +3,27 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Settings as SettingsIcon, Moon, Bell, Lock, Globe } from "lucide-react";
+import { Settings as SettingsIcon, Moon, Bell, Lock, Globe, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { useTheme } from "next-themes";
+import { useUserRole, UserRole } from "@/hooks/useUserRole";
+import { useState } from "react";
 
 export default function Settings() {
   const { theme, setTheme } = useTheme();
+  const { role } = useUserRole();
+  const [selectedRole, setSelectedRole] = useState<UserRole>(role || "employee");
 
   const handleSave = () => {
     toast.success("Settings saved successfully!");
+  };
+
+  const handleRoleChange = (newRole: string) => {
+    const typedRole = newRole as UserRole;
+    setSelectedRole(typedRole);
+    localStorage.setItem("mockUserRole", typedRole);
+    toast.success(`Role changed to ${typedRole}. Refresh to see changes.`);
+    setTimeout(() => window.location.reload(), 1000);
   };
 
   return (
@@ -68,6 +80,34 @@ export default function Settings() {
             </div>
           </CardContent>
         </Card> */}
+
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5" />
+              <CardTitle>Role Settings (Demo)</CardTitle>
+            </div>
+            <CardDescription>Switch between roles to test different permissions</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label>Current Role</Label>
+                <p className="text-sm text-muted-foreground">Change your role to test different views</p>
+              </div>
+              <Select value={selectedRole} onValueChange={handleRoleChange}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="employee">Employee</SelectItem>
+                  <SelectItem value="hr">HR</SelectItem>
+                  <SelectItem value="manager">Manager</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader>
