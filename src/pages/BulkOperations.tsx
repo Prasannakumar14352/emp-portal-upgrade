@@ -4,10 +4,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Upload, Users, Calendar, FileText } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useUserRole } from "@/hooks/useUserRole";
 import { Navigate } from "react-router-dom";
+import { bulkService } from "@/services/bulkService";
 
 export default function BulkOperations() {
   const { role, loading } = useUserRole();
@@ -33,67 +33,16 @@ export default function BulkOperations() {
         throw new Error("Data must be an array");
       }
 
-      for (const user of users) {
-        const { error: signUpError } = await supabase.auth.signUp({
-          email: user.email,
-          password: user.password || 'ChangeMe123!',
-          options: {
-            data: {
-              full_name: user.full_name,
-            },
-            emailRedirectTo: `${window.location.origin}/`,
-          },
+      const response = await bulkService.createBulkUsers(users);
+
+      if (response.failed > 0) {
+        toast.warning(`Created ${response.created} users. ${response.failed} failed.`, {
+          description: response.failedUsers?.map(f => `${f.email}: ${f.reason}`).join(', ')
         });
-
-        if (signUpError) throw signUpError;
-
-        // Wait a bit for the profile to be created by the trigger
-        await new Promise(resolve => setTimeout(resolve, 500));
-
-        // Get the user we just created
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('email', user.email)
-          .single();
-
-        if (profiles) {
-          // Update profile with additional data
-          await supabase
-            .from('profiles')
-            .update({
-              department: user.department,
-              position: user.position,
-              phone: user.phone,
-            })
-            .eq('id', profiles.id);
-
-          // Create employee record
-          await supabase
-            .from('employees')
-            .insert({
-              user_id: profiles.id,
-              full_name: user.full_name,
-              email: user.email,
-              phone: user.phone,
-              department: user.department,
-              position: user.position,
-              status: 'Active',
-            });
-
-          // Set role if specified
-          if (user.role && (user.role === 'hr' || user.role === 'manager')) {
-            await supabase
-              .from('user_roles')
-              .insert({
-                user_id: profiles.id,
-                role: user.role,
-              });
-          }
-        }
+      } else {
+        toast.success(`Successfully created ${response.created} users`);
       }
 
-      toast.success(`Successfully created ${users.length} users`);
       setUsersData("");
     } catch (error: any) {
       toast.error(error.message || "Failed to create users");
@@ -112,13 +61,16 @@ export default function BulkOperations() {
         throw new Error("Data must be an array");
       }
 
-      const { error } = await supabase
-        .from('holidays')
-        .insert(holidays);
+      const response = await bulkService.createBulkHolidays(holidays);
 
-      if (error) throw error;
+      if (response.failed > 0) {
+        toast.warning(`Created ${response.created} holidays. ${response.failed} failed.`, {
+          description: response.failedHolidays?.map(f => `${f.name} (${f.date}): ${f.reason}`).join(', ')
+        });
+      } else {
+        toast.success(`Successfully created ${response.created} holidays`);
+      }
 
-      toast.success(`Successfully created ${holidays.length} holidays`);
       setHolidaysData("");
     } catch (error: any) {
       toast.error(error.message || "Failed to create holidays");
@@ -137,13 +89,16 @@ export default function BulkOperations() {
         throw new Error("Data must be an array");
       }
 
-      const { error } = await supabase
-        .from('payslips')
-        .insert(payslips);
+      const response = await bulkService.createBulkPayslips(payslips);
 
-      if (error) throw error;
+      if (response.failed > 0) {
+        toast.warning(`Created ${response.created} payslips. ${response.failed} failed.`, {
+          description: response.failedPayslips?.map(f => `User ${f.user_id} (${f.month} ${f.year}): ${f.reason}`).join(', ')
+        });
+      } else {
+        toast.success(`Successfully created ${response.created} payslips`);
+      }
 
-      toast.success(`Successfully created ${payslips.length} payslips`);
       setPayslipsData("");
     } catch (error: any) {
       toast.error(error.message || "Failed to create payslips");
