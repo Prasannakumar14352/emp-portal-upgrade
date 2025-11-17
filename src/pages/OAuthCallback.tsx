@@ -8,6 +8,8 @@ export default function OAuthCallback() {
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
+        let mounted = true;
+
         const handleOAuthCallback = async () => {
             try {
                 const url = new URL(window.location.href);
@@ -16,36 +18,42 @@ export default function OAuthCallback() {
                 const refreshToken = url.searchParams.get("refresh_token");
 
                 if (!accessToken || !refreshToken) {
-                    toast.error("Microsoft login failed. Try again.");
-                    navigate("/auth");
+                    if (mounted) {
+                        toast.error("Microsoft login failed. Try again.");
+                        navigate("/auth");
+                    }
                     return;
                 }
 
-                // Store tokens temporarily
+                // Store tokens
                 localStorage.setItem('auth_token', accessToken);
                 localStorage.setItem('refresh_token', refreshToken);
 
-                // Fetch user details dynamically from API
-                const session = await authService.getSession();
-                
-                if (!session) {
-                    toast.error("Failed to fetch user details.");
-                    navigate("/auth");
-                    return;
-                }
+                // Wait a bit for storage to complete
+                await new Promise(resolve => setTimeout(resolve, 100));
 
-                toast.success("Signed in with Microsoft!");
-                navigate("/");
+                if (mounted) {
+                    toast.success("Signed in with Microsoft!");
+                    navigate("/");
+                }
             } catch (error) {
                 console.error("OAuth callback error:", error);
-                toast.error("Authentication failed. Please try again.");
-                navigate("/auth");
+                if (mounted) {
+                    toast.error("Authentication failed. Please try again.");
+                    navigate("/auth");
+                }
             } finally {
-                setIsLoading(false);
+                if (mounted) {
+                    setIsLoading(false);
+                }
             }
         };
 
         handleOAuthCallback();
+
+        return () => {
+            mounted = false;
+        };
     }, [navigate]);
 
     return (
