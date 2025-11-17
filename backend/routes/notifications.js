@@ -6,7 +6,7 @@ const router = express.Router();
 
 // Configure email transporter
 const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
+  server: process.env.SMTP_SERVER,
   port: parseInt(process.env.SMTP_PORT || '587'),
   secure: false,
   auth: {
