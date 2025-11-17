@@ -1,6 +1,21 @@
--- Employee Portal Database Schema - Synced with Supabase
+-- ============================================================================
+-- Employee Portal Database Schema - SQL Server Primary Database
+-- ============================================================================
 -- Execute this script on your SQL Server database
 -- This schema uses numeric employee IDs instead of GUIDs for easier management
+--
+-- IMPORTANT: This is the primary database schema. All data operations should
+-- go through the backend API routes that connect to SQL Server.
+--
+-- Last Updated: 2025-11-17
+-- Recent Changes:
+--   - Backend routes now parse userId parameters as integers for proper comparisons
+--   - Authorization checks updated to compare integer user IDs correctly
+--   - Database queries use proper integer types for user_id parameters
+--
+-- Note: If using Supabase for authentication, ensure data created in Supabase
+-- is synced to SQL Server using the backend API or sync procedures.
+-- ============================================================================
 
 -- Drop existing tables if they exist (for fresh setup)
 IF OBJECT_ID('leave_comments', 'U') IS NOT NULL DROP TABLE leave_comments;
@@ -402,6 +417,56 @@ PRINT '';
 PRINT 'ID System: INT IDENTITY (numeric employee IDs: 1, 2, 3...)';
 PRINT '';
 PRINT 'Tables created:';
+PRINT '  - profiles (user authentication with numeric IDs)';
+PRINT '  - user_roles (employee, hr, manager roles)';
+PRINT '  - employees (employee details)';
+PRINT '  - user_sessions (time tracking)';
+PRINT '  - holidays (company holidays)';
+PRINT '  - leave_types (configurable leave types)';
+PRINT '  - leaves (leave requests and approvals)';
+PRINT '  - leave_balances (leave allocation tracking)';
+PRINT '  - leave_comments (leave approval comments)';
+PRINT '  - payslips (salary information)';
+PRINT '';
+PRINT 'Triggers created:';
+PRINT '  - trg_calculate_session_duration';
+PRINT '  - trg_update_leave_types_updated_at';
+PRINT '  - trg_update_leave_balances_updated_at';
+PRINT '  - trg_update_leave_balance_on_approval';
+PRINT '';
+PRINT 'Procedures created:';
+PRINT '  - sp_sync_oauth_user (OAuth user synchronization)';
+PRINT '';
+PRINT '========================================';
+PRINT 'IMPORTANT ARCHITECTURE NOTES';
+PRINT '========================================';
+PRINT '';
+PRINT 'This SQL Server database is the PRIMARY data store.';
+PRINT '';
+PRINT 'Data Flow:';
+PRINT '  1. Frontend -> Backend API (Node.js) -> SQL Server';
+PRINT '  2. All CRUD operations must go through backend API routes';
+PRINT '  3. Backend routes use integer user IDs for authorization';
+PRINT '';
+PRINT 'If using Supabase for authentication:';
+PRINT '  - User authentication happens in Supabase';
+PRINT '  - User data must be synced to SQL Server via:';
+PRINT '    a) Backend API calls after authentication';
+PRINT '    b) Calling sp_sync_oauth_user procedure';
+PRINT '    c) Using a sync service/edge function';
+PRINT '';
+PRINT 'Backend API Changes (2025-11-17):';
+PRINT '  - Routes parse userId URL parameters as integers';
+PRINT '  - Authorization compares integer user IDs correctly';
+PRINT '  - Database queries use sql.Int for user_id parameters';
+PRINT '';
+PRINT 'To verify data is being written to SQL Server:';
+PRINT '  SELECT * FROM profiles ORDER BY created_at DESC;';
+PRINT '  SELECT * FROM employees ORDER BY created_at DESC;';
+PRINT '  SELECT * FROM user_roles ORDER BY created_at DESC;';
+PRINT '';
+PRINT '========================================';
+GO
 PRINT '  - profiles (user authentication with numeric IDs)';
 PRINT '  - user_roles (role management: employee, hr, manager)';
 PRINT '  - user_sessions (time tracking)';
