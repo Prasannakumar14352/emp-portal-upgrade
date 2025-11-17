@@ -8,9 +8,10 @@ const router = express.Router();
 router.get('/employee/:userId', authenticateToken, async (req, res) => {
   try {
     const { userId } = req.params;
+    const userIdInt = parseInt(userId);
     
     // Users can only view their own dashboard unless HR/manager
-    if (req.user.id !== userId && !['hr', 'manager'].includes(req.user.role)) {
+    if (parseInt(req.user.id) !== userIdInt && !['hr', 'manager'].includes(req.user.role)) {
       return res.status(403).json({ error: 'Not authorized' });
     }
 
@@ -18,7 +19,7 @@ router.get('/employee/:userId', authenticateToken, async (req, res) => {
     
     // Get leave balance
     const leaveBalanceResult = await pool.request()
-      .input('user_id', sql.Int, userId)
+      .input('user_id', sql.Int, userIdInt)
       .input('year', sql.Int, new Date().getFullYear())
       .query(`
         SELECT SUM(remaining_days) as leave_balance
@@ -28,7 +29,7 @@ router.get('/employee/:userId', authenticateToken, async (req, res) => {
     
     // Get pending approvals count
     const pendingResult = await pool.request()
-      .input('user_id', sql.Int, userId)
+      .input('user_id', sql.Int, userIdInt)
       .query(`
         SELECT COUNT(*) as pending_count
         FROM leaves
@@ -37,7 +38,7 @@ router.get('/employee/:userId', authenticateToken, async (req, res) => {
     
     // Get payslips count
     const payslipsResult = await pool.request()
-      .input('user_id', sql.Int, userId)
+      .input('user_id', sql.Int, userIdInt)
       .query(`
         SELECT COUNT(*) as payslips_count
         FROM payslips

@@ -8,15 +8,16 @@ const router = express.Router();
 router.get('/user/:userId', authenticateToken, async (req, res) => {
   try {
     const { userId } = req.params;
+    const userIdInt = parseInt(userId);
     
     // Users can only view their own leaves unless HR/manager
-    if (req.user.id !== userId && !['hr', 'manager'].includes(req.user.role)) {
+    if (parseInt(req.user.id) !== userIdInt && !['hr', 'manager'].includes(req.user.role)) {
       return res.status(403).json({ error: 'Not authorized' });
     }
 
     const pool = await getConnection();
     const result = await pool.request()
-      .input('user_id', sql.Int, userId)
+      .input('user_id', sql.Int, userIdInt)
       .query(`
         SELECT 
           l.id, l.user_id, l.leave_type, l.start_date, l.end_date,
@@ -154,9 +155,10 @@ router.patch('/:leaveId', authenticateToken, authorizeRole('hr', 'manager'), asy
 router.get('/balances/:userId', authenticateToken, async (req, res) => {
   try {
     const { userId } = req.params;
+    const userIdInt = parseInt(userId);
     const { year } = req.query;
     
-    if (req.user.id !== userId && !['hr', 'manager'].includes(req.user.role)) {
+    if (parseInt(req.user.id) !== userIdInt && !['hr', 'manager'].includes(req.user.role)) {
       return res.status(403).json({ error: 'Not authorized' });
     }
 
@@ -164,7 +166,7 @@ router.get('/balances/:userId', authenticateToken, async (req, res) => {
     const currentYear = year || new Date().getFullYear();
 
     const result = await pool.request()
-      .input('user_id', sql.Int, userId)
+      .input('user_id', sql.Int, userIdInt)
       .input('year', sql.Int, currentYear)
       .query(`
         SELECT 

@@ -8,10 +8,11 @@ const router = express.Router();
 router.get('/user/:userId', authenticateToken, async (req, res) => {
   try {
     const { userId } = req.params;
+    const userIdInt = parseInt(userId);
     const { year, month } = req.query;
     
     // Users can only view their own payslips unless HR/manager
-    if (req.user.id !== userId && !['hr', 'manager'].includes(req.user.role)) {
+    if (parseInt(req.user.id) !== userIdInt && !['hr', 'manager'].includes(req.user.role)) {
       return res.status(403).json({ error: 'Not authorized' });
     }
 
@@ -24,7 +25,7 @@ router.get('/user/:userId', authenticateToken, async (req, res) => {
       WHERE user_id = @user_id
     `;
     
-    const request = pool.request().input('user_id', sql.Int, userId);
+    const request = pool.request().input('user_id', sql.Int, userIdInt);
     
     if (year) {
       query += ' AND year = @year';
