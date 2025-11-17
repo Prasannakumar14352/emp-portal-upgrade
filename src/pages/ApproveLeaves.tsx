@@ -563,6 +563,7 @@ export default function ApproveLeaves() {
         <EmployeeDetailModal
           isOpen={modalOpen}
           onClose={() => setModalOpen(false)}
+          employeeId="unknown"
           employeeName={selectedEmployee}
           employeeEmail={`${selectedEmployee.toLowerCase().replace(/\s+/g, '.')}@company.com`}
         />

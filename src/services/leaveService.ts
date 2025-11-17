@@ -73,6 +73,11 @@ class LeaveService {
     return apiClient.patch<Leave>(`/leaves/${leaveId}`, data);
   }
 
+  // Edit leave request (dates, reason)
+  async updateLeave(leaveId: string, data: CreateLeaveRequest): Promise<Leave> {
+    return apiClient.put<Leave>(`/leaves/${leaveId}`, data);
+  }
+
   // Get user's leave balances
   async getUserLeaveBalances(userId: string, year?: number): Promise<LeaveBalance[]> {
     const yearParam = year ? `?year=${year}` : '';
