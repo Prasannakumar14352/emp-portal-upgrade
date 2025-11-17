@@ -139,8 +139,11 @@ export default function Employees() {
         <EmployeeDetailModal
           isOpen={!!selectedEmployee}
           onClose={() => setSelectedEmployee(null)}
+          employeeId={selectedEmployee.id}
           employeeName={selectedEmployee.full_name}
           employeeEmail={selectedEmployee.email}
+          employeeDepartment={selectedEmployee.department}
+          employeePosition={selectedEmployee.position}
         />
       )}
     </div>

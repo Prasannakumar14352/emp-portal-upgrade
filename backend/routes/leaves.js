@@ -393,6 +393,139 @@ router.get('/:leaveId/comments', authenticateToken, async (req, res) => {
   }
 });
 
+// PUT /api/leaves/:leaveId - Edit pending leave request (Employee only)
+router.put('/:leaveId', authenticateToken, async (req, res) => {
+  try {
+    const { leaveId } = req.params;
+    const { leave_type, start_date, end_date, days, reason } = req.body;
+    const pool = await getConnection();
+    const nodemailer = require('nodemailer');
+    
+    // Get leave request details
+    const leaveResult = await pool.request()
+      .input('leave_id', sql.Int, leaveId)
+      .query('SELECT * FROM leaves WHERE id = @leave_id');
+    
+    if (leaveResult.recordset.length === 0) {
+      return res.status(404).json({ error: 'Leave request not found' });
+    }
+
+    const leave = leaveResult.recordset[0];
+    
+    // Only the employee who created the request can edit it
+    if (parseInt(req.user.id) !== leave.user_id) {
+      return res.status(403).json({ error: 'You can only edit your own leave requests' });
+    }
+
+    // Only allow editing of pending requests
+    if (leave.status !== 'Pending') {
+      return res.status(400).json({ error: 'Only pending leave requests can be edited' });
+    }
+
+    // Update the leave request
+    const result = await pool.request()
+      .input('leave_id', sql.Int, leaveId)
+      .input('leave_type', sql.NVarChar, leave_type)
+      .input('start_date', sql.Date, start_date)
+      .input('end_date', sql.Date, end_date)
+      .input('days', sql.Int, days)
+      .input('reason', sql.NVarChar, reason)
+      .query(`
+        UPDATE leaves
+        SET leave_type = @leave_type,
+            start_date = @start_date,
+            end_date = @end_date,
+            days = @days,
+            reason = @reason,
+            updated_at = GETDATE()
+        OUTPUT INSERTED.*
+        WHERE id = @leave_id
+      `);
+
+    const updatedLeave = result.recordset[0];
+
+    // Send email notifications about the change
+    try {
+      const transporter = nodemailer.createTransporter({
+        host: process.env.SMTP_SERVER,
+        port: 587,
+        secure: false,
+        auth: {
+          user: process.env.GMAIL_USER,
+          pass: process.env.GMAIL_APP_PASSWORD
+        }
+      });
+
+      const employeeResult = await pool.request()
+        .input('user_id', sql.Int, leave.user_id)
+        .query('SELECT email, full_name FROM profiles WHERE id = @user_id');
+
+      if (employeeResult.recordset.length > 0) {
+        const employee = employeeResult.recordset[0];
+
+        // Notify manager if there is one
+        if (leave.manager_id) {
+          const managerResult = await pool.request()
+            .input('manager_id', sql.Int, leave.manager_id)
+            .query('SELECT email, full_name FROM profiles WHERE id = @manager_id');
+          
+          if (managerResult.recordset.length > 0) {
+            const manager = managerResult.recordset[0];
+            await transporter.sendMail({
+              from: process.env.GMAIL_USER,
+              to: manager.email,
+              subject: 'Leave Request Modified',
+              html: `
+                <h2>Leave Request Updated</h2>
+                <p><strong>${employee.full_name}</strong> has modified their leave request.</p>
+                <h3>Updated Details:</h3>
+                <p><strong>Leave Type:</strong> ${leave_type}</p>
+                <p><strong>Duration:</strong> ${start_date} to ${end_date} (${days} days)</p>
+                <p><strong>Reason:</strong> ${reason}</p>
+                <p>Please review the updated request.</p>
+              `
+            });
+          }
+        }
+
+        // Notify all HR users
+        const hrResult = await pool.request()
+          .query(`
+            SELECT p.email, p.full_name 
+            FROM profiles p
+            JOIN user_roles ur ON p.id = ur.user_id
+            WHERE ur.role = 'hr'
+          `);
+        
+        if (hrResult.recordset.length > 0) {
+          const hrEmails = hrResult.recordset.map(hr => hr.email);
+          await transporter.sendMail({
+            from: process.env.GMAIL_USER,
+            to: hrEmails,
+            subject: 'Leave Request Modified',
+            html: `
+              <h2>Leave Request Updated</h2>
+              <p><strong>${employee.full_name}</strong> has modified their leave request.</p>
+              <h3>Updated Details:</h3>
+              <p><strong>Leave Type:</strong> ${leave_type}</p>
+              <p><strong>Duration:</strong> ${start_date} to ${end_date} (${days} days)</p>
+              <p><strong>Reason:</strong> ${reason}</p>
+              <p>Please review the updated request.</p>
+            `
+          });
+        }
+      }
+    } catch (emailErr) {
+      console.error('Failed to send edit notification email:', emailErr);
+    }
+
+    res.json(updatedLeave);
+  } catch (err) {
+    console.error('Edit leave error:', err);
+    res.status(500).json({ error: 'Failed to edit leave request' });
+  }
+});
+
 // DELETE /api/leaves/:leaveId - Cancel leave request (Employee only)
 router.delete('/:leaveId', authenticateToken, async (req, res) => {
   try {
