@@ -34,14 +34,6 @@ class AuthService {
     return response;
   }
 
-  applyOAuthTokens(accessToken: string, refreshToken: string, user: User) {
-    const session: Session = {
-      access_token: accessToken,
-      refresh_token: refreshToken,
-      user
-    };
-    this.setSession(session);
-  }
 
   async signIn(email: string, password: string): Promise<AuthResponse> {
     const response = await apiClient.post<AuthResponse>('/auth/login', {
