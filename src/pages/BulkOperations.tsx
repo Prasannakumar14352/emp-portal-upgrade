@@ -20,8 +20,8 @@ export default function BulkOperations() {
     return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
   }
 
-  if (role !== "hr") {
-    return <Navigate to="/dashboard" replace />;
+  if (role !== "hr" && role !== "manager") {
+    return <Navigate to="/" replace />;
   }
 
   const handleBulkUsers = async () => {
