@@ -9,7 +9,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { dashboardService } from "@/services/dashboardService";
 
 export default function HRDashboard() {
-  const { role } = useUserRole();
+  const { role, loading: roleLoading } = useUserRole();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
@@ -23,6 +23,8 @@ export default function HRDashboard() {
   const [leaveTypeData, setLeaveTypeData] = useState<any[]>([]);
 
   useEffect(() => {
+    if (roleLoading) return;
+    
     if (role !== "hr" && role !== "manager") {
       navigate("/");
       toast.error("You don't have permission to access this page");
@@ -30,7 +32,7 @@ export default function HRDashboard() {
     }
 
     loadDashboardData();
-  }, [role, navigate]);
+  }, [role, roleLoading, navigate]);
 
   const loadDashboardData = async () => {
     try {
@@ -60,7 +62,7 @@ export default function HRDashboard() {
 
   const COLORS = ["hsl(var(--primary))", "hsl(var(--secondary))", "hsl(var(--accent))", "hsl(var(--muted))"];
 
-  if (loading) {
+  if (loading || roleLoading) {
     return <div className="space-y-6">Loading...</div>;
   }
 
