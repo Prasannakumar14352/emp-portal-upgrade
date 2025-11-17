@@ -16,6 +16,7 @@ import Notifications from "./pages/Notifications";
 import Settings from "./pages/Settings";
 import ApproveLeaves from "./pages/ApproveLeaves";
 import HRDashboard from "./pages/HRDashboard";
+import LeaveCalendar from "./pages/LeaveCalendar";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -38,6 +39,7 @@ const App = () => (
           <Route path="/settings" element={<ProtectedRoute><DashboardLayout><Settings /></DashboardLayout></ProtectedRoute>} />
           <Route path="/hr-dashboard" element={<ProtectedRoute><DashboardLayout><HRDashboard /></DashboardLayout></ProtectedRoute>} />
           <Route path="/approve-leaves" element={<ProtectedRoute><DashboardLayout><ApproveLeaves /></DashboardLayout></ProtectedRoute>} />
+          <Route path="/leave-calendar" element={<ProtectedRoute><DashboardLayout><LeaveCalendar /></DashboardLayout></ProtectedRoute>} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

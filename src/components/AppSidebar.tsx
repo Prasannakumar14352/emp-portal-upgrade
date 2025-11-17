@@ -37,6 +37,7 @@ const mainItems = [
 const hrManagerItems = [
   { title: "HR Dashboard", url: "/hr-dashboard", icon: LayoutDashboard },
   { title: "Approve Leaves", url: "/approve-leaves", icon: ClipboardCheck },
+  { title: "Leave Calendar", url: "/leave-calendar", icon: CalendarClock },
 ];
 
 const secondaryItems = [
