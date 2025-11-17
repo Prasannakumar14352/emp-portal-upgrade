@@ -116,21 +116,33 @@ CREATE TABLE leave_types (
 );
 
 -- ============================================================================
--- LEAVES TABLE
+-- LEAVES TABLE (Two-tier approval: Manager -> HR)
 -- ============================================================================
 CREATE TABLE leaves (
     id INT PRIMARY KEY IDENTITY(1,1),
     user_id INT NOT NULL,
+    manager_id INT,  -- Manager who will approve first
     leave_type NVARCHAR(255) NOT NULL,
     start_date DATE NOT NULL,
     end_date DATE NOT NULL,
     days INT NOT NULL,
     reason NVARCHAR(MAX) NOT NULL,
     status NVARCHAR(50) DEFAULT 'Pending',
-    approved_by INT,
+    manager_status NVARCHAR(50) DEFAULT 'Pending',
+    hr_status NVARCHAR(50) DEFAULT 'Pending',
+    manager_approved_by INT,
+    hr_approved_by INT,
+    manager_approved_at DATETIME2,
+    hr_approved_at DATETIME2,
+    manager_comments NVARCHAR(MAX),
+    hr_comments NVARCHAR(MAX),
+    approved_by INT,  -- Kept for backward compatibility
     created_at DATETIME2 DEFAULT GETDATE(),
     updated_at DATETIME2 DEFAULT GETDATE(),
     CONSTRAINT FK_leaves_profiles FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE,
+    CONSTRAINT FK_leaves_manager FOREIGN KEY (manager_id) REFERENCES profiles(id),
+    CONSTRAINT FK_leaves_manager_approved_by FOREIGN KEY (manager_approved_by) REFERENCES profiles(id),
+    CONSTRAINT FK_leaves_hr_approved_by FOREIGN KEY (hr_approved_by) REFERENCES profiles(id),
     CONSTRAINT FK_leaves_approved_by FOREIGN KEY (approved_by) REFERENCES profiles(id)
 );
 

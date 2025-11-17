@@ -3,13 +3,21 @@ import { apiClient } from './apiClient';
 export interface Leave {
   id: string;
   user_id: string;
+  manager_id?: string;
   leave_type: string;
   start_date: string;
   end_date: string;
   days: number;
   reason: string;
   status: 'Pending' | 'Approved' | 'Rejected';
-  approved_by?: string;
+  manager_status: 'Pending' | 'Approved' | 'Rejected';
+  hr_status: 'Pending' | 'Approved' | 'Rejected';
+  manager_approved_by?: string;
+  hr_approved_by?: string;
+  manager_approved_at?: string;
+  hr_approved_at?: string;
+  manager_comments?: string;
+  hr_comments?: string;
   created_at: string;
   updated_at: string;
 }
@@ -31,11 +39,12 @@ export interface CreateLeaveRequest {
   end_date: string;
   days: number;
   reason: string;
+  manager_id?: number;
 }
 
 export interface UpdateLeaveRequest {
   status: 'Approved' | 'Rejected';
-  approved_by: string;
+  comments?: string;
 }
 
 class LeaveService {

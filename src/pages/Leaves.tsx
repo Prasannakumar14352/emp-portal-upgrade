@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { leaveService, type Leave, type LeaveBalance } from "@/services/leaveService";
 import { leaveTypeService, type LeaveType } from "@/services/leaveTypeService";
+import { managerService, type Manager } from "@/services/managerService";
 import { LeaveBalanceCard } from "@/components/LeaveBalanceCard";
 
 export default function Leaves() {
@@ -21,6 +22,7 @@ export default function Leaves() {
   const [leaveBalance, setLeaveBalance] = useState<LeaveBalance[]>([]);
   const [leaveHistory, setLeaveHistory] = useState<Leave[]>([]);
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
+  const [managers, setManagers] = useState<Manager[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -32,14 +34,16 @@ export default function Leaves() {
   const loadLeaveData = async () => {
     try {
       setLoading(true);
-      const [balances, history, types] = await Promise.all([
+      const [balances, history, types, managersList] = await Promise.all([
         leaveService.getUserLeaveBalances(user!.id),
         leaveService.getUserLeaves(user!.id),
         leaveTypeService.getActiveLeaveTypes(),
+        managerService.getAllManagers(),
       ]);
       setLeaveBalance(balances);
       setLeaveHistory(history);
       setLeaveTypes(types);
+      setManagers(managersList);
     } catch (error) {
       console.error('Failed to load leave data:', error);
       toast.error('Failed to load leave data');
@@ -53,15 +57,17 @@ export default function Leaves() {
     const formData = new FormData(e.target as HTMLFormElement);
     
     try {
+      const managerId = formData.get('manager_id') as string;
       await leaveService.createLeave({
         leave_type: formData.get('leave_type') as string,
         start_date: formData.get('from') as string,
         end_date: formData.get('to') as string,
         days: parseInt(formData.get('days') as string),
         reason: formData.get('reason') as string,
+        manager_id: managerId ? parseInt(managerId) : undefined,
       });
       
-      toast.success("Leave request submitted successfully!");
+      toast.success("Leave request submitted successfully! Your manager will be notified.");
       setOpen(false);
       loadLeaveData();
     } catch (error) {
@@ -132,6 +138,21 @@ export default function Leaves() {
                       {leaveTypes.map((type) => (
                         <SelectItem key={type.id} value={type.name}>
                           {type.name} ({type.default_days} days)
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="manager">Select Manager *</Label>
+                  <Select name="manager_id" required>
+                    <SelectTrigger id="manager">
+                      <SelectValue placeholder="Select your manager" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {managers.map((manager) => (
+                        <SelectItem key={manager.id} value={manager.id.toString()}>
+                          {manager.full_name} - {manager.department}
                         </SelectItem>
                       ))}
                     </SelectContent>
