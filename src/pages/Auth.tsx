@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Loader2, Building2 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { authService } from "@/services/authService";
 import { z } from "zod";
 import { Separator } from "@/components/ui/separator";
 
@@ -36,7 +36,7 @@ export default function Auth() {
   useEffect(() => {
     // Check if user is already logged in
     const checkUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const session = await authService.getSession();
       if (session) {
         navigate("/");
       }
@@ -52,16 +52,13 @@ export default function Auth() {
       // Validate input
       loginSchema.parse({ email, password });
 
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      const { error } = await authService.signIn(email, password);
 
       if (error) {
-        if (error.message.includes("Invalid login credentials")) {
+        if (error.includes("Invalid login credentials") || error.includes("Invalid")) {
           toast.error("Invalid email or password");
         } else {
-          toast.error(error.message);
+          toast.error(error);
         }
         return;
       }
@@ -87,24 +84,13 @@ export default function Auth() {
       // Validate input
       signupSchema.parse({ email, password, fullName });
 
-      const redirectUrl = `${window.location.origin}/`;
-
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: redirectUrl,
-          data: {
-            full_name: fullName,
-          },
-        },
-      });
+      const { error } = await authService.signUp(email, password, fullName);
 
       if (error) {
-        if (error.message.includes("already registered")) {
+        if (error.includes("already registered")) {
           toast.error("This email is already registered. Please login instead.");
         } else {
-          toast.error(error.message);
+          toast.error(error);
         }
         return;
       }
@@ -126,20 +112,10 @@ export default function Auth() {
     setLoading(true);
     
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "azure",
-        options: {
-          scopes: "email openid profile",
-          redirectTo: `${window.location.origin}/`,
-        },
-      });
-
-      if (error) {
-        toast.error("Microsoft Teams login not configured. Please contact your administrator.");
-      }
+      const { url } = await authService.signInWithOAuth("azure");
+      window.location.href = url;
     } catch (error) {
-      toast.error("An error occurred during Microsoft login");
-    } finally {
+      toast.error("Microsoft Teams login not configured. Please contact your administrator.");
       setLoading(false);
     }
   };

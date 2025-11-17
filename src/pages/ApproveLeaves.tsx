@@ -10,7 +10,7 @@ import { useNavigate } from "react-router-dom";
 import { Checkbox } from "@/components/ui/checkbox";
 import { EmployeeDetailModal } from "@/components/EmployeeDetailModal";
 import { exportToCSV, exportToPDF } from "@/lib/exportUtils";
-import { sendLeaveNotification } from "@/lib/emailService";
+import { sendLeaveNotification } from "@/services/emailService";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
