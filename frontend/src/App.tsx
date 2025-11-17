@@ -19,6 +19,8 @@ import HRDashboard from "./pages/HRDashboard";
 import LeaveCalendar from "./pages/LeaveCalendar";
 import AdvancedReports from "./pages/AdvancedReports";
 import NotFound from "./pages/NotFound";
+import OAuthCallback from "./pages/OAuthCallback";
+
 
 const queryClient = new QueryClient();
 
@@ -42,6 +44,7 @@ const App = () => (
           <Route path="/approve-leaves" element={<ProtectedRoute><DashboardLayout><ApproveLeaves /></DashboardLayout></ProtectedRoute>} />
           <Route path="/leave-calendar" element={<ProtectedRoute><DashboardLayout><LeaveCalendar /></DashboardLayout></ProtectedRoute>} />
           <Route path="/advanced-reports" element={<ProtectedRoute><DashboardLayout><AdvancedReports /></DashboardLayout></ProtectedRoute>} />
+          <Route path="/auth/callback" element={<OAuthCallback />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

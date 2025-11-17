@@ -26,12 +26,21 @@ class AuthService {
       password,
       full_name: fullName,
     }, { skipAuth: true });
-    
+
     if (response.session) {
       this.setSession(response.session);
     }
-    
+
     return response;
+  }
+
+  applyOAuthTokens(accessToken: string, refreshToken: string, user: User) {
+    const session: Session = {
+      access_token: accessToken,
+      refresh_token: refreshToken,
+      user
+    };
+    this.setSession(session);
   }
 
   async signIn(email: string, password: string): Promise<AuthResponse> {
@@ -39,19 +48,26 @@ class AuthService {
       email,
       password,
     }, { skipAuth: true });
-    
+
     if (response.session) {
       this.setSession(response.session);
     }
-    
+
     return response;
   }
 
+  // async signInWithOAuth(provider: string): Promise<{ url: string }> {
+  //   return apiClient.post<{ url: string }>(`/auth/oauth/${provider}`, {
+  //     redirect_to: window.location.origin,
+  //   }, { skipAuth: true });
+  // }
+
   async signInWithOAuth(provider: string): Promise<{ url: string }> {
     return apiClient.post<{ url: string }>(`/auth/oauth/${provider}`, {
-      redirect_to: window.location.origin,
+      redirect_to: `${window.location.origin}/auth/callback`,
     }, { skipAuth: true });
   }
+
 
   async signOut(): Promise<void> {
     await apiClient.post('/auth/logout');
@@ -79,12 +95,12 @@ class AuthService {
       const response = await apiClient.post<{ session: Session }>('/auth/refresh', {
         refresh_token: refreshToken,
       }, { skipAuth: true });
-      
+
       if (response.session) {
         this.setSession(response.session);
         return response.session;
       }
-      
+
       return null;
     } catch (error) {
       this.clearSession();
