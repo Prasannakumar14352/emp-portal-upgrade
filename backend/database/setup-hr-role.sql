@@ -6,7 +6,7 @@
 DECLARE @user_id UNIQUEIDENTIFIER;
 
 SELECT @user_id = id 
-FROM users 
+FROM profiles 
 WHERE email = 'YOUR_EMAIL@example.com';  -- CHANGE THIS TO YOUR EMAIL
 
 -- STEP 2: Check if the user exists
@@ -36,7 +36,7 @@ SELECT
     u.full_name,
     ur.role,
     ur.created_at
-FROM users u
+FROM profiles u
 INNER JOIN user_roles ur ON u.id = ur.user_id
 WHERE u.id = @user_id;
 

@@ -5,7 +5,7 @@ This guide explains how to sync all Supabase tables and features to your local S
 ## ✅ What's Included
 
 ### Tables
-- **users** - User accounts with authentication
+- **profiles** - User profiles and authentication data (maps to Supabase auth.users + profiles)
 - **user_roles** - Role-based access control (employee, hr, manager)
 - **user_sessions** - Session tracking for time management
 - **employees** - Employee directory and details
@@ -124,12 +124,12 @@ The `schema.sql` file mirrors all Supabase tables and functionality:
 
 ### Add a New User
 ```sql
--- Insert user
-INSERT INTO users (email, password_hash, full_name, department, position, hire_date)
-VALUES ('john.doe@company.com', 'hashed_password', 'John Doe', 'Engineering', 'Developer', GETDATE());
+-- Insert user profile
+INSERT INTO profiles (email, full_name, department, position, hire_date)
+VALUES ('john.doe@company.com', 'John Doe', 'Engineering', 'Developer', GETDATE());
 
 -- Get the user ID
-DECLARE @user_id UNIQUEIDENTIFIER = (SELECT id FROM users WHERE email = 'john.doe@company.com');
+DECLARE @user_id UNIQUEIDENTIFIER = (SELECT id FROM profiles WHERE email = 'john.doe@company.com');
 
 -- Assign role (default is employee)
 INSERT INTO user_roles (user_id, role) VALUES (@user_id, 'employee');
@@ -158,7 +158,7 @@ SELECT
     lb.carry_forward_days,
     CAST(lb.remaining_days as FLOAT) / NULLIF(lb.total_days, 0) * 100 as percentage_remaining
 FROM leave_balances lb
-INNER JOIN users u ON lb.user_id = u.id
+INNER JOIN profiles u ON lb.user_id = u.id
 WHERE lb.year = YEAR(GETDATE())
 ORDER BY u.full_name, lb.leave_type;
 ```
@@ -174,7 +174,7 @@ SELECT
     lb.total_days,
     CAST(lb.remaining_days as FLOAT) / NULLIF(lb.total_days, 0) * 100 as percentage_remaining
 FROM leave_balances lb
-INNER JOIN users u ON lb.user_id = u.id
+INNER JOIN profiles u ON lb.user_id = u.id
 WHERE lb.year = YEAR(GETDATE())
     AND lb.total_days > 0
     AND CAST(lb.remaining_days as FLOAT) / lb.total_days < 0.25
