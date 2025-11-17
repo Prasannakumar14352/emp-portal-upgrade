@@ -5,6 +5,9 @@ const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
 const leaveRoutes = require('./routes/leaves');
 const notificationRoutes = require('./routes/notifications');
+const employeeRoutes = require('./routes/employees');
+const holidayRoutes = require('./routes/holidays');
+const payslipRoutes = require('./routes/payslips');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -31,6 +34,9 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/leaves', leaveRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/employees', employeeRoutes);
+app.use('/api/holidays', holidayRoutes);
+app.use('/api/payslips', payslipRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
