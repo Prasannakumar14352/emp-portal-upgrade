@@ -74,7 +74,7 @@ class AuthService {
   }
 
   async getSession(): Promise<Session | null> {
-    const token = localStorage.getItem('auth_token');
+    const token = localStorage.getItem('token');
     if (!token) return null;
 
     try {
@@ -108,13 +108,13 @@ class AuthService {
   }
 
   private setSession(session: Session) {
-    localStorage.setItem('auth_token', session.access_token);
+    localStorage.setItem('token', session.access_token);
     localStorage.setItem('refresh_token', session.refresh_token);
     localStorage.setItem('user', JSON.stringify(session.user));
   }
 
   private clearSession() {
-    localStorage.removeItem('auth_token');
+    localStorage.removeItem('token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('user');
   }
@@ -127,7 +127,7 @@ class AuthService {
 
     // Set up a listener for storage events (for multi-tab sync)
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'auth_token') {
+      if (e.key === 'token') {
         if (e.newValue) {
           this.getSession().then(session => callback('SIGNED_IN', session));
         } else {

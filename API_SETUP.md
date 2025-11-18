@@ -122,13 +122,13 @@ Your local backend should implement the following REST API endpoints:
 ### 2. Authentication Flow
 
 The application stores authentication tokens in localStorage:
-- `auth_token` - Access token (JWT)
+- `token` - Access token (JWT)
 - `refresh_token` - Refresh token
 - `user` - User object (JSON)
 
 All authenticated requests include the header:
 ```
-Authorization: Bearer <auth_token>
+Authorization: Bearer <token>
 ```
 
 ### 3. CORS Configuration

@@ -19,6 +19,7 @@ import { LeaveBalanceCard } from "@/components/LeaveBalanceCard";
 import { LeaveHistoryTimeline } from "@/components/LeaveHistoryTimeline";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
+import { MultiSelect } from "@/components/MultiSelect";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -137,7 +138,7 @@ export default function Leaves() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     try {
       await leaveService.createLeave({
         leave_type: formData.leave_type,
@@ -148,7 +149,7 @@ export default function Leaves() {
         manager_id: formData.manager_id ? parseInt(formData.manager_id) : undefined,
         cc_emails: selectedCCEmails,
       });
-      
+
       toast.success("Leave request submitted successfully! Notifications sent.");
       setOpen(false);
       setFormData({
@@ -195,7 +196,7 @@ export default function Leaves() {
 
   const handleCancelLeave = async () => {
     if (!selectedLeaveId) return;
-    
+
     try {
       await leaveService.cancelLeave(selectedLeaveId);
       toast.success("Leave request cancelled successfully");
@@ -241,8 +242,8 @@ export default function Leaves() {
   };
 
   const toggleCCEmail = (email: string) => {
-    setSelectedCCEmails(prev => 
-      prev.includes(email) 
+    setSelectedCCEmails(prev =>
+      prev.includes(email)
         ? prev.filter(e => e !== email)
         : [...prev, email]
     );
@@ -277,9 +278,9 @@ export default function Leaves() {
               <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
                   <Label htmlFor="leave-type">Leave Type</Label>
-                  <Select 
+                  <Select
                     value={formData.leave_type}
-                    onValueChange={(value) => setFormData({...formData, leave_type: value})}
+                    onValueChange={(value) => setFormData({ ...formData, leave_type: value })}
                     required
                   >
                     <SelectTrigger id="leave-type">
@@ -296,9 +297,9 @@ export default function Leaves() {
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="manager">Select Manager *</Label>
-                  <Select 
+                  <Select
                     value={formData.manager_id}
-                    onValueChange={(value) => setFormData({...formData, manager_id: value})}
+                    onValueChange={(value) => setFormData({ ...formData, manager_id: value })}
                     required
                   >
                     <SelectTrigger id="manager">
@@ -316,30 +317,30 @@ export default function Leaves() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="grid gap-2">
                     <Label htmlFor="from-date">From Date</Label>
-                    <Input 
-                      id="from-date" 
-                      type="date" 
+                    <Input
+                      id="from-date"
+                      type="date"
                       value={formData.start_date}
-                      onChange={(e) => setFormData({...formData, start_date: e.target.value})}
-                      required 
+                      onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
+                      required
                     />
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor="to-date">To Date</Label>
-                    <Input 
-                      id="to-date" 
-                      type="date" 
+                    <Input
+                      id="to-date"
+                      type="date"
                       value={formData.end_date}
-                      onChange={(e) => setFormData({...formData, end_date: e.target.value})}
-                      required 
+                      onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
+                      required
                     />
                   </div>
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="days">Number of Days</Label>
-                  <Input 
-                    id="days" 
-                    type="number" 
+                  <Input
+                    id="days"
+                    type="number"
                     value={formData.days}
                     readOnly
                     className="bg-muted"
@@ -354,7 +355,7 @@ export default function Leaves() {
                       <div className="mt-2 space-y-1 text-sm">
                         {conflicts.map((conflict) => (
                           <div key={conflict.id}>
-                            • {conflict.full_name} ({conflict.department}) - {conflict.leave_type} 
+                            • {conflict.full_name} ({conflict.department}) - {conflict.leave_type}
                             ({new Date(conflict.start_date).toLocaleDateString()} to {new Date(conflict.end_date).toLocaleDateString()})
                           </div>
                         ))}
@@ -365,7 +366,7 @@ export default function Leaves() {
 
                 <div className="grid gap-2">
                   <Label>CC Employees (Optional)</Label>
-                  <div className="border rounded-md p-3 max-h-48 overflow-y-auto space-y-2">
+                  {/* <div className="border rounded-md p-3 max-h-48 overflow-y-auto space-y-2">
                     {employees
                       .filter(emp => emp.id !== user?.id)
                       .map((employee) => (
@@ -383,23 +384,36 @@ export default function Leaves() {
                           </label>
                         </div>
                       ))}
-                  </div>
+                  </div> */}
+                  <MultiSelect
+                    items={employees
+                      .filter((emp) => emp.id !== user?.id)
+                      .map((emp) => ({
+                        label: `${emp.full_name} (${emp.email})`,
+                        value: emp.email,
+                      }))
+                    }
+                    values={selectedCCEmails}
+                    onChange={setSelectedCCEmails}
+                    placeholder="Select employees to CC"
+                  />
+
                   {selectedCCEmails.length > 0 && (
                     <p className="text-xs text-muted-foreground">
-                      {selectedCCEmails.length} employee(s) will be CC'd
+                      {selectedCCEmails.length} employee(s) selected
                     </p>
                   )}
                 </div>
 
                 <div className="grid gap-2">
                   <Label htmlFor="reason">Reason</Label>
-                  <Textarea 
-                    id="reason" 
-                    placeholder="Please provide a reason for your leave" 
+                  <Textarea
+                    id="reason"
+                    placeholder="Please provide a reason for your leave"
                     rows={3}
                     value={formData.reason}
-                    onChange={(e) => setFormData({...formData, reason: e.target.value})}
-                    required 
+                    onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
+                    required
                   />
                 </div>
               </div>
@@ -412,7 +426,7 @@ export default function Leaves() {
         </Dialog>
       </div>
 
-      <LeaveBalanceCard 
+      <LeaveBalanceCard
         balances={leaveBalance.map(b => ({
           leaveType: b.leave_type,
           totalDays: b.total_days,
@@ -646,9 +660,9 @@ export default function Leaves() {
           <div className="space-y-4">
             <div>
               <label className="text-sm font-medium">Leave Type</label>
-              <Select 
-                value={editFormData.leave_type} 
-                onValueChange={(value) => setEditFormData({...editFormData, leave_type: value})}
+              <Select
+                value={editFormData.leave_type}
+                onValueChange={(value) => setEditFormData({ ...editFormData, leave_type: value })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select leave type" />
@@ -669,7 +683,7 @@ export default function Leaves() {
                 <Input
                   type="date"
                   value={editFormData.start_date}
-                  onChange={(e) => setEditFormData({...editFormData, start_date: e.target.value})}
+                  onChange={(e) => setEditFormData({ ...editFormData, start_date: e.target.value })}
                 />
               </div>
               <div>
@@ -677,7 +691,7 @@ export default function Leaves() {
                 <Input
                   type="date"
                   value={editFormData.end_date}
-                  onChange={(e) => setEditFormData({...editFormData, end_date: e.target.value})}
+                  onChange={(e) => setEditFormData({ ...editFormData, end_date: e.target.value })}
                 />
               </div>
             </div>
@@ -694,9 +708,9 @@ export default function Leaves() {
 
             <div>
               <label className="text-sm font-medium">Select Manager</label>
-              <Select 
-                value={editFormData.manager_id?.toString()} 
-                onValueChange={(value) => setEditFormData({...editFormData, manager_id: parseInt(value)})}
+              <Select
+                value={editFormData.manager_id?.toString()}
+                onValueChange={(value) => setEditFormData({ ...editFormData, manager_id: parseInt(value) })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select a manager" />
@@ -715,7 +729,7 @@ export default function Leaves() {
               <label className="text-sm font-medium">Reason</label>
               <Textarea
                 value={editFormData.reason}
-                onChange={(e) => setEditFormData({...editFormData, reason: e.target.value})}
+                onChange={(e) => setEditFormData({ ...editFormData, reason: e.target.value })}
                 placeholder="Reason for leave"
                 rows={4}
               />

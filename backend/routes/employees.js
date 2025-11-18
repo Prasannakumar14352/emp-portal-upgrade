@@ -14,7 +14,7 @@ router.get('/', authenticateToken, async (req, res) => {
         SELECT 
           e.id, e.user_id, e.full_name, e.email, e.phone,
           e.department, e.position, e.status, e.created_at, e.updated_at
-        FROM employees e
+        FROM profiles e
         ORDER BY e.full_name
       `);
 
@@ -38,7 +38,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
           e.id, e.user_id, e.full_name, e.email, e.phone,
           e.department, e.position, e.status, e.created_at, e.updated_at,
           ur.role
-        FROM employees e
+        FROM profiles e
         LEFT JOIN user_roles ur ON e.user_id = ur.user_id
         WHERE e.id = @id
       `);
@@ -69,7 +69,7 @@ router.post('/', authenticateToken, authorizeRole('hr', 'manager'), async (req, 
       .input('position', sql.NVarChar, position)
       .input('status', sql.NVarChar, status || 'Active')
       .query(`
-        INSERT INTO employees (user_id, full_name, email, phone, department, position, status, created_at)
+        INSERT INTO profiles (user_id, full_name, email, phone, department, position, status, created_at)
         OUTPUT INSERTED.*
         VALUES (@user_id, @full_name, @email, @phone, @department, @position, @status, GETDATE())
       `);
@@ -97,7 +97,7 @@ router.patch('/:id', authenticateToken, authorizeRole('hr', 'manager'), async (r
       .input('position', sql.NVarChar, position)
       .input('status', sql.NVarChar, status)
       .query(`
-        UPDATE employees
+        UPDATE profiles
         SET 
           full_name = COALESCE(@full_name, full_name),
           email = COALESCE(@email, email),
@@ -154,7 +154,7 @@ router.get('/department/:department', authenticateToken, async (req, res) => {
         SELECT 
           e.id, e.user_id, e.full_name, e.email, e.phone,
           e.department, e.position, e.status
-        FROM employees e
+        FROM profiles e
         WHERE e.department = @department
         ORDER BY e.full_name
       `);

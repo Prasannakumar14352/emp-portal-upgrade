@@ -36,7 +36,7 @@ router.get('/:userId/profile', authenticateToken, async (req, res) => {
       .query(`
         SELECT 
           p.id, p.email, p.full_name, p.phone, 
-          p.department, p.position, p.avatar_url, p.hire_date
+          p.department, p.position, p.avatar_url, p.hire_date, p.created_at, p.updated_at
         FROM profiles p
         WHERE p.id = @user_id
       `);
@@ -107,7 +107,7 @@ router.get('/', authenticateToken, authorizeRole('hr', 'manager'), async (req, r
       .query(`
         SELECT 
           p.id, p.email, p.full_name, p.phone, 
-          p.department, p.position, p.avatar_url, p.hire_date
+          p.department, p.position, p.avatar_url, p.hire_date, p.created_at, p.updated_at
         FROM profiles p
         ORDER BY p.full_name
       `);

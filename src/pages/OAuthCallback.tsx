@@ -26,7 +26,7 @@ export default function OAuthCallback() {
                 }
 
                 // Store tokens
-                localStorage.setItem('auth_token', accessToken);
+                localStorage.setItem('token', accessToken);
                 localStorage.setItem('refresh_token', refreshToken);
 
                 // Wait a bit for storage to complete

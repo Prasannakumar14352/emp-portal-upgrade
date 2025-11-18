@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { employeeService, type Employee } from "@/services/employeeService";
 import { EmployeeDetailModal } from "@/components/EmployeeDetailModal";
 import { toast } from "sonner";
+import { useUserRole } from "@/hooks/useUserRole";
 
 export default function Employees() {
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -15,6 +16,7 @@ export default function Employees() {
   const [loading, setLoading] = useState(true);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const { user } = useAuth();
+  const { role } = useUserRole();
 
   useEffect(() => {
     loadEmployees();
@@ -135,7 +137,7 @@ export default function Employees() {
         </CardContent>
       </Card>
 
-      {selectedEmployee && (
+      {(role === 'hr' || role === 'manager') && selectedEmployee && (
         <EmployeeDetailModal
           isOpen={!!selectedEmployee}
           onClose={() => setSelectedEmployee(null)}

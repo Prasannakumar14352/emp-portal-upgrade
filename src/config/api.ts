@@ -26,7 +26,7 @@ export const getAPIBaseURL = () => {
 
 // Helper to get auth headers
 export const getAuthHeaders = () => {
-  const token = localStorage.getItem('auth_token');
+  const token = localStorage.getItem('token');
   return {
     'Content-Type': 'application/json',
     ...(token && { 'Authorization': `Bearer ${token}` }),

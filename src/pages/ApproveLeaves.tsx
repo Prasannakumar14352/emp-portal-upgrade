@@ -16,22 +16,13 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-
-interface LeaveRequest {
-  id: string;
-  employeeName: string;
-  leaveType: string;
-  startDate: string;
-  endDate: string;
-  days: number;
-  reason: string;
-  status: string;
-  appliedDate: string;
-  comments?: { author: string; text: string; timestamp: string }[];
-}
+import { leaveApprovalService } from "@/services/leaveApprovalService";
+import type { LeaveRequest } from "@/types/LeaveRequest";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function ApproveLeaves() {
   const { role, loading: roleLoading } = useUserRole();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [requests, setRequests] = useState<LeaveRequest[]>([]);
   const [selectedRequests, setSelectedRequests] = useState<string[]>([]);
@@ -47,59 +38,32 @@ export default function ApproveLeaves() {
 
   useEffect(() => {
     if (roleLoading) return;
-    
-    // Check if user has permission
+
     if (role !== "hr" && role !== "manager") {
       navigate("/");
       toast.error("You don't have permission to access this page");
       return;
     }
 
-    // Load mock leave requests
-    const storedRequests = localStorage.getItem("leaveRequests");
-    if (!storedRequests) {
-      // Initialize with mock data
-      const initialRequests: LeaveRequest[] = [
-        {
-          id: "1",
-          employeeName: "John Doe",
-          leaveType: "Annual Leave",
-          startDate: "2025-12-20",
-          endDate: "2025-12-24",
-          days: 5,
-          status: "Pending",
-          reason: "Family vacation planned for Christmas",
-          appliedDate: "2025-12-10",
-        },
-        {
-          id: "2",
-          employeeName: "Jane Smith",
-          leaveType: "Sick Leave",
-          startDate: "2025-12-18",
-          endDate: "2025-12-18",
-          days: 1,
-          status: "Pending",
-          reason: "Medical appointment",
-          appliedDate: "2025-12-15",
-        },
-        {
-          id: "3",
-          employeeName: "Mike Johnson",
-          leaveType: "Personal Leave",
-          startDate: "2025-12-19",
-          endDate: "2025-12-19",
-          days: 1,
-          status: "Pending",
-          reason: "Home repair work scheduled",
-          appliedDate: "2025-12-12",
-        },
-      ];
-      localStorage.setItem("leaveRequests", JSON.stringify(initialRequests));
-      setRequests(initialRequests);
-    } else {
-      setRequests(JSON.parse(storedRequests));
+    loadRequests();
+  }, [role, roleLoading]);
+
+
+  const loadRequests = async () => {
+    try {
+      // const user = JSON.parse(localStorage.getItem("mockUser")!);
+      if (!user) return;
+      console.log("Loading leave requests for role:", role, "and user ID:", user.id);
+
+      const data = await leaveApprovalService.getRequests(role, user.id);
+
+      setRequests(data);
+    } catch (err) {
+      console.error("Failed to load leave requests:", err);
+      toast.error("Failed to load leave requests");
     }
-  }, [role, roleLoading, navigate]);
+  };
+
 
   const handleApprove = async (id: string) => {
     const request = requests.find(req => req.id === id);
@@ -110,8 +74,8 @@ export default function ApproveLeaves() {
         req.id === id ? { ...req, status: "Approved" } : req
       );
       setRequests(updatedRequests);
-      localStorage.setItem("leaveRequests", JSON.stringify(updatedRequests));
-      
+      await loadRequests();
+
       // Send real email notification
       await sendLeaveNotification({
         to: `${request.employeeName.toLowerCase().replace(/\s+/g, '.')}@company.com`,
@@ -123,7 +87,7 @@ export default function ApproveLeaves() {
         status: "approved",
         reason: request.reason,
       });
-      
+
       toast.success("Leave request approved and email notification sent");
     } catch (error) {
       toast.error("Leave approved but failed to send email notification");
@@ -141,7 +105,7 @@ export default function ApproveLeaves() {
       );
       setRequests(updatedRequests);
       localStorage.setItem("leaveRequests", JSON.stringify(updatedRequests));
-      
+
       // Send real email notification
       await sendLeaveNotification({
         to: `${request.employeeName.toLowerCase().replace(/\s+/g, '.')}@company.com`,
@@ -153,7 +117,7 @@ export default function ApproveLeaves() {
         status: "rejected",
         reason: request.reason,
       });
-      
+
       toast.error("Leave request rejected and email notification sent");
     } catch (error) {
       toast.error("Leave rejected but failed to send email notification");
@@ -188,7 +152,7 @@ export default function ApproveLeaves() {
       setRequests(updatedRequests);
       localStorage.setItem("leaveRequests", JSON.stringify(updatedRequests));
       setSelectedRequests([]);
-      
+
       toast.success(`${selectedRequests.length} leave requests approved and notifications sent`);
     } catch (error) {
       toast.error("Some email notifications may have failed");
@@ -223,7 +187,7 @@ export default function ApproveLeaves() {
       setRequests(updatedRequests);
       localStorage.setItem("leaveRequests", JSON.stringify(updatedRequests));
       setSelectedRequests([]);
-      
+
       toast.error(`${selectedRequests.length} leave requests rejected and notifications sent`);
     } catch (error) {
       toast.error("Some email notifications may have failed");

@@ -179,7 +179,7 @@ export default function Profile() {
             <CardContent className="space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">User ID</span>
-                <span className="font-medium font-mono text-sm">{profile.id.slice(0, 8)}...</span>
+                <span className="font-medium font-mono text-sm">{profile.id}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Account Created</span>
@@ -191,7 +191,7 @@ export default function Profile() {
                   })}
                 </span>
               </div>
-              {profile.updated_at && (
+              {/* {profile.updated_at && (
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Last Updated</span>
                   <span className="font-medium">
@@ -202,7 +202,7 @@ export default function Profile() {
                     })}
                   </span>
                 </div>
-              )}
+              )} */}
             </CardContent>
           </Card>
         </div>
