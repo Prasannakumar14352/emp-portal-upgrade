@@ -32,6 +32,7 @@ import Attendance from "./pages/Attendance";
 import PerformanceReview from "./pages/PerformanceReview";
 import AttendanceReports from "./pages/AttendanceReports";
 import AttendanceAnalytics from "./pages/AttendanceAnalytics";
+import RoleManagement from "./pages/RoleManagement";
 
 const queryClient = new QueryClient();
 
@@ -65,6 +66,7 @@ const App = () => (
           <Route path="/attendance-reports" element={<ProtectedRoute><DashboardLayout><AttendanceReports /></DashboardLayout></ProtectedRoute>} />
           <Route path="/attendance-analytics" element={<ProtectedRoute><DashboardLayout><AttendanceAnalytics /></DashboardLayout></ProtectedRoute>} />
           <Route path="/performance-review" element={<ProtectedRoute><DashboardLayout><PerformanceReview /></DashboardLayout></ProtectedRoute>} />
+          <Route path="/role-management" element={<ProtectedRoute><DashboardLayout><RoleManagement /></DashboardLayout></ProtectedRoute>} />
           <Route path="/auth/callback" element={<OAuthCallback />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
