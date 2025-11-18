@@ -20,6 +20,7 @@ const passwordResetRoutes = require('./routes/passwordReset');
 const managersRoutes = require('./routes/managers');
 const attendanceRoutes = require('./routes/attendance');
 const performanceRoutes = require('./routes/performance');
+const apiDocsRoutes = require('./routes/apiDocs');
 
 const app = express();
 const server = http.createServer(app);
@@ -146,13 +147,17 @@ app.use('/api/password-reset', passwordResetRoutes);
 app.use('/api/managers', managersRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/performance', performanceRoutes);
+app.use('/api/docs', apiDocsRoutes);
 
 // Root endpoint - API info
 app.get('/', (req, res) => {
   res.json({
     message: 'Employee Portal API',
     version: '1.0.0',
+    documentation: '📚 Visit /api/docs for interactive API documentation',
     endpoints: {
+      docs: '/api/docs (Interactive API Documentation UI)',
+      docsJson: '/api/docs/json (JSON format)',
       auth: '/api/auth (login, signup, logout)',
       users: '/api/users',
       leaves: '/api/leaves',
@@ -161,8 +166,7 @@ app.get('/', (req, res) => {
       payslips: '/api/payslips',
       notifications: '/api/notifications',
       health: '/api/health'
-    },
-    documentation: 'See backend/README.md for full API documentation'
+    }
   });
 });
 
