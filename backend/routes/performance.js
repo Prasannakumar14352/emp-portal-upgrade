@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { getConnection, sql } = require('../config/database');
-const authenticateToken = require('../middleware/auth');
+const { authenticateToken } = require('../middleware/auth');
 
 // Get all reviews (for managers)
 router.get('/reviews', authenticateToken, async (req, res) => {

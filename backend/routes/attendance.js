@@ -315,7 +315,7 @@ router.get('/analytics/departments', authenticateToken, async (req, res) => {
 router.get('/analytics/trends', authenticateToken, async (req, res) => {
   try {
     const { days = 7 } = req.query;
-    const daysNum = parseInt(days as string);
+    const daysNum = parseInt(days, 10);
     
     const pool = await getConnection();
     const result = await pool.request()

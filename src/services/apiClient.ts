@@ -16,53 +16,47 @@ class APIClient {
     options: FetchOptions = {}
   ): Promise<T> {
     const { skipAuth, ...fetchOptions } = options;
-    
-    const headers = skipAuth 
-      ? { 'Content-Type': 'application/json', ...options.headers }
-      : { ...getAuthHeaders(), ...options.headers };
+
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+      ...(skipAuth ? {} : getAuthHeaders()),
+      ...(options.headers || {})
+    };
 
     const response = await fetch(`${this.baseURL}${endpoint}`, {
       ...fetchOptions,
-      headers,
+      headers
     });
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: response.statusText }));
-      throw new Error(error.message || `HTTP error! status: ${response.status}`);
+      const errorBody = await response.json().catch(() => null);
+      throw new Error(errorBody?.error || errorBody?.message || response.statusText);
     }
 
     return response.json();
   }
 
-  async get<T>(endpoint: string, options?: FetchOptions): Promise<T> {
+  get<T>(endpoint: string, options?: FetchOptions): Promise<T> {
     return this.request<T>(endpoint, { ...options, method: 'GET' });
   }
 
-  async post<T>(endpoint: string, data?: any, options?: FetchOptions): Promise<T> {
+  post<T>(endpoint: string, data?: any, options?: FetchOptions): Promise<T> {
     return this.request<T>(endpoint, {
       ...options,
       method: 'POST',
-      body: JSON.stringify(data),
+      body: JSON.stringify(data)
     });
   }
 
-  async put<T>(endpoint: string, data?: any, options?: FetchOptions): Promise<T> {
-    return this.request<T>(endpoint, {
-      ...options,
-      method: 'PUT',
-      body: JSON.stringify(data),
-    });
-  }
-
-  async patch<T>(endpoint: string, data?: any, options?: FetchOptions): Promise<T> {
+  patch<T>(endpoint: string, data?: any, options?: FetchOptions): Promise<T> {
     return this.request<T>(endpoint, {
       ...options,
       method: 'PATCH',
-      body: JSON.stringify(data),
+      body: JSON.stringify(data)
     });
   }
 
-  async delete<T>(endpoint: string, options?: FetchOptions): Promise<T> {
+  delete<T>(endpoint: string, options?: FetchOptions): Promise<T> {
     return this.request<T>(endpoint, { ...options, method: 'DELETE' });
   }
 }
