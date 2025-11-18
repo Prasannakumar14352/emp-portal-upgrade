@@ -6,10 +6,12 @@ import { Settings as SettingsIcon, Moon, Bell, Lock, ShieldCheck } from "lucide-
 import { toast } from "sonner";
 import { useTheme } from "next-themes";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useSettings } from "@/hooks/useSettings";
 
 export default function Settings() {
   const { theme, setTheme } = useTheme();
   const { role } = useUserRole();
+  const { settings, updateSetting } = useSettings();
 
   const handleSave = () => {
     toast.success("Settings saved successfully!");
@@ -119,7 +121,10 @@ export default function Settings() {
                 <Label>Compact View</Label>
                 <p className="text-sm text-muted-foreground">Use compact layout for better space utilization</p>
               </div>
-              <Switch />
+              <Switch
+                checked={settings.compactView}
+                onCheckedChange={(checked) => updateSetting("compactView", checked)}
+              />
             </div>
           </CardContent>
         </Card>
@@ -138,7 +143,10 @@ export default function Settings() {
                 <Label>Email Notifications</Label>
                 <p className="text-sm text-muted-foreground">Receive notifications via email</p>
               </div>
-              <Switch defaultChecked />
+              <Switch
+                checked={settings.emailNotifications}
+                onCheckedChange={(checked) => updateSetting("emailNotifications", checked)}
+              />
             </div>
 
             <div className="flex items-center justify-between">
@@ -146,7 +154,10 @@ export default function Settings() {
                 <Label>Push Notifications</Label>
                 <p className="text-sm text-muted-foreground">Receive push notifications in browser</p>
               </div>
-              <Switch defaultChecked />
+              <Switch
+                checked={settings.pushNotifications}
+                onCheckedChange={(checked) => updateSetting("pushNotifications", checked)}
+              />
             </div>
 
             <div className="flex items-center justify-between">
@@ -154,7 +165,10 @@ export default function Settings() {
                 <Label>Leave Updates</Label>
                 <p className="text-sm text-muted-foreground">Get notified about leave status changes</p>
               </div>
-              <Switch defaultChecked />
+              <Switch
+                checked={settings.leaveUpdates}
+                onCheckedChange={(checked) => updateSetting("leaveUpdates", checked)}
+              />
             </div>
           </CardContent>
         </Card>

@@ -210,11 +210,11 @@ export default function Dashboard() {
               <FileText className="h-5 w-5" />
               View Payslips
             </Button>
-            <Button variant="outline" className="h-auto flex-col gap-2 py-4">
+            <Button variant="outline" className="h-auto flex-col gap-2 py-4" onClick={() => navigate("/attendance")}>
               <Clock className="h-5 w-5" />
               Check Attendance
             </Button>
-            <Button variant="outline" className="h-auto flex-col gap-2 py-4">
+            <Button variant="outline" className="h-auto flex-col gap-2 py-4" onClick={() => navigate("/performance-review")}>
               <TrendingUp className="h-5 w-5" />
               Performance Review
             </Button>
