@@ -23,6 +23,7 @@ const managersRoutes = require('./routes/managers');
 const attendanceRoutes = require('./routes/attendance');
 const performanceRoutes = require('./routes/performance');
 const apiDocsRoutes = require('./routes/apiDocs');
+const postmanRoutes = require('./routes/postman');
 
 const app = express();
 const server = http.createServer(app);
@@ -150,6 +151,7 @@ app.use('/api/managers', managersRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/performance', performanceRoutes);
 app.use('/api/docs', apiDocsRoutes);
+app.use('/api/postman', postmanRoutes);
 
 // Swagger API Documentation
 app.use('/api/swagger', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
@@ -172,11 +174,13 @@ app.get('/', (req, res) => {
     documentation: {
       swagger: '🔷 Visit /api/swagger for Swagger/OpenAPI documentation with testing',
       simple: '📚 Visit /api/docs for simple API reference',
+      postman: '📮 Download Postman collection at /api/postman',
       json: '📄 Get OpenAPI spec at /api/swagger.json'
     },
     endpoints: {
       swagger: '/api/swagger (Swagger UI - Interactive Testing)',
       swaggerJson: '/api/swagger.json (OpenAPI Specification)',
+      postman: '/api/postman (Download Postman Collection)',
       docs: '/api/docs (Simple API Documentation)',
       docsJson: '/api/docs/json (JSON format)',
       auth: '/api/auth',
