@@ -58,6 +58,16 @@ export function getAuthErrorMessage(error: any): AuthError {
   }
 
   if (statusCode === 403) {
+    // Check for detailed permission error from backend
+    const details = error?.response?.data?.details;
+    if (details?.message) {
+      return {
+        code: 'FORBIDDEN',
+        message: details.message,
+        shouldRedirect: false
+      };
+    }
+    
     return {
       code: 'FORBIDDEN',
       message: 'You do not have permission to perform this action.',

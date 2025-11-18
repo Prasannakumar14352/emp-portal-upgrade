@@ -26,9 +26,19 @@ const authorizeRole = (...allowedRoles) => {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    if (!allowedRoles.includes(req.user.role)) {
+    const userRole = req.user.role || 'none';
+    
+    if (!allowedRoles.includes(userRole)) {
+      console.log(`Authorization failed - User role: ${userRole}, Required roles: ${allowedRoles.join(', ')}`);
       return res.status(403).json({ 
-        error: 'Forbidden: Insufficient permissions' 
+        error: 'Forbidden: Insufficient permissions',
+        details: {
+          currentRole: userRole,
+          requiredRoles: allowedRoles,
+          message: userRole === 'employee' || userRole === 'none' 
+            ? 'You need HR or Manager role to perform this action. Contact your administrator to grant you the appropriate role.'
+            : 'Your role does not have permission for this action.'
+        }
       });
     }
 
