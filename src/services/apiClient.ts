@@ -126,6 +126,14 @@ class APIClient {
   delete<T>(endpoint: string, options?: FetchOptions): Promise<T> {
     return this.request<T>(endpoint, { ...options, method: 'DELETE' });
   }
+
+  put<T>(endpoint: string, data?: any, options?: FetchOptions): Promise<T> {
+    return this.request<T>(endpoint, {
+      ...options,
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
+  }
 }
 
 export const apiClient = new APIClient();
