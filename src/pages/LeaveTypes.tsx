@@ -7,15 +7,21 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Edit, Trash2, Calendar } from "lucide-react";
+import { Plus, Edit, Trash2, Calendar, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { leaveTypeService, type LeaveType, type CreateLeaveTypeRequest, type UpdateLeaveTypeRequest } from "@/services/leaveTypeService";
+import { useUserRole } from "@/hooks/useUserRole";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function LeaveTypes() {
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [editingType, setEditingType] = useState<LeaveType | null>(null);
+  const { role, loading: roleLoading } = useUserRole();
+  
+  // Check if user has permission to manage leave types
+  const canManage = role === 'hr' || role === 'manager';
 
   useEffect(() => {
     loadLeaveTypes();
@@ -36,6 +42,12 @@ export default function LeaveTypes() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!canManage) {
+      toast.error("You don't have permission to manage leave types");
+      return;
+    }
+    
     const formData = new FormData(e.target as HTMLFormElement);
     
     const leaveTypeData: CreateLeaveTypeRequest | UpdateLeaveTypeRequest = {
@@ -55,32 +67,43 @@ export default function LeaveTypes() {
       setOpen(false);
       setEditingType(null);
       loadLeaveTypes();
-    } catch (error) {
-      toast.error(editingType ? "Failed to update leave type" : "Failed to create leave type");
+    } catch (error: any) {
+      const errorMessage = error?.message || (editingType ? "Failed to update leave type" : "Failed to create leave type");
+      toast.error(errorMessage);
     }
   };
 
   const handleToggleActive = async (leaveType: LeaveType) => {
+    if (!canManage) {
+      toast.error("You don't have permission to manage leave types");
+      return;
+    }
+    
     try {
       await leaveTypeService.updateLeaveType(leaveType.id.toString(), {
         is_active: !leaveType.is_active
       });
       toast.success(`Leave type ${leaveType.is_active ? 'deactivated' : 'activated'}`);
       loadLeaveTypes();
-    } catch (error) {
-      toast.error('Failed to update leave type status');
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to update leave type status');
     }
   };
 
   const handleDelete = async (id: string) => {
+    if (!canManage) {
+      toast.error("You don't have permission to manage leave types");
+      return;
+    }
+    
     if (!confirm('Are you sure you want to delete this leave type?')) return;
     
     try {
       await leaveTypeService.deleteLeaveType(id.toString());
       toast.success("Leave type deleted successfully!");
       loadLeaveTypes();
-    } catch (error) {
-      toast.error('Failed to delete leave type');
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to delete leave type');
     }
   };
 
@@ -94,7 +117,7 @@ export default function LeaveTypes() {
     setOpen(true);
   };
 
-  if (loading) {
+  if (loading || roleLoading) {
     return <div className="space-y-6">Loading...</div>;
   }
 
@@ -105,67 +128,83 @@ export default function LeaveTypes() {
           <h1 className="text-3xl font-bold">Leave Types Management</h1>
           <p className="text-muted-foreground">Configure leave types and their default balances</p>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={openCreateDialog}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Leave Type
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px]">
-            <form onSubmit={handleSubmit}>
-              <DialogHeader>
-                <DialogTitle>{editingType ? 'Edit Leave Type' : 'Add Leave Type'}</DialogTitle>
-                <DialogDescription>
-                  {editingType ? 'Update the leave type details' : 'Create a new leave type for employees'}
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="name">Leave Type Name *</Label>
-                  <Input
-                    id="name"
-                    name="name"
-                    placeholder="e.g., Annual Leave"
-                    defaultValue={editingType?.name}
-                    required
-                  />
+        {canManage ? (
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={openCreateDialog}>
+                <Plus className="mr-2 h-4 w-4" />
+                Add Leave Type
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[500px]">
+              <form onSubmit={handleSubmit}>
+                <DialogHeader>
+                  <DialogTitle>{editingType ? 'Edit Leave Type' : 'Add Leave Type'}</DialogTitle>
+                  <DialogDescription>
+                    {editingType ? 'Update the leave type details' : 'Create a new leave type for employees'}
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="name">Leave Type Name *</Label>
+                    <Input
+                      id="name"
+                      name="name"
+                      placeholder="e.g., Annual Leave"
+                      defaultValue={editingType?.name}
+                      required
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="default_days">Default Days *</Label>
+                    <Input
+                      id="default_days"
+                      name="default_days"
+                      type="number"
+                      min="0"
+                      placeholder="e.g., 14"
+                      defaultValue={editingType?.default_days}
+                      required
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="description">Description</Label>
+                    <Textarea
+                      id="description"
+                      name="description"
+                      placeholder="Brief description of this leave type"
+                      defaultValue={editingType?.description || ''}
+                      rows={3}
+                    />
+                  </div>
                 </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="default_days">Default Days *</Label>
-                  <Input
-                    id="default_days"
-                    name="default_days"
-                    type="number"
-                    min="0"
-                    placeholder="e.g., 14"
-                    defaultValue={editingType?.default_days}
-                    required
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="description">Description</Label>
-                  <Textarea
-                    id="description"
-                    name="description"
-                    placeholder="Brief description of this leave type"
-                    defaultValue={editingType?.description || ''}
-                    rows={3}
-                  />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit">
-                  {editingType ? 'Update' : 'Create'}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+                <DialogFooter>
+                  <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit">
+                    {editingType ? 'Update' : 'Create'}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        ) : (
+          <Button disabled>
+            <Lock className="mr-2 h-4 w-4" />
+            Add Leave Type
+          </Button>
+        )}
       </div>
+
+      {!canManage && (
+        <Alert>
+          <Lock className="h-4 w-4" />
+          <AlertDescription>
+            You don't have permission to manage leave types. Contact an HR administrator or Manager for assistance.
+          </AlertDescription>
+        </Alert>
+      )}
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {leaveTypes.map((leaveType) => (
@@ -197,6 +236,7 @@ export default function LeaveTypes() {
                     <Switch
                       checked={leaveType.is_active}
                       onCheckedChange={() => handleToggleActive(leaveType)}
+                      disabled={!canManage}
                     />
                     <span className="text-sm">Active</span>
                   </div>
@@ -205,6 +245,7 @@ export default function LeaveTypes() {
                       variant="ghost"
                       size="icon"
                       onClick={() => openEditDialog(leaveType)}
+                      disabled={!canManage}
                     >
                       <Edit className="h-4 w-4" />
                     </Button>
@@ -212,6 +253,7 @@ export default function LeaveTypes() {
                       variant="ghost"
                       size="icon"
                       onClick={() => handleDelete(leaveType.id.toString())}
+                      disabled={!canManage}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
