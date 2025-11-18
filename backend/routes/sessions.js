@@ -168,7 +168,7 @@ router.get('/all', authenticateToken, authorizeRole('hr', 'manager'), async (req
         COALESCE(AVG(s.session_duration), 0) as average_duration,
         COALESCE(MAX(s.login_time), 'Never') as last_login
       FROM profiles p
-      LEFT JOIN user_sessions s ON p.id = s.user_id
+      LEFT JOIN user_sessions s ON p.user_id = s.user_id
     `;
     
     if (startDate || endDate) {

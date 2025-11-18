@@ -19,7 +19,7 @@ router.get('/conflicts', authenticateToken, async (req, res) => {
           l.id, l.user_id, l.leave_type, l.start_date, l.end_date, l.days,
           u.full_name, u.department
         FROM leaves l
-        JOIN profiles u ON l.user_id = u.id
+        JOIN profiles u ON l.user_id = u.user_id
         WHERE l.status IN ('Pending', 'Approved')
           AND (@user_id IS NULL OR l.user_id != @user_id)
           AND (
@@ -80,7 +80,7 @@ router.get('/', authenticateToken, authorizeRole('hr', 'manager'), async (req, r
         l.days, l.reason, l.status, l.approved_by, l.created_at, l.updated_at,
         u.full_name as user_name, u.email as user_email
       FROM leaves l
-      JOIN profiles u ON l.user_id = u.id
+      JOIN profiles u ON l.user_id = u.user_id
     `;
 
     if (status) {
@@ -128,7 +128,7 @@ router.post('/', authenticateToken, async (req, res) => {
     try {
       const userResult = await pool.request()
         .input('user_id', sql.Int, req.user.id)
-        .query('SELECT email, full_name FROM profiles WHERE id = @user_id');
+        .query('SELECT email, full_name FROM profiles WHERE user_id = @user_id');
 
       if (userResult.recordset.length > 0) {
         const employee = userResult.recordset[0];
@@ -160,7 +160,7 @@ router.post('/', authenticateToken, async (req, res) => {
         if (manager_id) {
           const managerResult = await pool.request()
             .input('manager_id', sql.Int, manager_id)
-            .query('SELECT email, full_name FROM profiles WHERE id = @manager_id');
+            .query('SELECT email, full_name FROM profiles WHERE user_id = @manager_id');
           
           if (managerResult.recordset.length > 0) {
             recipients.push(managerResult.recordset[0].email);
@@ -172,7 +172,7 @@ router.post('/', authenticateToken, async (req, res) => {
           .query(`
             SELECT p.email 
             FROM profiles p
-            INNER JOIN user_roles ur ON p.id = ur.user_id
+            INNER JOIN user_roles ur ON p.user_id = ur.user_id
             WHERE ur.role = 'hr'
           `);
         
@@ -298,11 +298,11 @@ router.patch('/:leaveId', authenticateToken, authorizeRole('hr', 'manager'), asy
       // Get employee and approver details
       const employeeResult = await pool.request()
         .input('user_id', sql.Int, updatedLeave.user_id)
-        .query('SELECT email, full_name FROM profiles WHERE id = @user_id');
+        .query('SELECT email, full_name FROM profiles WHERE user_id = @user_id');
       
       const approverResult = await pool.request()
         .input('approver_id', sql.Int, req.user.id)
-        .query('SELECT email, full_name FROM profiles WHERE id = @approver_id');
+        .query('SELECT email, full_name FROM profiles WHERE user_id = @approver_id');
 
       if (employeeResult.recordset.length > 0 && approverResult.recordset.length > 0) {
         const employee = employeeResult.recordset[0];
@@ -329,7 +329,7 @@ router.patch('/:leaveId', authenticateToken, authorizeRole('hr', 'manager'), asy
             .query(`
               SELECT p.email, p.full_name 
               FROM profiles p
-              JOIN user_roles ur ON p.id = ur.user_id
+              JOIN user_roles ur ON p.user_id = ur.user_id
               WHERE ur.role = 'hr'
             `);
           
@@ -455,7 +455,7 @@ router.get('/:leaveId/comments', authenticateToken, async (req, res) => {
           lc.id, lc.leave_id, lc.user_id, lc.comment, lc.created_at,
           u.full_name as author_name
         FROM leave_comments lc
-        JOIN profiles u ON lc.user_id = u.id
+        JOIN profiles u ON lc.user_id = u.user_id
         WHERE lc.leave_id = @leave_id
         ORDER BY lc.created_at DESC
       `);
@@ -532,7 +532,7 @@ router.put('/:leaveId', authenticateToken, async (req, res) => {
 
       const employeeResult = await pool.request()
         .input('user_id', sql.Int, leave.user_id)
-        .query('SELECT email, full_name FROM profiles WHERE id = @user_id');
+        .query('SELECT email, full_name FROM profiles WHERE user_id = @user_id');
 
       if (employeeResult.recordset.length > 0) {
         const employee = employeeResult.recordset[0];
@@ -541,7 +541,7 @@ router.put('/:leaveId', authenticateToken, async (req, res) => {
         if (leave.manager_id) {
           const managerResult = await pool.request()
             .input('manager_id', sql.Int, leave.manager_id)
-            .query('SELECT email, full_name FROM profiles WHERE id = @manager_id');
+            .query('SELECT email, full_name FROM profiles WHERE user_id = @manager_id');
           
           if (managerResult.recordset.length > 0) {
             const manager = managerResult.recordset[0];
@@ -567,7 +567,7 @@ router.put('/:leaveId', authenticateToken, async (req, res) => {
           .query(`
             SELECT p.email, p.full_name 
             FROM profiles p
-            JOIN user_roles ur ON p.id = ur.user_id
+            JOIN user_roles ur ON p.user_id = ur.user_id
             WHERE ur.role = 'hr'
           `);
         
@@ -631,7 +631,7 @@ router.delete('/:leaveId', authenticateToken, async (req, res) => {
     // Get employee details
     const employeeResult = await pool.request()
       .input('user_id', sql.Int, leave.user_id)
-      .query('SELECT email, full_name FROM profiles WHERE id = @user_id');
+      .query('SELECT email, full_name FROM profiles WHERE user_id = @user_id');
 
     // Delete the leave request
     await pool.request()
@@ -657,7 +657,7 @@ router.delete('/:leaveId', authenticateToken, async (req, res) => {
         if (leave.manager_id) {
           const managerResult = await pool.request()
             .input('manager_id', sql.Int, leave.manager_id)
-            .query('SELECT email, full_name FROM profiles WHERE id = @manager_id');
+            .query('SELECT email, full_name FROM profiles WHERE user_id = @manager_id');
           
           if (managerResult.recordset.length > 0) {
             const manager = managerResult.recordset[0];
@@ -681,7 +681,7 @@ router.delete('/:leaveId', authenticateToken, async (req, res) => {
           .query(`
             SELECT p.email, p.full_name 
             FROM profiles p
-            JOIN user_roles ur ON p.id = ur.user_id
+            JOIN user_roles ur ON p.user_id = ur.user_id
             WHERE ur.role = 'hr'
           `);
         

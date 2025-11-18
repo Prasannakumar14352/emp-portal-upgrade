@@ -126,7 +126,7 @@ router.post('/reset', [
       .query(`
         UPDATE profiles
         SET password_hash = @password_hash, updated_at = GETDATE()
-        WHERE id = @user_id
+        WHERE user_id = @user_id
       `);
 
     // Remove used token

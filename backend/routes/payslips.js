@@ -59,7 +59,7 @@ router.get('/', authenticateToken, authorizeRole('hr', 'manager'), async (req, r
         p.allowances, p.deductions, p.net_salary, p.file_url, p.created_at,
         u.full_name as user_name, u.email as user_email
       FROM payslips p
-      JOIN profiles u ON p.user_id = u.id
+      JOIN profiles u ON p.user_id = u.user_id
     `;
     
     const conditions = [];
@@ -103,7 +103,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
           p.allowances, p.deductions, p.net_salary, p.file_url, p.created_at,
           u.full_name as user_name, u.email as user_email
         FROM payslips p
-        JOIN profiles u ON p.user_id = u.id
+        JOIN profiles u ON p.user_id = u.user_ids
         WHERE p.id = @id
       `);
 

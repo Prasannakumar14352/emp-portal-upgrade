@@ -38,7 +38,7 @@ router.get('/:userId/profile', authenticateToken, async (req, res) => {
           p.id, p.email, p.full_name, p.phone, 
           p.department, p.position, p.avatar_url, p.hire_date, p.created_at, p.updated_at
         FROM profiles p
-        WHERE p.id = @user_id
+        WHERE p.user_id = @user_id
       `);
 
     if (result.recordset.length === 0) {
@@ -88,7 +88,7 @@ router.patch('/:userId/profile', authenticateToken, async (req, res) => {
           INSERTED.id, INSERTED.email, INSERTED.full_name, 
           INSERTED.phone, INSERTED.department, INSERTED.position,
           INSERTED.avatar_url, INSERTED.hire_date
-        WHERE id = @user_id
+        WHERE user_id = @user_id
       `);
 
     res.json(result.recordset[0]);
@@ -130,7 +130,7 @@ router.get('/with-roles', authenticateToken, authorizeRole('hr'), async (req, re
           p.id, p.email, p.full_name, p.department, p.position,
           ur.role, ur.id as role_id, ur.created_at as role_assigned_at
         FROM profiles p
-        LEFT JOIN user_roles ur ON p.id = ur.user_id
+        LEFT JOIN user_roles ur ON p.user_id = ur.user_id
         ORDER BY p.full_name, ur.role
       `);
 
@@ -178,7 +178,8 @@ router.post('/:userId/roles', authenticateToken, authorizeRole('hr'), async (req
     // Check if user exists
     const userCheck = await pool.request()
       .input('user_id', sql.Int, userId)
-      .query('SELECT id FROM profiles WHERE id = @user_id');
+      .input('role', sql.NVarChar, role)
+      .query('SELECT id FROM profiles WHERE user_id = @user_id AND role = @role');
 
     if (userCheck.recordset.length === 0) {
       return res.status(404).json({ error: 'User not found' });

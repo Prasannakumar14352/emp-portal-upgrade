@@ -31,8 +31,8 @@ router.get('/', authenticateToken, async (req, res) => {
     const result = await pool.request()
       .query(`
         SELECT 
-          e.id, e.user_id, e.full_name, e.email, e.phone,
-          e.department, e.position, e.status, e.created_at, e.updated_at
+          e.id, e.user_id, e.full_name, e.email, e.phone, 
+          e.department, e.position, e.status, e.created_at, e.updated_at, e.roles
         FROM profiles e
         ORDER BY e.full_name
       `);
@@ -87,10 +87,11 @@ router.post('/', authenticateToken, authorizeRole('hr', 'manager'), async (req, 
       .input('department', sql.NVarChar, department)
       .input('position', sql.NVarChar, position)
       .input('status', sql.NVarChar, status || 'Active')
+      .input('role', sql.NVarChar, role || 'employee')
       .query(`
-        INSERT INTO profiles (user_id, full_name, email, phone, department, position, status, created_at)
+        INSERT INTO profiles (user_id, full_name, email, phone, department, position, status, created_at, updated_at, role)
         OUTPUT INSERTED.*
-        VALUES (@user_id, @full_name, @email, @phone, @department, @position, @status, GETDATE())
+        VALUES (@user_id, @full_name, @email, @phone, @department, @position, @status, GETDATE(), GETDATE(), @role)
       `);
 
     res.status(201).json(result.recordset[0]);
@@ -115,6 +116,7 @@ router.patch('/:id', authenticateToken, authorizeRole('hr', 'manager'), async (r
       .input('department', sql.NVarChar, department)
       .input('position', sql.NVarChar, position)
       .input('status', sql.NVarChar, status)
+      .input('role', sql.NVarChar, role)
       .query(`
         UPDATE profiles
         SET 
@@ -124,7 +126,8 @@ router.patch('/:id', authenticateToken, authorizeRole('hr', 'manager'), async (r
           department = COALESCE(@department, department),
           position = COALESCE(@position, position),
           status = COALESCE(@status, status),
-          updated_at = GETDATE()
+          updated_at = GETDATE(),
+          role = COALESCE(@role, role)
         OUTPUT INSERTED.*
         WHERE id = @id
       `);
@@ -172,7 +175,7 @@ router.get('/department/:department', authenticateToken, async (req, res) => {
       .query(`
         SELECT 
           e.id, e.user_id, e.full_name, e.email, e.phone,
-          e.department, e.position, e.status
+          e.department, e.position, e.status, e.created_at, e.updated_at, e.roles
         FROM profiles e
         WHERE e.department = @department
         ORDER BY e.full_name

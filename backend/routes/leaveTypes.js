@@ -13,7 +13,7 @@ router.get('/', authenticateToken, async (req, res) => {
     const pool = await getConnection();
     const result = await pool.request()
       .query('SELECT * FROM leave_types ORDER BY name');
-    
+
     res.json(result.recordset);
   } catch (err) {
     console.error('Get leave types error:', err);
@@ -29,7 +29,7 @@ router.get('/active', authenticateToken, async (req, res) => {
     const pool = await getConnection();
     const result = await pool.request()
       .query('SELECT * FROM leave_types WHERE is_active = 1 ORDER BY name');
-    
+
     res.json(result.recordset);
   } catch (err) {
     console.error('Get active leave types error:', err);
@@ -44,15 +44,15 @@ router.get('/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const pool = await getConnection();
-    
+
     const result = await pool.request()
       .input('id', sql.Int, parseInt(id))
       .query('SELECT * FROM leave_types WHERE id = @id');
-    
+
     if (result.recordset.length === 0) {
       return res.status(404).json({ error: 'Leave type not found' });
     }
-    
+
     res.json(result.recordset[0]);
   } catch (err) {
     console.error('Get leave type error:', err);
@@ -80,12 +80,12 @@ router.post('/',
 
       const { name, default_days, description } = req.body;
       const pool = await getConnection();
-      
+
       // Check if leave type with same name exists
       const existing = await pool.request()
         .input('name', sql.NVarChar, name)
         .query('SELECT id FROM leave_types WHERE name = @name');
-      
+
       if (existing.recordset.length > 0) {
         return res.status(400).json({ error: 'Leave type with this name already exists' });
       }
@@ -130,12 +130,12 @@ router.patch('/:id',
       const { id } = req.params;
       const { name, default_days, description, is_active } = req.body;
       const pool = await getConnection();
-      
+
       // Check if leave type exists
       const existing = await pool.request()
         .input('id', sql.Int, parseInt(id))
         .query('SELECT id FROM leave_types WHERE id = @id');
-      
+
       if (existing.recordset.length === 0) {
         return res.status(404).json({ error: 'Leave type not found' });
       }
@@ -157,7 +157,7 @@ router.patch('/:id',
           OUTPUT INSERTED.*
           WHERE id = @id
         `);
-
+      console.log('Update leave type result:', result);
       res.json(result.recordset[0]);
     } catch (err) {
       console.error('Update leave type error:', err);
@@ -176,7 +176,7 @@ router.delete('/:id',
     try {
       const { id } = req.params;
       const pool = await getConnection();
-      
+
       // Check if leave type is being used
       const inUse = await pool.request()
         .input('leave_type_id', sql.Int, parseInt(id))
@@ -185,17 +185,17 @@ router.delete('/:id',
           FROM leaves 
           WHERE leave_type = (SELECT name FROM leave_types WHERE id = @leave_type_id)
         `);
-      
+
       if (inUse.recordset[0].count > 0) {
-        return res.status(400).json({ 
-          error: 'Cannot delete leave type that is being used in leave requests' 
+        return res.status(400).json({
+          error: 'Cannot delete leave type that is being used in leave requests'
         });
       }
 
       const result = await pool.request()
         .input('id', sql.Int, parseInt(id))
         .query('DELETE FROM leave_types WHERE id = @id');
-      
+
       if (result.rowsAffected[0] === 0) {
         return res.status(404).json({ error: 'Leave type not found' });
       }

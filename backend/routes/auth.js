@@ -110,9 +110,9 @@ router.post('/login', [
     const result = await pool.request()
       .input('email', sql.NVarChar, email)
       .query(`
-        SELECT p.id, p.email, p.full_name, ur.role
+        SELECT p.id, p.email, p.full_name, ur.role, p.user_id, p.created_at, p.updated_at, p.roles
         FROM profiles p
-        LEFT JOIN user_roles ur ON p.id = ur.user_id
+        LEFT JOIN user_roles ur ON p.user_id = ur.user_ids
         WHERE p.email = @email
       `);
 

@@ -37,7 +37,9 @@ class LeaveTypeService {
   }
 
   async updateLeaveType(id: string | number, updates: UpdateLeaveTypeRequest): Promise<LeaveType> {
-    return apiClient.patch<LeaveType>(`/leave-types/${id}`, updates);
+    return apiClient.patch<LeaveType>(`/leave-types/${id}`, updates, {
+      skipAuth: false
+    });
   }
 
   async deleteLeaveType(id: string | number): Promise<void> {
