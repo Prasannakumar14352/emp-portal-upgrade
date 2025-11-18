@@ -1,6 +1,8 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const http = require('http');
+const socketIO = require('socket.io');
 const { logError, logInfo, logWarning, clearOldLogs } = require('./utils/logger');
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
@@ -20,6 +22,31 @@ const attendanceRoutes = require('./routes/attendance');
 const performanceRoutes = require('./routes/performance');
 
 const app = express();
+const server = http.createServer(app);
+const io = socketIO(server, {
+  cors: {
+    origin: process.env.FRONTEND_URL || 'http://localhost:8080',
+    credentials: true,
+  }
+});
+
+// Make io accessible to routes
+app.set('io', io);
+
+// Setup Socket.IO for real-time notifications
+io.on('connection', (socket) => {
+  console.log('Client connected:', socket.id);
+
+  socket.on('register', (userId) => {
+    socket.join(`user-${userId}`);
+    console.log(`User ${userId} registered with socket ${socket.id}`);
+  });
+
+  socket.on('disconnect', () => {
+    console.log('Client disconnected:', socket.id);
+  });
+});
+
 const PORT = process.env.PORT || 3000;
 
 // Middleware
@@ -162,7 +189,7 @@ app.use((req, res) => {
 });
 
 // Start server
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   logInfo('Server started', {
     port: PORT,
     environment: process.env.NODE_ENV || 'development',
@@ -173,6 +200,7 @@ app.listen(PORT, () => {
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`CORS enabled for: ${process.env.FRONTEND_URL || 'http://localhost:8080'}`);
   console.log(`Error logs: backend/logs/error.log`);
+  console.log(`Socket.IO enabled for real-time notifications`);
   
   // Clear old logs on startup (keep last 30 days)
   clearOldLogs(30);

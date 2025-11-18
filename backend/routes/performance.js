@@ -45,6 +45,19 @@ router.post('/reviews', authenticateToken, async (req, res) => {
     } = req.body;
     
     const pool = await getConnection();
+    
+    // Get employee and reviewer names
+    const employeeResult = await pool.request()
+      .input('employeeId', sql.Int, employee_id)
+      .query('SELECT full_name FROM employees WHERE user_id = @employeeId');
+    
+    const reviewerResult = await pool.request()
+      .input('reviewerId', sql.Int, reviewer_id)
+      .query('SELECT full_name FROM employees WHERE user_id = @reviewerId');
+    
+    const employeeName = employeeResult.recordset[0]?.full_name || 'Unknown Employee';
+    const reviewerName = reviewerResult.recordset[0]?.full_name || 'Unknown Reviewer';
+    
     await pool.request()
       .input('employeeId', sql.Int, employee_id)
       .input('reviewerId', sql.Int, reviewer_id)
@@ -68,6 +81,19 @@ router.post('/reviews', authenticateToken, async (req, res) => {
           @problemSolving, @feedback, @status
         )
       `);
+
+    // Emit SignalR notification to employee
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`user-${employee_id}`).emit('performanceReview', {
+        employeeId: employee_id,
+        employeeName,
+        reviewerId: reviewer_id,
+        reviewerName,
+        message: `${reviewerName} has created a performance review for you`,
+        timestamp: new Date().toISOString()
+      });
+    }
 
     res.json({ message: 'Review created successfully' });
   } catch (error) {
