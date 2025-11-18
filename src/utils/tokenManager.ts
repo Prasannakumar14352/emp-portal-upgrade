@@ -1,5 +1,6 @@
 import { jwtDecode } from 'jwt-decode';
 import { getAPIBaseURL } from '@/config/api';
+import { showAuthError } from './authErrorHandler';
 
 interface JWTPayload {
   exp: number;
@@ -22,7 +23,7 @@ class TokenManager {
       // Refresh if token expires within 5 minutes
       return decoded.exp < currentTime + 300;
     } catch (error) {
-      console.error('Error decoding token:', error);
+      // Don't show toast for decode errors - just return expired
       return true;
     }
   }
@@ -82,7 +83,11 @@ class TokenManager {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to refresh token');
+        const errorData = await response.json().catch(() => ({}));
+        throw { 
+          status: response.status, 
+          message: errorData.error || 'Failed to refresh token' 
+        };
       }
 
       const data = await response.json();
@@ -96,7 +101,8 @@ class TokenManager {
 
       return null;
     } catch (error) {
-      console.error('Token refresh failed:', error);
+      // Show user-friendly error message
+      showAuthError(error, 'Session Refresh');
       this.clearSession();
       return null;
     }

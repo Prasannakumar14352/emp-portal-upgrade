@@ -1,5 +1,6 @@
 import { getAPIBaseURL, getAuthHeaders } from '@/config/api';
 import { tokenManager } from '@/utils/tokenManager';
+import { showAuthError } from '@/utils/authErrorHandler';
 
 interface FetchOptions extends RequestInit {
   skipAuth?: boolean;
@@ -22,16 +23,15 @@ class APIClient {
     let validToken: string | null = null;
     if (!skipAuth) {
       validToken = await tokenManager.getValidToken();
-      console.log('Token retrieval:', { 
-        hasToken: !!validToken, 
-        tokenLength: validToken?.length,
-        endpoint 
-      });
       
       if (!validToken) {
+        const error = new Error('No authentication token found. Please log in.');
+        showAuthError(error, 'Authentication');
         // Redirect to login if no valid token
-        window.location.href = '/auth';
-        throw new Error('No authentication token found. Please log in.');
+        setTimeout(() => {
+          window.location.href = '/auth';
+        }, 1500); // Give user time to see the error message
+        throw error;
       }
     }
 
@@ -42,41 +42,65 @@ class APIClient {
       // Allow explicit header overrides if provided
       ...(options.headers || {})
     };
-    
-    console.log('Request headers:', { 
-      endpoint, 
-      hasAuth: 'Authorization' in headers,
-      skipAuth 
-    });
 
-    const response = await fetch(`${this.baseURL}${endpoint}`, {
-      ...fetchOptions,
-      headers
-    });
+    try {
+      const response = await fetch(`${this.baseURL}${endpoint}`, {
+        ...fetchOptions,
+        headers
+      });
 
-    if (!response.ok) {
-      const errorBody = await response.json().catch(() => null);
-      
-      // Handle authentication errors
-      if (response.status === 401) {
-        // Try to refresh token one more time
-        const refreshedToken = await tokenManager.getValidToken();
-        if (refreshedToken) {
-          // Retry the request with new token
-          return this.request<T>(endpoint, options);
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => null);
+        const error = {
+          status: response.status,
+          statusCode: response.status,
+          message: errorBody?.error || errorBody?.message || response.statusText,
+          error: errorBody?.error || errorBody?.message || response.statusText
+        };
+        
+        // Handle authentication errors
+        if (response.status === 401) {
+          // Try to refresh token one more time
+          const refreshedToken = await tokenManager.getValidToken();
+          if (refreshedToken) {
+            // Retry the request with new token
+            return this.request<T>(endpoint, options);
+          }
+          
+          // Show error and redirect
+          const authError = showAuthError(error, 'Authentication');
+          localStorage.removeItem('token');
+          localStorage.removeItem('refresh_token');
+          localStorage.removeItem('user');
+          
+          if (authError.shouldRedirect) {
+            setTimeout(() => {
+              window.location.href = '/auth';
+            }, 1500);
+          }
+          
+          throw error;
         }
         
-        localStorage.removeItem('token');
-        localStorage.removeItem('refresh_token');
-        localStorage.removeItem('user');
-        window.location.href = '/auth';
-        throw new Error('Session expired. Please log in again.');
+        // Handle permission errors
+        if (response.status === 403) {
+          showAuthError(error, 'Permission');
+          throw error;
+        }
+        
+        // Handle other errors
+        showAuthError(error);
+        throw error;
       }
-      
-      throw new Error(errorBody?.error || errorBody?.message || response.statusText);
-    }
 
-    return response.json();
+      return response.json();
+    } catch (error) {
+      // Handle network errors
+      if (error instanceof TypeError) {
+        showAuthError(error, 'Network');
+      }
+      throw error;
+    }
   }
 
   get<T>(endpoint: string, options?: FetchOptions): Promise<T> {

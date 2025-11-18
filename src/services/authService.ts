@@ -1,5 +1,6 @@
 import { apiClient } from './apiClient';
 import { sessionService } from './sessionService';
+import { showAuthError } from '@/utils/authErrorHandler';
 
 export interface User {
   id: string;
@@ -22,35 +23,45 @@ export interface AuthResponse {
 
 class AuthService {
   async signUp(email: string, password: string, fullName?: string): Promise<AuthResponse> {
-    const response = await apiClient.post<AuthResponse>('/auth/signup', {
-      email,
-      password,
-      full_name: fullName,
-    }, { skipAuth: true });
+    try {
+      const response = await apiClient.post<AuthResponse>('/auth/signup', {
+        email,
+        password,
+        full_name: fullName,
+      }, { skipAuth: true });
 
-    if (response.session) {
-      this.setSession(response.session);
+      if (response.session) {
+        this.setSession(response.session);
+      }
+
+      return response;
+    } catch (error) {
+      showAuthError(error, 'Sign Up');
+      throw error;
     }
-
-    return response;
   }
 
 
   async signIn(email: string, password: string): Promise<AuthResponse> {
-    const response = await apiClient.post<AuthResponse>('/auth/login', {
-      email,
-      password,
-    }, { skipAuth: true });
+    try {
+      const response = await apiClient.post<AuthResponse>('/auth/login', {
+        email,
+        password,
+      }, { skipAuth: true });
 
-    if (response.session) {
-      this.setSession(response.session);
-      // Create session for time tracking
-      if (response.user?.id) {
-        await sessionService.createSession(response.user.id);
+      if (response.session) {
+        this.setSession(response.session);
+        // Create session for time tracking
+        if (response.user?.id) {
+          await sessionService.createSession(response.user.id);
+        }
       }
-    }
 
-    return response;
+      return response;
+    } catch (error) {
+      showAuthError(error, 'Login');
+      throw error;
+    }
   }
 
   // async signInWithOAuth(provider: string): Promise<{ url: string }> {
@@ -67,10 +78,16 @@ class AuthService {
 
 
   async signOut(): Promise<void> {
-    // End the current session before signing out
-    await sessionService.endSession();
-    await apiClient.post('/auth/logout');
-    this.clearSession();
+    try {
+      // End the current session before signing out
+      await sessionService.endSession();
+      await apiClient.post('/auth/logout');
+      this.clearSession();
+    } catch (error) {
+      // Even if logout fails on server, clear local session
+      this.clearSession();
+      showAuthError(error, 'Logout');
+    }
   }
 
   async getSession(): Promise<Session | null> {
