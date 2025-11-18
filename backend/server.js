@@ -3,6 +3,8 @@ const express = require('express');
 const cors = require('cors');
 const http = require('http');
 const socketIO = require('socket.io');
+const swaggerUi = require('swagger-ui-express');
+const swaggerSpec = require('./config/swagger');
 const { logError, logInfo, logWarning, clearOldLogs } = require('./utils/logger');
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
@@ -149,16 +151,35 @@ app.use('/api/attendance', attendanceRoutes);
 app.use('/api/performance', performanceRoutes);
 app.use('/api/docs', apiDocsRoutes);
 
+// Swagger API Documentation
+app.use('/api/swagger', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+  customCss: '.swagger-ui .topbar { display: none }',
+  customSiteTitle: 'HRMS API Documentation',
+  customfavIcon: '/favicon.ico'
+}));
+
+// Swagger JSON endpoint
+app.get('/api/swagger.json', (req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.send(swaggerSpec);
+});
+
 // Root endpoint - API info
 app.get('/', (req, res) => {
   res.json({
     message: 'Employee Portal API',
     version: '1.0.0',
-    documentation: '📚 Visit /api/docs for interactive API documentation',
+    documentation: {
+      swagger: '🔷 Visit /api/swagger for Swagger/OpenAPI documentation with testing',
+      simple: '📚 Visit /api/docs for simple API reference',
+      json: '📄 Get OpenAPI spec at /api/swagger.json'
+    },
     endpoints: {
-      docs: '/api/docs (Interactive API Documentation UI)',
+      swagger: '/api/swagger (Swagger UI - Interactive Testing)',
+      swaggerJson: '/api/swagger.json (OpenAPI Specification)',
+      docs: '/api/docs (Simple API Documentation)',
       docsJson: '/api/docs/json (JSON format)',
-      auth: '/api/auth (login, signup, logout)',
+      auth: '/api/auth',
       users: '/api/users',
       leaves: '/api/leaves',
       employees: '/api/employees',
