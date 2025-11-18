@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Edit, Trash2, Calendar, Lock } from "lucide-react";
+import { Plus, Edit, Trash2, Calendar, Lock, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { leaveTypeService, type LeaveType, type CreateLeaveTypeRequest, type UpdateLeaveTypeRequest } from "@/services/leaveTypeService";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -16,6 +16,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 export default function LeaveTypes() {
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [open, setOpen] = useState(false);
   const [editingType, setEditingType] = useState<LeaveType | null>(null);
   const { role, loading: roleLoading } = useUserRole();
@@ -57,6 +58,7 @@ export default function LeaveTypes() {
     };
 
     try {
+      setSubmitting(true);
       if (editingType) {
         await leaveTypeService.updateLeaveType(editingType.id, leaveTypeData);
         toast.success("Leave type updated successfully!");
@@ -70,6 +72,8 @@ export default function LeaveTypes() {
     } catch (error: any) {
       const errorMessage = error?.message || (editingType ? "Failed to update leave type" : "Failed to create leave type");
       toast.error(errorMessage);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -179,11 +183,18 @@ export default function LeaveTypes() {
                   </div>
                 </div>
                 <DialogFooter>
-                  <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                  <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={submitting}>
                     Cancel
                   </Button>
-                  <Button type="submit">
-                    {editingType ? 'Update' : 'Create'}
+                  <Button type="submit" disabled={submitting}>
+                    {submitting ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        {editingType ? 'Updating...' : 'Creating...'}
+                      </>
+                    ) : (
+                      editingType ? 'Update' : 'Create'
+                    )}
                   </Button>
                 </DialogFooter>
               </form>

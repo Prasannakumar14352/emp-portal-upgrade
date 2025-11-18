@@ -3,6 +3,8 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthLoadingProvider } from "@/hooks/useAuthLoading";
+import { AuthLoadingOverlay } from "@/components/AuthLoadingOverlay";
 import { DashboardLayout } from "./components/DashboardLayout";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import Index from "./pages/Index";
@@ -35,11 +37,13 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
+    <AuthLoadingProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <AuthLoadingOverlay />
+        <BrowserRouter>
+          <Routes>
           <Route path="/auth" element={<Auth />} />
           <Route path="/" element={<ProtectedRoute><DashboardLayout><Index /></DashboardLayout></ProtectedRoute>} />
           <Route path="/leaves" element={<ProtectedRoute><DashboardLayout><Leaves /></DashboardLayout></ProtectedRoute>} />
@@ -66,9 +70,10 @@ const App = () => (
           <Route path="/reset-password" element={<ResetPassword />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </AuthLoadingProvider>
   </QueryClientProvider>
 );
 
