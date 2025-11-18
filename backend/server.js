@@ -25,8 +25,10 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIO(server, {
   cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:8080',
+    origin: ["http://localhost:5173", "http://localhost:8081", "http://localhost:8080", process.env.FRONTEND_URL].filter(Boolean),
+    methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
+    allowedHeaders: ["Content-Type", "Authorization", "x-requested-with"]
   }
 });
 
@@ -51,10 +53,10 @@ const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:8080',
+  origin: ["http://localhost:5173", "http://localhost:8081", "http://localhost:8080", process.env.FRONTEND_URL].filter(Boolean),
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-requested-with']
 }));
 
 app.use(express.json());

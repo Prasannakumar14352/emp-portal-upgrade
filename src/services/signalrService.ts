@@ -1,48 +1,51 @@
-import * as signalR from '@microsoft/signalr';
+import { io, Socket } from 'socket.io-client';
 import { getAPIBaseURL } from '@/config/api';
 
 class SignalRService {
-  private connection: signalR.HubConnection | null = null;
+  private socket: Socket | null = null;
   private listeners: Map<string, Set<Function>> = new Map();
 
   async connect(userId: string) {
-    if (this.connection?.state === signalR.HubConnectionState.Connected) {
+    if (this.socket?.connected) {
       return;
     }
 
     const baseUrl = getAPIBaseURL().replace('/api', '');
     
-    this.connection = new signalR.HubConnectionBuilder()
-      .withUrl(`${baseUrl}/notifications`)
-      .withAutomaticReconnect()
-      .configureLogging(signalR.LogLevel.Information)
-      .build();
+    this.socket = io(baseUrl, {
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionAttempts: 5,
+    });
 
-    this.connection.on('attendanceUpdate', (data) => {
+    this.socket.on('connect', () => {
+      console.log('Socket.IO Connected');
+      // Register user
+      this.socket?.emit('register', userId);
+    });
+
+    this.socket.on('attendanceUpdate', (data) => {
       this.notifyListeners('attendanceUpdate', data);
     });
 
-    this.connection.on('performanceReview', (data) => {
+    this.socket.on('performanceReview', (data) => {
       this.notifyListeners('performanceReview', data);
     });
 
-    try {
-      await this.connection.start();
-      console.log('SignalR Connected');
-      
-      // Register user
-      await this.connection.invoke('register', userId);
-    } catch (err) {
-      console.error('SignalR Connection Error:', err);
-      // Retry connection after 5 seconds
-      setTimeout(() => this.connect(userId), 5000);
-    }
+    this.socket.on('connect_error', (err) => {
+      console.error('Socket.IO Connection Error:', err);
+    });
+
+    this.socket.on('disconnect', () => {
+      console.log('Socket.IO Disconnected');
+    });
   }
 
   disconnect() {
-    if (this.connection) {
-      this.connection.stop();
-      this.connection = null;
+    if (this.socket) {
+      this.socket.disconnect();
+      this.socket = null;
       this.listeners.clear();
     }
   }
