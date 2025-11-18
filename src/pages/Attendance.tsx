@@ -27,7 +27,7 @@ export default function Attendance() {
   const loadAttendanceData = async () => {
     try {
       setLoading(true);
-      const stats = await statisticsService.getAttendanceStats(user!.id);
+      const stats = await statisticsService.getAttendanceStatistics(user!.id);
       setAttendanceStats({
         totalWorkingDays: stats.total_working_days,
         presentDays: stats.present_days,
