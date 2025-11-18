@@ -121,6 +121,13 @@ router.post('/checkin', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Already checked in for today' });
     }
 
+    // Get user name for notification
+    const userResult = await pool.request()
+      .input('userId', sql.Int, userId)
+      .query('SELECT full_name FROM employees WHERE user_id = @userId');
+    
+    const userName = userResult.recordset[0]?.full_name || 'Unknown User';
+
     if (existing.recordset[0]) {
       // Update existing record
       await pool.request()
@@ -143,6 +150,18 @@ router.post('/checkin', authenticateToken, async (req, res) => {
           INSERT INTO attendance_records (user_id, date, check_in_time, notes)
           VALUES (@userId, @date, @checkInTime, @notes)
         `);
+    }
+
+    // Emit SignalR notification
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('attendanceUpdate', {
+        userId,
+        userName,
+        action: 'check-in',
+        timestamp: now.toISOString(),
+        message: `${userName} has checked in`
+      });
     }
 
     res.json({ message: 'Checked in successfully' });
@@ -177,6 +196,13 @@ router.post('/checkout', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Already checked out for today' });
     }
 
+    // Get user name for notification
+    const userResult = await pool.request()
+      .input('userId', sql.Int, userId)
+      .query('SELECT full_name FROM employees WHERE user_id = @userId');
+    
+    const userName = userResult.recordset[0]?.full_name || 'Unknown User';
+
     await pool.request()
       .input('id', sql.UniqueIdentifier, existing.recordset[0].id)
       .input('checkOutTime', sql.DateTime2, now)
@@ -185,6 +211,18 @@ router.post('/checkout', authenticateToken, async (req, res) => {
         SET check_out_time = @checkOutTime, updated_at = GETDATE()
         WHERE id = @id
       `);
+
+    // Emit SignalR notification
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('attendanceUpdate', {
+        userId,
+        userName,
+        action: 'check-out',
+        timestamp: now.toISOString(),
+        message: `${userName} has checked out`
+      });
+    }
 
     res.json({ message: 'Checked out successfully' });
   } catch (error) {

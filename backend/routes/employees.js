@@ -4,6 +4,25 @@ const { authenticateToken, authorizeRole } = require('../middleware/auth');
 
 const router = express.Router();
 
+// GET /api/employees/departments - Get unique departments
+router.get('/departments', authenticateToken, async (req, res) => {
+  try {
+    const pool = await getConnection();
+    const result = await pool.request().query(`
+      SELECT DISTINCT department 
+      FROM employees 
+      WHERE department IS NOT NULL 
+      ORDER BY department ASC
+    `);
+    
+    const departments = result.recordset.map(row => row.department);
+    res.json({ departments });
+  } catch (error) {
+    console.error('Error fetching departments:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // GET /api/employees - Get all employees
 router.get('/', authenticateToken, async (req, res) => {
   try {

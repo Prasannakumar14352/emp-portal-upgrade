@@ -2,6 +2,7 @@ import { ReactNode } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { useAuth } from "@/hooks/useAuth";
+import { useSignalR } from "@/hooks/useSignalR";
 import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
 import {
@@ -20,6 +21,7 @@ interface DashboardLayoutProps {
 }
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
+  useSignalR(); // Initialize SignalR for real-time notifications
   const { user, signOut } = useAuth();
 
   const getInitials = (email: string) => {
