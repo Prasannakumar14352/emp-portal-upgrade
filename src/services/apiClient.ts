@@ -19,8 +19,9 @@ class APIClient {
     const { skipAuth, ...fetchOptions } = options;
 
     // For authenticated requests, ensure token is valid and refresh if needed
+    let validToken: string | null = null;
     if (!skipAuth) {
-      const validToken = await tokenManager.getValidToken();
+      validToken = await tokenManager.getValidToken();
       if (!validToken) {
         // Redirect to login if no valid token
         window.location.href = '/auth';
@@ -30,7 +31,9 @@ class APIClient {
 
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
-      ...(skipAuth ? {} : getAuthHeaders()),
+      // Prefer the freshly validated token to avoid stale localStorage reads
+      ...(skipAuth || !validToken ? {} : { Authorization: `Bearer ${validToken}` }),
+      // Allow explicit header overrides if provided
       ...(options.headers || {})
     };
 
