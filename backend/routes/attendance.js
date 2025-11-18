@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { getConnection, sql } = require('../config/database');
-const authenticateToken = require('../middleware/auth');
+const { authenticateToken } = require('../middleware/auth');
 
 // Get today's attendance record
 router.get('/today', authenticateToken, async (req, res) => {
@@ -227,6 +227,119 @@ router.post('/checkout', authenticateToken, async (req, res) => {
     res.json({ message: 'Checked out successfully' });
   } catch (error) {
     console.error('Error checking out:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Analytics endpoints
+router.get('/analytics/stats', authenticateToken, async (req, res) => {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    
+    const pool = await getConnection();
+    
+    // Get today's stats
+    const todayStats = await pool.request()
+      .input('date', sql.Date, today)
+      .query(`
+        SELECT 
+          COUNT(DISTINCT user_id) as totalEmployees,
+          SUM(CASE WHEN status = 'present' OR check_in_time IS NOT NULL THEN 1 ELSE 0 END) as presentToday,
+          SUM(CASE WHEN status = 'absent' THEN 1 ELSE 0 END) as absentToday,
+          SUM(CASE WHEN status = 'late' THEN 1 ELSE 0 END) as lateToday
+        FROM attendance_records 
+        WHERE date = @date
+      `);
+    
+    // Get average attendance rate for the month
+    const avgStats = await pool.request()
+      .query(`
+        SELECT 
+          AVG(CASE 
+            WHEN status IN ('present', 'late') OR check_in_time IS NOT NULL 
+            THEN 100.0 
+            ELSE 0 
+          END) as avgAttendanceRate
+        FROM attendance_records 
+        WHERE MONTH(date) = MONTH(GETDATE()) AND YEAR(date) = YEAR(GETDATE())
+      `);
+
+    const stats = todayStats.recordset[0];
+    const avgRate = avgStats.recordset[0];
+
+    res.json({
+      totalEmployees: stats.totalEmployees || 0,
+      presentToday: stats.presentToday || 0,
+      absentToday: stats.absentToday || 0,
+      lateToday: stats.lateToday || 0,
+      avgAttendanceRate: Math.round(avgRate.avgAttendanceRate || 0),
+    });
+  } catch (error) {
+    console.error('Error fetching analytics stats:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/analytics/departments', authenticateToken, async (req, res) => {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    
+    const pool = await getConnection();
+    const result = await pool.request()
+      .input('date', sql.Date, today)
+      .query(`
+        SELECT 
+          e.department,
+          COUNT(DISTINCT e.user_id) as total,
+          SUM(CASE WHEN ar.status = 'present' OR ar.check_in_time IS NOT NULL THEN 1 ELSE 0 END) as present,
+          SUM(CASE WHEN ar.status = 'absent' THEN 1 ELSE 0 END) as absent,
+          SUM(CASE WHEN ar.status = 'late' THEN 1 ELSE 0 END) as late,
+          CAST(AVG(CASE 
+            WHEN ar.status IN ('present', 'late') OR ar.check_in_time IS NOT NULL 
+            THEN 100.0 
+            ELSE 0 
+          END) as INT) as attendanceRate
+        FROM employees e
+        LEFT JOIN attendance_records ar ON e.user_id = ar.user_id AND ar.date = @date
+        GROUP BY e.department
+        ORDER BY e.department
+      `);
+
+    res.json(result.recordset);
+  } catch (error) {
+    console.error('Error fetching department analytics:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/analytics/trends', authenticateToken, async (req, res) => {
+  try {
+    const { days = 7 } = req.query;
+    const daysNum = parseInt(days as string);
+    
+    const pool = await getConnection();
+    const result = await pool.request()
+      .input('days', sql.Int, daysNum)
+      .query(`
+        SELECT 
+          CONVERT(VARCHAR, date, 23) as date,
+          SUM(CASE WHEN status = 'present' OR check_in_time IS NOT NULL THEN 1 ELSE 0 END) as present,
+          SUM(CASE WHEN status = 'absent' THEN 1 ELSE 0 END) as absent,
+          SUM(CASE WHEN status = 'late' THEN 1 ELSE 0 END) as late,
+          CAST(AVG(CASE 
+            WHEN status IN ('present', 'late') OR check_in_time IS NOT NULL 
+            THEN 100.0 
+            ELSE 0 
+          END) as INT) as attendanceRate
+        FROM attendance_records
+        WHERE date >= DATEADD(day, -@days, GETDATE())
+        GROUP BY date
+        ORDER BY date ASC
+      `);
+
+    res.json(result.recordset);
+  } catch (error) {
+    console.error('Error fetching trend analytics:', error);
     res.status(500).json({ error: error.message });
   }
 });

@@ -45,6 +45,7 @@ const hrManagerItems = [
   { title: "Approve Leaves", url: "/approve-leaves", icon: ClipboardCheck },
   { title: "Leave Calendar", url: "/leave-calendar", icon: CalendarClock },
   { title: "Attendance Reports", url: "/attendance-reports", icon: BarChart3 },
+  { title: "Attendance Analytics", url: "/attendance-analytics", icon: TrendingUp },
   { title: "Advanced Reports", url: "/advanced-reports", icon: BarChart3 },
   { title: "Bulk Operations", url: "/bulk-operations", icon: Upload },
   { title: "Team Time Tracking", url: "/team-time-tracking", icon: Clock },
