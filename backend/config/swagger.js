@@ -6,7 +6,30 @@ const options = {
     info: {
       title: 'HRMS API Documentation',
       version: '1.0.0',
-      description: 'Complete API documentation for the Employee Portal HRMS system with authentication, leave management, attendance tracking, and more.',
+      description: `
+# HRMS API Documentation
+
+Complete API documentation for the Employee Portal HRMS system.
+
+## 🔐 Authentication Guide
+
+Most endpoints require authentication. Follow these steps to test:
+
+1. **Login First**: Use the \`POST /api/auth/login\` endpoint
+   - Email: \`user@example.com\`
+   - Password: \`password123\`
+   
+2. **Get Your Token**: Copy the \`token\` from the response
+
+3. **Authorize**: Click the 🔒 **Authorize** button at the top right
+
+4. **Enter Token**: Paste your token (no need to add "Bearer", it's automatic)
+
+5. **Test Endpoints**: Now you can test all protected endpoints!
+
+## 📝 Note
+The Swagger documentation shows endpoints without authentication requirements for documentation purposes, but the actual API enforces authentication. Always authorize first before testing.
+      `,
       contact: {
         name: 'API Support',
         email: 'support@hrms.com'
@@ -19,11 +42,11 @@ const options = {
     servers: [
       {
         url: 'http://localhost:5000',
-        description: 'Development server'
+        description: 'Development server (Port 5000)'
       },
       {
-        url: process.env.API_URL || 'https://api.hrms.com',
-        description: 'Production server'
+        url: 'http://localhost:3000',
+        description: 'Alternative development server (Port 3000)'
       }
     ],
     components: {
@@ -32,7 +55,7 @@ const options = {
           type: 'http',
           scheme: 'bearer',
           bearerFormat: 'JWT',
-          description: 'Enter your JWT token'
+          description: 'JWT Authorization - Enter your JWT token from the login response'
         }
       },
       schemas: {
