@@ -3,12 +3,33 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Calendar, Clock, CheckCircle, XCircle, AlertCircle, Loader2, LogIn, LogOut } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { supabase } from "@/integrations/supabase/client";
-import { attendanceService, type AttendanceRecord, type AttendanceStats } from "@/services/attendanceService";
+import { useAuth } from "@/hooks/useAuth";
+import { apiClient } from "@/services/apiClient";
 import { toast } from "sonner";
 
+interface AttendanceRecord {
+  id: string;
+  user_id: string;
+  date: string;
+  check_in_time?: string;
+  check_out_time?: string;
+  status: 'present' | 'absent' | 'late' | 'half-day';
+  work_hours?: number;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface AttendanceStats {
+  totalDays: number;
+  present: number;
+  absent: number;
+  late: number;
+  attendanceRate: number;
+}
+
 export default function Attendance() {
-  const [supabaseUserId, setSupabaseUserId] = useState<string | null>(null);
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [todayRecord, setTodayRecord] = useState<AttendanceRecord | null>(null);
@@ -22,23 +43,13 @@ export default function Attendance() {
   const [recentAttendance, setRecentAttendance] = useState<AttendanceRecord[]>([]);
 
   useEffect(() => {
-    const getSupabaseUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        setSupabaseUserId(user.id);
-      }
-    };
-    getSupabaseUser();
-  }, []);
-
-  useEffect(() => {
-    if (supabaseUserId) {
+    if (user) {
       loadAttendanceData();
     }
-  }, [supabaseUserId]);
+  }, [user]);
 
   const loadAttendanceData = async () => {
-    if (!supabaseUserId) return;
+    if (!user) return;
     
     try {
       setLoading(true);
@@ -46,9 +57,9 @@ export default function Attendance() {
       const currentYear = new Date().getFullYear();
 
       const [today, stats, records] = await Promise.all([
-        attendanceService.getTodayAttendance(supabaseUserId),
-        attendanceService.getAttendanceStats(supabaseUserId, currentMonth, currentYear),
-        attendanceService.getUserAttendance(supabaseUserId, currentMonth, currentYear),
+        apiClient.get<AttendanceRecord>(`/attendance/today?userId=${user.id}`),
+        apiClient.get<AttendanceStats>(`/attendance/stats?userId=${user.id}&month=${currentMonth}&year=${currentYear}`),
+        apiClient.get<AttendanceRecord[]>(`/attendance?userId=${user.id}&month=${currentMonth}&year=${currentYear}`),
       ]);
 
       setTodayRecord(today);
@@ -63,11 +74,11 @@ export default function Attendance() {
   };
 
   const handleCheckIn = async () => {
-    if (!supabaseUserId) return;
+    if (!user) return;
     
     try {
       setActionLoading(true);
-      await attendanceService.checkIn(supabaseUserId);
+      await apiClient.post(`/attendance/checkin`, { userId: user.id });
       toast.success('Checked in successfully!');
       await loadAttendanceData();
     } catch (error: any) {
@@ -79,11 +90,11 @@ export default function Attendance() {
   };
 
   const handleCheckOut = async () => {
-    if (!supabaseUserId) return;
+    if (!user) return;
     
     try {
       setActionLoading(true);
-      await attendanceService.checkOut(supabaseUserId);
+      await apiClient.post(`/attendance/checkout`, { userId: user.id });
       toast.success('Checked out successfully!');
       await loadAttendanceData();
     } catch (error: any) {

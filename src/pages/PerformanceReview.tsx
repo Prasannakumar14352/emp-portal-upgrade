@@ -9,14 +9,44 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
-import { performanceReviewService, type PerformanceReview, type PerformanceGoal } from "@/services/performanceReviewService";
+import { apiClient } from "@/services/apiClient";
 import { employeeService, type Employee } from "@/services/employeeService";
 import { toast } from "sonner";
 
+interface PerformanceReview {
+  id: string;
+  employee_id: string;
+  reviewer_id: string;
+  review_period: string;
+  review_date: string;
+  overall_score: number;
+  quality_of_work?: number;
+  communication?: number;
+  teamwork?: number;
+  time_management?: number;
+  problem_solving?: number;
+  feedback?: string;
+  status: 'draft' | 'submitted' | 'acknowledged';
+  created_at: string;
+  updated_at: string;
+}
+
+interface PerformanceGoal {
+  id: string;
+  user_id: string;
+  title: string;
+  description?: string;
+  target_date?: string;
+  progress: number;
+  status: 'not-started' | 'in-progress' | 'completed';
+  created_at: string;
+  updated_at: string;
+}
+
 export default function PerformanceReview() {
-  const [supabaseUserId, setSupabaseUserId] = useState<string | null>(null);
+  const { user } = useAuth();
   const { role } = useUserRole();
   const [loading, setLoading] = useState(true);
   const [reviews, setReviews] = useState<PerformanceReview[]>([]);
@@ -41,38 +71,28 @@ export default function PerformanceReview() {
   });
 
   useEffect(() => {
-    const getSupabaseUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        setSupabaseUserId(user.id);
-      }
-    };
-    getSupabaseUser();
-  }, []);
-
-  useEffect(() => {
-    if (supabaseUserId && role) {
+    if (user && role) {
       loadData();
     }
-  }, [supabaseUserId, role]);
+  }, [user, role]);
 
   const loadData = async () => {
-    if (!supabaseUserId) return;
+    if (!user) return;
     
     try {
       setLoading(true);
       
       if (isManager) {
         const [allReviews, allEmployees] = await Promise.all([
-          performanceReviewService.getAllReviews(),
+          apiClient.get<PerformanceReview[]>('/performance/reviews'),
           employeeService.getAllEmployees(),
         ]);
         setReviews(allReviews);
         setEmployees(allEmployees);
       } else {
         const [userReviews, userGoals] = await Promise.all([
-          performanceReviewService.getEmployeeReviews(supabaseUserId),
-          performanceReviewService.getUserGoals(supabaseUserId),
+          apiClient.get<PerformanceReview[]>(`/performance/reviews?employeeId=${user.id}`),
+          apiClient.get<PerformanceGoal[]>(`/performance/goals?userId=${user.id}`),
         ]);
         setReviews(userReviews);
         setGoals(userGoals);
@@ -86,14 +106,17 @@ export default function PerformanceReview() {
   };
 
   const handleCreateReview = async () => {
-    if (!supabaseUserId || !newReview.employee_id || !newReview.review_period) {
+    if (!user || !newReview.employee_id || !newReview.review_period) {
       toast.error('Please fill in all required fields');
       return;
     }
 
     try {
       setSubmitting(true);
-      await performanceReviewService.createReview(supabaseUserId, newReview);
+      await apiClient.post('/performance/reviews', {
+        ...newReview,
+        reviewer_id: user.id,
+      });
       toast.success('Performance review created successfully!');
       setCreateDialogOpen(false);
       resetForm();
