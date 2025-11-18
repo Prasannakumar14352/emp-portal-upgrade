@@ -131,6 +131,11 @@ export default function LeaveTypes() {
         <div>
           <h1 className="text-3xl font-bold">Leave Types Management</h1>
           <p className="text-muted-foreground">Configure leave types and their default balances</p>
+          {!canManage && role && (
+            <p className="text-sm text-amber-600 dark:text-amber-400 mt-2">
+              Current role: <span className="font-semibold">{role}</span> (HR or Manager role required to manage leave types)
+            </p>
+          )}
         </div>
         {canManage ? (
           <Dialog open={open} onOpenChange={setOpen}>
