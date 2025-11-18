@@ -16,6 +16,8 @@ const leaveTypeRoutes = require('./routes/leaveTypes');
 const sessionRoutes = require('./routes/sessions');
 const passwordResetRoutes = require('./routes/passwordReset');
 const managersRoutes = require('./routes/managers');
+const attendanceRoutes = require('./routes/attendance');
+const performanceRoutes = require('./routes/performance');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -113,6 +115,8 @@ app.use('/api/leave-types', leaveTypeRoutes);
 app.use('/api/sessions', sessionRoutes);
 app.use('/api/password-reset', passwordResetRoutes);
 app.use('/api/managers', managersRoutes);
+app.use('/api/attendance', attendanceRoutes);
+app.use('/api/performance', performanceRoutes);
 
 // Root endpoint - API info
 app.get('/', (req, res) => {
