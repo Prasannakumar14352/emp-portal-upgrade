@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -6,14 +7,84 @@ import { Settings as SettingsIcon, Moon, Bell, Lock, ShieldCheck } from "lucide-
 import { toast } from "sonner";
 import { useTheme } from "next-themes";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useAuth } from "@/hooks/useAuth";
+import { settingsService } from "@/services/settingsService";
+import { Loader2 } from "lucide-react";
 
 export default function Settings() {
   const { theme, setTheme } = useTheme();
   const { role } = useUserRole();
+  const { user } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  
+  const [preferences, setPreferences] = useState({
+    dark_mode: false,
+    compact_view: false,
+    email_notifications: true,
+    push_notifications: true,
+    leave_update_notifications: true,
+  });
 
-  const handleSave = () => {
-    toast.success("Settings saved successfully!");
+  useEffect(() => {
+    if (user) {
+      loadPreferences();
+    }
+  }, [user]);
+
+  const loadPreferences = async () => {
+    try {
+      setLoading(true);
+      const prefs = await settingsService.getUserPreferences(user!.id);
+      if (prefs) {
+        setPreferences({
+          dark_mode: prefs.dark_mode,
+          compact_view: prefs.compact_view,
+          email_notifications: prefs.email_notifications,
+          push_notifications: prefs.push_notifications,
+          leave_update_notifications: prefs.leave_update_notifications,
+        });
+        // Sync theme with preferences
+        if (prefs.dark_mode !== (theme === "dark")) {
+          setTheme(prefs.dark_mode ? "dark" : "light");
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load preferences:', error);
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const handleSave = async () => {
+    if (!user) return;
+    
+    try {
+      setSaving(true);
+      await settingsService.createOrUpdatePreferences(user.id, preferences);
+      toast.success("Settings saved successfully!");
+    } catch (error) {
+      console.error('Failed to save preferences:', error);
+      toast.error("Failed to save settings");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const updatePreference = (key: keyof typeof preferences, value: boolean) => {
+    setPreferences(prev => ({ ...prev, [key]: value }));
+    if (key === 'dark_mode') {
+      setTheme(value ? "dark" : "light");
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -109,8 +180,8 @@ export default function Settings() {
                 <p className="text-sm text-muted-foreground">Enable dark mode theme</p>
               </div>
               <Switch
-                checked={theme === "dark"}
-                onCheckedChange={(checked) => setTheme(checked ? "dark" : "light")}
+                checked={preferences.dark_mode}
+                onCheckedChange={(checked) => updatePreference('dark_mode', checked)}
               />
             </div>
 
@@ -119,7 +190,10 @@ export default function Settings() {
                 <Label>Compact View</Label>
                 <p className="text-sm text-muted-foreground">Use compact layout for better space utilization</p>
               </div>
-              <Switch />
+              <Switch
+                checked={preferences.compact_view}
+                onCheckedChange={(checked) => updatePreference('compact_view', checked)}
+              />
             </div>
           </CardContent>
         </Card>
@@ -138,7 +212,10 @@ export default function Settings() {
                 <Label>Email Notifications</Label>
                 <p className="text-sm text-muted-foreground">Receive notifications via email</p>
               </div>
-              <Switch defaultChecked />
+              <Switch
+                checked={preferences.email_notifications}
+                onCheckedChange={(checked) => updatePreference('email_notifications', checked)}
+              />
             </div>
 
             <div className="flex items-center justify-between">
@@ -146,7 +223,10 @@ export default function Settings() {
                 <Label>Push Notifications</Label>
                 <p className="text-sm text-muted-foreground">Receive push notifications in browser</p>
               </div>
-              <Switch defaultChecked />
+              <Switch
+                checked={preferences.push_notifications}
+                onCheckedChange={(checked) => updatePreference('push_notifications', checked)}
+              />
             </div>
 
             <div className="flex items-center justify-between">
@@ -154,7 +234,10 @@ export default function Settings() {
                 <Label>Leave Updates</Label>
                 <p className="text-sm text-muted-foreground">Get notified about leave status changes</p>
               </div>
-              <Switch defaultChecked />
+              <Switch
+                checked={preferences.leave_update_notifications}
+                onCheckedChange={(checked) => updatePreference('leave_update_notifications', checked)}
+              />
             </div>
           </CardContent>
         </Card>
@@ -187,8 +270,11 @@ export default function Settings() {
         </Card>
 
         <div className="flex justify-end gap-3">
-          <Button variant="outline">Cancel</Button>
-          <Button onClick={handleSave}>Save Changes</Button>
+          <Button variant="outline" onClick={loadPreferences} disabled={saving}>Cancel</Button>
+          <Button onClick={handleSave} disabled={saving}>
+            {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            Save Changes
+          </Button>
         </div>
       </div>
     </div>
