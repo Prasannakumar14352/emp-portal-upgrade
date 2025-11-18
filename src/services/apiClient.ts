@@ -22,6 +22,12 @@ class APIClient {
     let validToken: string | null = null;
     if (!skipAuth) {
       validToken = await tokenManager.getValidToken();
+      console.log('Token retrieval:', { 
+        hasToken: !!validToken, 
+        tokenLength: validToken?.length,
+        endpoint 
+      });
+      
       if (!validToken) {
         // Redirect to login if no valid token
         window.location.href = '/auth';
@@ -36,6 +42,12 @@ class APIClient {
       // Allow explicit header overrides if provided
       ...(options.headers || {})
     };
+    
+    console.log('Request headers:', { 
+      endpoint, 
+      hasAuth: 'Authorization' in headers,
+      skipAuth 
+    });
 
     const response = await fetch(`${this.baseURL}${endpoint}`, {
       ...fetchOptions,
