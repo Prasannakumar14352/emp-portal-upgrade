@@ -1,37 +1,43 @@
 # Grant HR/Manager Access
 
-If you're getting "Forbidden: Insufficient permissions" when managing leave types, you need to grant yourself the appropriate role.
+If you're getting "Forbidden: Insufficient permissions" when managing leave types, you need to grant yourself the appropriate role in the **SQL Server database**.
+
+## Important: This System Uses SQL Server
+
+Your application uses **SQL Server** as the primary database (not Supabase). The HR role must be added to the SQL Server `user_roles` table.
 
 ## Steps to Grant HR Access
 
-### Option 1: Using Lovable Cloud Backend (Recommended)
+### Using SQL Server Management Studio or SQL Query
 
-1. Click the "View Backend" button below to open your Lovable Cloud dashboard
-2. Navigate to **Database** → **Tables** → **user_roles**
-3. Click **Insert Row**
-4. Fill in:
-   - `user_id`: Your user ID (find it in the `profiles` table using your email)
-   - `role`: Select `hr` (or `manager`)
-   - Leave other fields as default
-5. Click **Save**
-6. **Log out and log back in** to refresh your session with the new role
-
-### Option 2: Using SQL (If you have database access)
-
-Run this SQL query in your database:
+1. Connect to your SQL Server database
+2. Run this SQL query to add the HR role:
 
 ```sql
 -- First, find your user ID
 SELECT id, email, full_name FROM profiles WHERE email = 'YOUR_EMAIL@example.com';
 
 -- Then insert the HR role (replace YOUR_USER_ID with the ID from above)
+-- For example, if your ID is 1:
 INSERT INTO user_roles (user_id, role, created_at)
-VALUES (YOUR_USER_ID, 'hr', GETDATE());
+VALUES (1, 'hr', GETDATE());
+
+-- Verify the role was added
+SELECT ur.id, ur.user_id, ur.role, p.email, p.full_name
+FROM user_roles ur
+JOIN profiles p ON ur.user_id = p.id
+WHERE p.email = 'YOUR_EMAIL@example.com';
 ```
 
-### After Adding the Role
+### Alternative: Use the Backend API Guide
 
-**IMPORTANT:** You must log out and log back in for the role to take effect. The role is stored in your authentication token, which is only updated when you log in.
+If you don't have direct SQL Server access, contact your database administrator to run the SQL above.
+
+### After Adding the Role in SQL Server
+
+**CRITICAL:** You MUST log out and log back in for the role to take effect! 
+
+The role is stored in your JWT authentication token during login. The token won't include your new role until you log in again after adding it to the SQL Server database.
 
 ## Available Roles
 

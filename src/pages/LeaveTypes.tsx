@@ -217,7 +217,9 @@ export default function LeaveTypes() {
         <Alert>
           <Lock className="h-4 w-4" />
           <AlertDescription>
-            You don't have permission to manage leave types. Contact an HR administrator or Manager for assistance.
+            <p className="font-semibold mb-2">You don't have permission to manage leave types.</p>
+            <p className="text-sm mb-2">Your current role is: <span className="font-mono font-bold">{role}</span></p>
+            <p className="text-sm">To manage leave types, you need the 'hr' or 'manager' role added to the SQL Server database. Check the GRANT_HR_ACCESS.md file for instructions.</p>
           </AlertDescription>
         </Alert>
       )}
