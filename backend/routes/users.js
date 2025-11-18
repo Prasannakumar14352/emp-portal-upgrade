@@ -119,4 +119,137 @@ router.get('/', authenticateToken, authorizeRole('hr', 'manager'), async (req, r
   }
 });
 
+// GET /api/users/with-roles - Get all users with their roles (HR only)
+router.get('/with-roles', authenticateToken, authorizeRole('hr'), async (req, res) => {
+  try {
+    const pool = await getConnection();
+
+    const result = await pool.request()
+      .query(`
+        SELECT 
+          p.id, p.email, p.full_name, p.department, p.position,
+          ur.role, ur.id as role_id, ur.created_at as role_assigned_at
+        FROM profiles p
+        LEFT JOIN user_roles ur ON p.id = ur.user_id
+        ORDER BY p.full_name, ur.role
+      `);
+
+    // Group roles by user
+    const usersMap = new Map();
+    result.recordset.forEach(row => {
+      if (!usersMap.has(row.id)) {
+        usersMap.set(row.id, {
+          id: row.id,
+          email: row.email,
+          full_name: row.full_name,
+          department: row.department,
+          position: row.position,
+          roles: []
+        });
+      }
+      if (row.role) {
+        usersMap.get(row.id).roles.push({
+          role: row.role,
+          role_id: row.role_id,
+          role_assigned_at: row.role_assigned_at
+        });
+      }
+    });
+
+    res.json(Array.from(usersMap.values()));
+  } catch (err) {
+    console.error('Get users with roles error:', err);
+    res.status(500).json({ error: 'Failed to get users with roles' });
+  }
+});
+
+// POST /api/users/:userId/roles - Assign role to user (HR only)
+router.post('/:userId/roles', authenticateToken, authorizeRole('hr'), async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { role } = req.body;
+
+    if (!role || !['employee', 'hr', 'manager'].includes(role)) {
+      return res.status(400).json({ error: 'Invalid role. Must be employee, hr, or manager' });
+    }
+
+    const pool = await getConnection();
+
+    // Check if user exists
+    const userCheck = await pool.request()
+      .input('user_id', sql.Int, userId)
+      .query('SELECT id FROM profiles WHERE id = @user_id');
+
+    if (userCheck.recordset.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Check if role already assigned
+    const roleCheck = await pool.request()
+      .input('user_id', sql.Int, userId)
+      .input('role', sql.NVarChar, role)
+      .query('SELECT id FROM user_roles WHERE user_id = @user_id AND role = @role');
+
+    if (roleCheck.recordset.length > 0) {
+      return res.status(400).json({ error: 'Role already assigned to this user' });
+    }
+
+    // Assign role
+    const result = await pool.request()
+      .input('user_id', sql.Int, userId)
+      .input('role', sql.NVarChar, role)
+      .query(`
+        INSERT INTO user_roles (user_id, role, created_at)
+        OUTPUT INSERTED.id, INSERTED.user_id, INSERTED.role, INSERTED.created_at
+        VALUES (@user_id, @role, GETDATE())
+      `);
+
+    res.status(201).json({
+      message: 'Role assigned successfully',
+      role: result.recordset[0]
+    });
+  } catch (err) {
+    console.error('Assign role error:', err);
+    res.status(500).json({ error: 'Failed to assign role' });
+  }
+});
+
+// DELETE /api/users/roles/:roleId - Remove role from user (HR only)
+router.delete('/roles/:roleId', authenticateToken, authorizeRole('hr'), async (req, res) => {
+  try {
+    const { roleId } = req.params;
+    const pool = await getConnection();
+
+    // Get role info before deletion
+    const roleInfo = await pool.request()
+      .input('role_id', sql.Int, roleId)
+      .query('SELECT user_id, role FROM user_roles WHERE id = @role_id');
+
+    if (roleInfo.recordset.length === 0) {
+      return res.status(404).json({ error: 'Role assignment not found' });
+    }
+
+    // Prevent removing the last role from a user
+    const userRolesCount = await pool.request()
+      .input('user_id', sql.Int, roleInfo.recordset[0].user_id)
+      .query('SELECT COUNT(*) as count FROM user_roles WHERE user_id = @user_id');
+
+    if (userRolesCount.recordset[0].count <= 1) {
+      return res.status(400).json({ 
+        error: 'Cannot remove the last role. Users must have at least one role.' 
+      });
+    }
+
+    // Delete role
+    await pool.request()
+      .input('role_id', sql.Int, roleId)
+      .query('DELETE FROM user_roles WHERE id = @role_id');
+
+    res.json({ message: 'Role removed successfully' });
+  } catch (err) {
+    console.error('Remove role error:', err);
+    res.status(500).json({ error: 'Failed to remove role' });
+  }
+});
+
 module.exports = router;

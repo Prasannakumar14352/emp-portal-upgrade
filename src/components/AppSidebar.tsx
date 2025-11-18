@@ -11,7 +11,8 @@ import {
   BarChart3,
   TrendingUp,
   Upload,
-  Clock
+  Clock,
+  Shield
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -50,6 +51,7 @@ const hrManagerItems = [
   { title: "Bulk Operations", url: "/bulk-operations", icon: Upload },
   { title: "Team Time Tracking", url: "/team-time-tracking", icon: Clock },
   { title: "Leave Types", url: "/leave-types", icon: Calendar },
+  { title: "Role Management", url: "/role-management", icon: Shield },
 ];
 
 const secondaryItems = [
