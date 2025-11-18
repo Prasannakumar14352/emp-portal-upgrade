@@ -2,6 +2,19 @@ import { jwtDecode } from 'jwt-decode';
 import { getAPIBaseURL } from '@/config/api';
 import { showAuthError } from './authErrorHandler';
 
+// We'll use a simple event system to communicate with the UI
+let authLoadingCallback: ((loading: boolean, message?: string) => void) | null = null;
+
+export function setAuthLoadingCallback(callback: (loading: boolean, message?: string) => void) {
+  authLoadingCallback = callback;
+}
+
+function notifyAuthLoading(loading: boolean, message?: string) {
+  if (authLoadingCallback) {
+    authLoadingCallback(loading, message);
+  }
+}
+
 interface JWTPayload {
   exp: number;
   iat: number;
@@ -48,6 +61,9 @@ class TokenManager {
       return this.refreshPromise;
     }
 
+    // Notify UI that we're refreshing
+    notifyAuthLoading(true, 'Refreshing session...');
+
     // Start refresh process
     this.isRefreshing = true;
     this.refreshPromise = this.refreshToken();
@@ -58,6 +74,7 @@ class TokenManager {
     } finally {
       this.isRefreshing = false;
       this.refreshPromise = null;
+      notifyAuthLoading(false);
     }
   }
 
