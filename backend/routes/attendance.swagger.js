@@ -4,8 +4,6 @@
  *   get:
  *     summary: Get user attendance records
  *     tags: [Attendance]
- *     security:
- *       - bearerAuth: []
  *     parameters:
  *       - in: query
  *         name: userId
@@ -41,8 +39,6 @@
  *   get:
  *     summary: Get today's attendance record
  *     tags: [Attendance]
- *     security:
- *       - bearerAuth: []
  *     parameters:
  *       - in: query
  *         name: userId
@@ -64,8 +60,6 @@
  *   get:
  *     summary: Get attendance statistics
  *     tags: [Attendance]
- *     security:
- *       - bearerAuth: []
  *     parameters:
  *       - in: query
  *         name: userId
@@ -108,8 +102,6 @@
  *   post:
  *     summary: Check in for the day
  *     tags: [Attendance]
- *     security:
- *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -138,8 +130,6 @@
  *   post:
  *     summary: Check out for the day
  *     tags: [Attendance]
- *     security:
- *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -165,9 +155,7 @@
  * /api/attendance/analytics/stats:
  *   get:
  *     summary: Get attendance analytics statistics
- *     tags: [Attendance]
- *     security:
- *       - bearerAuth: []
+ *     tags: [Attendance Analytics]
  *     responses:
  *       200:
  *         description: Analytics statistics
@@ -221,9 +209,7 @@
  * /api/attendance/analytics/trends:
  *   get:
  *     summary: Get attendance trends
- *     tags: [Attendance]
- *     security:
- *       - bearerAuth: []
+ *     tags: [Attendance Analytics]
  *     parameters:
  *       - in: query
  *         name: days

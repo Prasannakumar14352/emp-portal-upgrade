@@ -4,8 +4,6 @@
  *   get:
  *     summary: Get dashboard statistics
  *     tags: [Dashboard]
- *     security:
- *       - bearerAuth: []
  *     parameters:
  *       - in: query
  *         name: userId
@@ -45,8 +43,6 @@
  *   get:
  *     summary: Get recent leave requests
  *     tags: [Dashboard]
- *     security:
- *       - bearerAuth: []
  *     parameters:
  *       - in: query
  *         name: limit
@@ -73,8 +69,6 @@
  *   get:
  *     summary: Get upcoming holidays
  *     tags: [Dashboard]
- *     security:
- *       - bearerAuth: []
  *     parameters:
  *       - in: query
  *         name: days
