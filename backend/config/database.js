@@ -1,4 +1,5 @@
 const sql = require('mssql');
+const { logError, logInfo } = require('../utils/logger');
 
 const config = {
   user: process.env.SQL_SERVER_USER,
@@ -27,10 +28,10 @@ async function getConnection() {
     }
     
     pool = await sql.connect(config);
-    console.log('Connected to SQL Server database');
+    logInfo('Connected to SQL Server database');
     return pool;
   } catch (err) {
-    console.error('Database connection failed:', err);
+    logError(err, null, { context: 'Database connection failed' });
     throw err;
   }
 }
@@ -40,10 +41,10 @@ async function closeConnection() {
     if (pool) {
       await pool.close();
       pool = null;
-      console.log('Database connection closed');
+      logInfo('Database connection closed');
     }
   } catch (err) {
-    console.error('Error closing database connection:', err);
+    logError(err, null, { context: 'Error closing database connection' });
   }
 }
 

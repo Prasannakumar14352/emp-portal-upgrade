@@ -1,6 +1,7 @@
 const express = require('express');
 const { getConnection, sql } = require('../config/database');
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
+const { logError } = require('../utils/logger');
 
 const router = express.Router();
 
@@ -18,7 +19,7 @@ router.get('/departments', authenticateToken, async (req, res) => {
     const departments = result.recordset.map(row => row.department);
     res.json({ departments });
   } catch (error) {
-    console.error('Error fetching departments:', error);
+    logError(error, req, { context: 'Error fetching departments' });
     res.status(500).json({ error: error.message });
   }
 });
@@ -39,7 +40,7 @@ router.get('/', authenticateToken, async (req, res) => {
 
     res.json(result.recordset);
   } catch (err) {
-    console.error('Get employees error:', err);
+    logError(err, req, { context: 'Get employees error' });
     res.status(500).json({ error: 'Failed to get employees' });
   }
 });
@@ -68,7 +69,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
 
     res.json(result.recordset[0]);
   } catch (err) {
-    console.error('Get employee error:', err);
+    logError(err, req, { context: 'Get employee error', employeeId: id });
     res.status(500).json({ error: 'Failed to get employee' });
   }
 });
@@ -96,7 +97,7 @@ router.post('/', authenticateToken, authorizeRole('hr', 'manager'), async (req, 
 
     res.status(201).json(result.recordset[0]);
   } catch (err) {
-    console.error('Create employee error:', err);
+    logError(err, req, { context: 'Create employee error', data: req.body });
     res.status(500).json({ error: 'Failed to create employee' });
   }
 });
@@ -138,7 +139,7 @@ router.patch('/:id', authenticateToken, authorizeRole('hr', 'manager'), async (r
 
     res.json(result.recordset[0]);
   } catch (err) {
-    console.error('Update employee error:', err);
+    logError(err, req, { context: 'Update employee error', employeeId: id });
     res.status(500).json({ error: 'Failed to update employee' });
   }
 });
@@ -159,7 +160,7 @@ router.delete('/:id', authenticateToken, authorizeRole('hr'), async (req, res) =
 
     res.json({ message: 'Employee deleted successfully' });
   } catch (err) {
-    console.error('Delete employee error:', err);
+    logError(err, req, { context: 'Delete employee error', employeeId: id });
     res.status(500).json({ error: 'Failed to delete employee' });
   }
 });
@@ -183,7 +184,7 @@ router.get('/department/:department', authenticateToken, async (req, res) => {
 
     res.json(result.recordset);
   } catch (err) {
-    console.error('Get employees by department error:', err);
+    logError(err, req, { context: 'Get employees by department error', department });
     res.status(500).json({ error: 'Failed to get employees' });
   }
 });
