@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      attendance_records: {
+        Row: {
+          check_in_time: string | null
+          check_out_time: string | null
+          created_at: string | null
+          date: string
+          id: string
+          notes: string | null
+          status: string | null
+          updated_at: string | null
+          user_id: string
+          work_hours: number | null
+        }
+        Insert: {
+          check_in_time?: string | null
+          check_out_time?: string | null
+          created_at?: string | null
+          date?: string
+          id?: string
+          notes?: string | null
+          status?: string | null
+          updated_at?: string | null
+          user_id: string
+          work_hours?: number | null
+        }
+        Update: {
+          check_in_time?: string | null
+          check_out_time?: string | null
+          created_at?: string | null
+          date?: string
+          id?: string
+          notes?: string | null
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string
+          work_hours?: number | null
+        }
+        Relationships: []
+      }
       employees: {
         Row: {
           created_at: string | null
@@ -262,6 +301,96 @@ export type Database = {
           net_salary?: number
           user_id?: string
           year?: number
+        }
+        Relationships: []
+      }
+      performance_goals: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          progress: number | null
+          status: string | null
+          target_date: string | null
+          title: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          progress?: number | null
+          status?: string | null
+          target_date?: string | null
+          title: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          progress?: number | null
+          status?: string | null
+          target_date?: string | null
+          title?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      performance_reviews: {
+        Row: {
+          communication: number | null
+          created_at: string | null
+          employee_id: string
+          feedback: string | null
+          id: string
+          overall_score: number
+          problem_solving: number | null
+          quality_of_work: number | null
+          review_date: string
+          review_period: string
+          reviewer_id: string
+          status: string | null
+          teamwork: number | null
+          time_management: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          communication?: number | null
+          created_at?: string | null
+          employee_id: string
+          feedback?: string | null
+          id?: string
+          overall_score: number
+          problem_solving?: number | null
+          quality_of_work?: number | null
+          review_date?: string
+          review_period: string
+          reviewer_id: string
+          status?: string | null
+          teamwork?: number | null
+          time_management?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          communication?: number | null
+          created_at?: string | null
+          employee_id?: string
+          feedback?: string | null
+          id?: string
+          overall_score?: number
+          problem_solving?: number | null
+          quality_of_work?: number | null
+          review_date?: string
+          review_period?: string
+          reviewer_id?: string
+          status?: string | null
+          teamwork?: number | null
+          time_management?: number | null
+          updated_at?: string | null
         }
         Relationships: []
       }
