@@ -9,14 +9,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import { useUserRole } from "@/hooks/useUserRole";
 import { performanceReviewService, type PerformanceReview, type PerformanceGoal } from "@/services/performanceReviewService";
 import { employeeService, type Employee } from "@/services/employeeService";
 import { toast } from "sonner";
 
 export default function PerformanceReview() {
-  const { user } = useAuth();
+  const [supabaseUserId, setSupabaseUserId] = useState<string | null>(null);
   const { role } = useUserRole();
   const [loading, setLoading] = useState(true);
   const [reviews, setReviews] = useState<PerformanceReview[]>([]);
@@ -41,12 +41,24 @@ export default function PerformanceReview() {
   });
 
   useEffect(() => {
-    if (user) {
+    const getSupabaseUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setSupabaseUserId(user.id);
+      }
+    };
+    getSupabaseUser();
+  }, []);
+
+  useEffect(() => {
+    if (supabaseUserId && role) {
       loadData();
     }
-  }, [user, role]);
+  }, [supabaseUserId, role]);
 
   const loadData = async () => {
+    if (!supabaseUserId) return;
+    
     try {
       setLoading(true);
       
@@ -59,8 +71,8 @@ export default function PerformanceReview() {
         setEmployees(allEmployees);
       } else {
         const [userReviews, userGoals] = await Promise.all([
-          performanceReviewService.getEmployeeReviews(user!.id),
-          performanceReviewService.getUserGoals(user!.id),
+          performanceReviewService.getEmployeeReviews(supabaseUserId),
+          performanceReviewService.getUserGoals(supabaseUserId),
         ]);
         setReviews(userReviews);
         setGoals(userGoals);
@@ -74,14 +86,14 @@ export default function PerformanceReview() {
   };
 
   const handleCreateReview = async () => {
-    if (!newReview.employee_id || !newReview.review_period) {
+    if (!supabaseUserId || !newReview.employee_id || !newReview.review_period) {
       toast.error('Please fill in all required fields');
       return;
     }
 
     try {
       setSubmitting(true);
-      await performanceReviewService.createReview(user!.id, newReview);
+      await performanceReviewService.createReview(supabaseUserId, newReview);
       toast.success('Performance review created successfully!');
       setCreateDialogOpen(false);
       resetForm();
