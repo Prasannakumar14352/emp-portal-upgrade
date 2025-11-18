@@ -1,6 +1,7 @@
 const express = require('express');
 const { getConnection, sql } = require('../config/database');
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
+const { logError } = require('../utils/logger');
 
 const router = express.Router();
 
@@ -20,7 +21,7 @@ router.get('/:userId/role', authenticateToken, async (req, res) => {
 
     res.json({ role: result.recordset[0].role });
   } catch (err) {
-    console.error('Get role error:', err);
+    logError(err, req, { context: 'Get role error', userId });
     res.status(500).json({ error: 'Failed to get user role' });
   }
 });
@@ -47,7 +48,7 @@ router.get('/:userId/profile', authenticateToken, async (req, res) => {
 
     res.json(result.recordset[0]);
   } catch (err) {
-    console.error('Get profile error:', err);
+    logError(err, req, { context: 'Get profile error', userId });
     res.status(500).json({ error: 'Failed to get user profile' });
   }
 });
@@ -93,7 +94,7 @@ router.patch('/:userId/profile', authenticateToken, async (req, res) => {
 
     res.json(result.recordset[0]);
   } catch (err) {
-    console.error('Update profile error:', err);
+    logError(err, req, { context: 'Update profile error', userId });
     res.status(500).json({ error: 'Failed to update profile' });
   }
 });
@@ -114,7 +115,7 @@ router.get('/', authenticateToken, authorizeRole('hr', 'manager'), async (req, r
 
     res.json(result.recordset);
   } catch (err) {
-    console.error('Get users error:', err);
+    logError(err, req, { context: 'Get users error' });
     res.status(500).json({ error: 'Failed to get users' });
   }
 });
@@ -158,7 +159,7 @@ router.get('/with-roles', authenticateToken, authorizeRole('hr'), async (req, re
 
     res.json(Array.from(usersMap.values()));
   } catch (err) {
-    console.error('Get users with roles error:', err);
+    logError(err, req, { context: 'Get users with roles error' });
     res.status(500).json({ error: 'Failed to get users with roles' });
   }
 });
@@ -210,7 +211,7 @@ router.post('/:userId/roles', authenticateToken, authorizeRole('hr'), async (req
       role: result.recordset[0]
     });
   } catch (err) {
-    console.error('Assign role error:', err);
+    logError(err, req, { context: 'Assign role error', userId, role });
     res.status(500).json({ error: 'Failed to assign role' });
   }
 });
@@ -248,7 +249,7 @@ router.delete('/roles/:roleId', authenticateToken, authorizeRole('hr'), async (r
 
     res.json({ message: 'Role removed successfully' });
   } catch (err) {
-    console.error('Remove role error:', err);
+    logError(err, req, { context: 'Remove role error', roleId });
     res.status(500).json({ error: 'Failed to remove role' });
   }
 });

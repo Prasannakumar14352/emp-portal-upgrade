@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { getConnection, sql } = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
+const { logError } = require('../utils/logger');
 
 // Get today's attendance record
 router.get('/today', authenticateToken, async (req, res) => {
@@ -20,7 +21,7 @@ router.get('/today', authenticateToken, async (req, res) => {
 
     res.json(result.recordset[0] || null);
   } catch (error) {
-    console.error('Error fetching today attendance:', error);
+    logError(error, req, { context: 'Error fetching today attendance', userId });
     res.status(500).json({ error: error.message });
   }
 });
@@ -63,7 +64,7 @@ router.get('/stats', authenticateToken, async (req, res) => {
       attendanceRate,
     });
   } catch (error) {
-    console.error('Error fetching attendance stats:', error);
+    logError(error, req, { context: 'Error fetching attendance stats', userId, month, year });
     res.status(500).json({ error: error.message });
   }
 });
@@ -94,7 +95,7 @@ router.get('/', authenticateToken, async (req, res) => {
     const result = await request.query(query);
     res.json(result.recordset);
   } catch (error) {
-    console.error('Error fetching attendance records:', error);
+    logError(error, req, { context: 'Error fetching attendance records', userId });
     res.status(500).json({ error: error.message });
   }
 });
@@ -166,7 +167,7 @@ router.post('/checkin', authenticateToken, async (req, res) => {
 
     res.json({ message: 'Checked in successfully' });
   } catch (error) {
-    console.error('Error checking in:', error);
+    logError(error, req, { context: 'Error checking in', userId });
     res.status(500).json({ error: error.message });
   }
 });
@@ -226,7 +227,7 @@ router.post('/checkout', authenticateToken, async (req, res) => {
 
     res.json({ message: 'Checked out successfully' });
   } catch (error) {
-    console.error('Error checking out:', error);
+    logError(error, req, { context: 'Error checking out', userId });
     res.status(500).json({ error: error.message });
   }
 });
@@ -275,7 +276,7 @@ router.get('/analytics/stats', authenticateToken, async (req, res) => {
       avgAttendanceRate: Math.round(avgRate.avgAttendanceRate || 0),
     });
   } catch (error) {
-    console.error('Error fetching analytics stats:', error);
+    logError(error, req, { context: 'Error fetching analytics stats' });
     res.status(500).json({ error: error.message });
   }
 });
@@ -307,7 +308,7 @@ router.get('/analytics/departments', authenticateToken, async (req, res) => {
 
     res.json(result.recordset);
   } catch (error) {
-    console.error('Error fetching department analytics:', error);
+    logError(error, req, { context: 'Error fetching department analytics' });
     res.status(500).json({ error: error.message });
   }
 });
@@ -339,7 +340,7 @@ router.get('/analytics/trends', authenticateToken, async (req, res) => {
 
     res.json(result.recordset);
   } catch (error) {
-    console.error('Error fetching trend analytics:', error);
+    logError(error, req, { context: 'Error fetching trend analytics', days });
     res.status(500).json({ error: error.message });
   }
 });
