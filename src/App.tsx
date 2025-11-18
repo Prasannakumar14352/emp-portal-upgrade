@@ -26,7 +26,8 @@ import TeamTimeTracking from "./pages/TeamTimeTracking";
 import LeaveTypes from "./pages/LeaveTypes";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
-
+import Attendance from "./pages/Attendance";
+import PerformanceReview from "./pages/PerformanceReview";
 
 const queryClient = new QueryClient();
 
@@ -54,6 +55,8 @@ const App = () => (
           <Route path="/bulk-operations" element={<ProtectedRoute><DashboardLayout><BulkOperations /></DashboardLayout></ProtectedRoute>} />
           <Route path="/team-time-tracking" element={<ProtectedRoute><DashboardLayout><TeamTimeTracking /></DashboardLayout></ProtectedRoute>} />
           <Route path="/leave-types" element={<ProtectedRoute><DashboardLayout><LeaveTypes /></DashboardLayout></ProtectedRoute>} />
+          <Route path="/attendance" element={<ProtectedRoute><DashboardLayout><Attendance /></DashboardLayout></ProtectedRoute>} />
+          <Route path="/performance-review" element={<ProtectedRoute><DashboardLayout><PerformanceReview /></DashboardLayout></ProtectedRoute>} />
           <Route path="/auth/callback" element={<OAuthCallback />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
