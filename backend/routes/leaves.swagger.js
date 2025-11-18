@@ -4,8 +4,6 @@
  *   get:
  *     summary: Get all leave requests (HR/Manager only)
  *     tags: [Leaves]
- *     security:
- *       - bearerAuth: []
  *     parameters:
  *       - in: query
  *         name: status
@@ -56,8 +54,6 @@
  *   get:
  *     summary: Get user's leave requests
  *     tags: [Leaves]
- *     security:
- *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: userId
@@ -86,8 +82,6 @@
  *   patch:
  *     summary: Update leave status (Approve/Reject)
  *     tags: [Leaves]
- *     security:
- *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: leaveId
@@ -172,8 +166,6 @@
  *   get:
  *     summary: Get leave balances for user
  *     tags: [Leaves]
- *     security:
- *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: userId
@@ -204,8 +196,6 @@
  *   get:
  *     summary: Check for leave conflicts
  *     tags: [Leaves]
- *     security:
- *       - bearerAuth: []
  *     parameters:
  *       - in: query
  *         name: start_date

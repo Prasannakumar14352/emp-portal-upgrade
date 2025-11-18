@@ -4,8 +4,6 @@
  *   get:
  *     summary: Get all employees
  *     tags: [Employees]
- *     security:
- *       - bearerAuth: []
  *     responses:
  *       200:
  *         description: List of all employees
@@ -69,8 +67,6 @@
  *   get:
  *     summary: Get employee by ID
  *     tags: [Employees]
- *     security:
- *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -171,8 +167,6 @@
  *   get:
  *     summary: Get employees by department
  *     tags: [Employees]
- *     security:
- *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: department

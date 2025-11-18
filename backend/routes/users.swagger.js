@@ -4,8 +4,6 @@
  *   get:
  *     summary: Get all users (HR/Manager only)
  *     tags: [Users]
- *     security:
- *       - bearerAuth: []
  *     responses:
  *       200:
  *         description: List of all users
@@ -27,8 +25,6 @@
  *   get:
  *     summary: Get user role
  *     tags: [Users]
- *     security:
- *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: userId
@@ -57,8 +53,6 @@
  *   get:
  *     summary: Get user profile
  *     tags: [Users]
- *     security:
- *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: userId
@@ -132,8 +126,6 @@
  *   get:
  *     summary: Get all users with their roles (HR only)
  *     tags: [Users]
- *     security:
- *       - bearerAuth: []
  *     responses:
  *       200:
  *         description: Users with roles
@@ -179,8 +171,6 @@
  *   post:
  *     summary: Assign role to user (HR only)
  *     tags: [Users]
- *     security:
- *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: userId

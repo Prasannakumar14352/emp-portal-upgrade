@@ -4,8 +4,6 @@
  *   get:
  *     summary: Get all holidays
  *     tags: [Holidays]
- *     security:
- *       - bearerAuth: []
  *     parameters:
  *       - in: query
  *         name: year
@@ -80,8 +78,6 @@
  *   get:
  *     summary: Get holiday by ID
  *     tags: [Holidays]
- *     security:
- *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -173,8 +169,6 @@
  *   get:
  *     summary: Get upcoming holidays
  *     tags: [Holidays]
- *     security:
- *       - bearerAuth: []
  *     parameters:
  *       - in: query
  *         name: days

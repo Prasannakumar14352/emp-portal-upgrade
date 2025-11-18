@@ -4,8 +4,6 @@
  *   get:
  *     summary: Get user payslips
  *     tags: [Payslips]
- *     security:
- *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: userId
@@ -44,8 +42,6 @@
  *   post:
  *     summary: Create new payslip (HR only)
  *     tags: [Payslips]
- *     security:
- *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -108,8 +104,6 @@
  *   get:
  *     summary: Get payslip by ID
  *     tags: [Payslips]
- *     security:
- *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id

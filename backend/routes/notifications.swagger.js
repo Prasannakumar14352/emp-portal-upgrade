@@ -4,8 +4,6 @@
  *   get:
  *     summary: Get user notifications
  *     tags: [Notifications]
- *     security:
- *       - bearerAuth: []
  *     parameters:
  *       - in: query
  *         name: userId
@@ -90,8 +88,6 @@
  *   patch:
  *     summary: Mark notification as read
  *     tags: [Notifications]
- *     security:
- *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -122,8 +118,6 @@
  *   patch:
  *     summary: Mark all notifications as read
  *     tags: [Notifications]
- *     security:
- *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -160,8 +154,6 @@
  *   delete:
  *     summary: Delete notification
  *     tags: [Notifications]
- *     security:
- *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -190,8 +182,6 @@
  *   get:
  *     summary: Get unread notification count
  *     tags: [Notifications]
- *     security:
- *       - bearerAuth: []
  *     parameters:
  *       - in: query
  *         name: userId
