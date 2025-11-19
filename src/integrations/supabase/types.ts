@@ -274,7 +274,7 @@ export type Database = {
           read: boolean | null
           title: string
           type: string
-          user_id: string
+          user_id: number
         }
         Insert: {
           created_at?: string | null
@@ -284,7 +284,7 @@ export type Database = {
           read?: boolean | null
           title: string
           type: string
-          user_id: string
+          user_id: number
         }
         Update: {
           created_at?: string | null
@@ -294,7 +294,7 @@ export type Database = {
           read?: boolean | null
           title?: string
           type?: string
-          user_id?: string
+          user_id?: number
         }
         Relationships: []
       }
@@ -479,7 +479,7 @@ export type Database = {
           leave_update_notifications: boolean | null
           push_notifications: boolean | null
           updated_at: string | null
-          user_id: string
+          user_id: number
         }
         Insert: {
           compact_view?: boolean | null
@@ -490,7 +490,7 @@ export type Database = {
           leave_update_notifications?: boolean | null
           push_notifications?: boolean | null
           updated_at?: string | null
-          user_id: string
+          user_id: number
         }
         Update: {
           compact_view?: boolean | null
@@ -501,7 +501,7 @@ export type Database = {
           leave_update_notifications?: boolean | null
           push_notifications?: boolean | null
           updated_at?: string | null
-          user_id?: string
+          user_id?: number
         }
         Relationships: []
       }
