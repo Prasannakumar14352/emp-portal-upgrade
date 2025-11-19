@@ -515,4 +515,122 @@ router.get('/reports', authenticateToken, async (req, res) => {
   }
 });
 
+// Get late patterns analytics
+router.get('/analytics/late-patterns', authenticateToken, async (req, res) => {
+  try {
+    const { days = 30 } = req.query;
+    const daysNum = parseInt(days, 10);
+    
+    const pool = await getConnection();
+    
+    // Get employees with most late arrivals
+    const lateEmployees = await pool.request()
+      .input('days', sql.Int, daysNum)
+      .query(`
+        SELECT TOP 10
+          e.full_name,
+          e.department,
+          COUNT(*) as late_count,
+          CAST(AVG(DATEDIFF(MINUTE, '09:00:00', CAST(ar.check_in_time AS TIME))) as INT) as avg_late_minutes
+        FROM attendance_records ar
+        JOIN employees e ON ar.user_id = e.user_id
+        WHERE ar.status = 'late' 
+          AND ar.date >= DATEADD(day, -@days, GETDATE())
+        GROUP BY e.full_name, e.department
+        ORDER BY late_count DESC
+      `);
+    
+    // Get late patterns by hour
+    const hourlyPattern = await pool.request()
+      .input('days', sql.Int, daysNum)
+      .query(`
+        SELECT 
+          DATEPART(HOUR, check_in_time) as hour,
+          COUNT(*) as count
+        FROM attendance_records
+        WHERE status = 'late'
+          AND date >= DATEADD(day, -@days, GETDATE())
+          AND check_in_time IS NOT NULL
+        GROUP BY DATEPART(HOUR, check_in_time)
+        ORDER BY hour
+      `);
+    
+    // Get late patterns by day of week
+    const weekdayPattern = await pool.request()
+      .input('days', sql.Int, daysNum)
+      .query(`
+        SELECT 
+          DATENAME(WEEKDAY, date) as day_name,
+          DATEPART(WEEKDAY, date) as day_number,
+          COUNT(*) as late_count,
+          COUNT(DISTINCT user_id) as unique_employees
+        FROM attendance_records
+        WHERE status = 'late'
+          AND date >= DATEADD(day, -@days, GETDATE())
+        GROUP BY DATENAME(WEEKDAY, date), DATEPART(WEEKDAY, date)
+        ORDER BY day_number
+      `);
+    
+    // Get department-wise late statistics
+    const departmentLate = await pool.request()
+      .input('days', sql.Int, daysNum)
+      .query(`
+        SELECT 
+          e.department,
+          COUNT(*) as late_count,
+          COUNT(DISTINCT ar.user_id) as employees_with_late,
+          CAST(AVG(DATEDIFF(MINUTE, '09:00:00', CAST(ar.check_in_time AS TIME))) as INT) as avg_delay_minutes
+        FROM attendance_records ar
+        JOIN employees e ON ar.user_id = e.user_id
+        WHERE ar.status = 'late'
+          AND ar.date >= DATEADD(day, -@days, GETDATE())
+        GROUP BY e.department
+        ORDER BY late_count DESC
+      `);
+    
+    res.json({
+      topLateEmployees: lateEmployees.recordset,
+      hourlyPattern: hourlyPattern.recordset,
+      weekdayPattern: weekdayPattern.recordset,
+      departmentLate: departmentLate.recordset
+    });
+  } catch (error) {
+    logError(error, req, { context: 'Error fetching late patterns', days });
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get department comparison analytics
+router.get('/analytics/department-comparison', authenticateToken, async (req, res) => {
+  try {
+    const { days = 30 } = req.query;
+    const daysNum = parseInt(days, 10);
+    
+    const pool = await getConnection();
+    const result = await pool.request()
+      .input('days', sql.Int, daysNum)
+      .query(`
+        SELECT 
+          e.department,
+          COUNT(DISTINCT e.user_id) as total_employees,
+          COUNT(DISTINCT CASE WHEN ar.status IN ('present', 'late') THEN ar.user_id END) as avg_present,
+          COUNT(CASE WHEN ar.status = 'late' THEN 1 END) as total_late,
+          COUNT(CASE WHEN ar.status = 'absent' THEN 1 END) as total_absent,
+          CAST(AVG(CASE WHEN ar.status IN ('present', 'late') THEN 100.0 ELSE 0 END) as DECIMAL(5,2)) as attendance_rate,
+          CAST(AVG(ar.work_hours) as DECIMAL(5,2)) as avg_work_hours
+        FROM employees e
+        LEFT JOIN attendance_records ar ON e.user_id = ar.user_id 
+          AND ar.date >= DATEADD(day, -@days, GETDATE())
+        WHERE e.status = 'Active'
+        GROUP BY e.department
+        ORDER BY attendance_rate DESC
+      `);
+    
+    res.json(result.recordset);
+  } catch (error) {
+    logError(error, req, { context: 'Error fetching department comparison', days });
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;
