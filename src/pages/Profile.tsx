@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Mail, Phone, Calendar, Briefcase, Edit } from "lucide-react";
+import { Mail, Phone, Calendar, Briefcase, Edit, Camera, Upload } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -16,12 +16,15 @@ import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
 import { userService, type UserProfile } from "@/services/userService";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function Profile() {
   const { user } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState({
     full_name: '',
     email: '',
@@ -76,6 +79,73 @@ export default function Profile() {
       .toUpperCase();
   };
 
+  const validateImage = (file: File): string | null => {
+    const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'];
+    const maxSize = 5 * 1024 * 1024; // 5MB
+
+    if (!validTypes.includes(file.type)) {
+      return 'Please upload a valid image file (JPEG, PNG, or WebP)';
+    }
+
+    if (file.size > maxSize) {
+      return 'Image size must be less than 5MB';
+    }
+
+    return null;
+  };
+
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !user) return;
+
+    const validationError = validateImage(file);
+    if (validationError) {
+      toast.error(validationError);
+      return;
+    }
+
+    setUploading(true);
+    try {
+      // Delete old avatar if exists
+      if (profile?.avatar_url) {
+        const oldPath = profile.avatar_url.split('/').pop();
+        if (oldPath) {
+          await supabase.storage.from('avatars').remove([`${user.id}/${oldPath}`]);
+        }
+      }
+
+      // Upload new avatar
+      const fileExt = file.name.split('.').pop();
+      const filePath = `${user.id}/${Date.now()}.${fileExt}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      // Update profile with new avatar URL
+      const updatedProfile = await userService.updateUserProfile(user.id, {
+        avatar_url: publicUrl,
+      });
+
+      setProfile(updatedProfile);
+      toast.success('Profile picture updated successfully');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to upload image');
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
   if (loading) {
     return <div className="space-y-6">Loading profile...</div>;
   }
@@ -95,11 +165,34 @@ export default function Profile() {
         <Card className="lg:col-span-1">
           <CardContent className="pt-6">
             <div className="flex flex-col items-center text-center">
-              <Avatar className="h-24 w-24">
-                <AvatarFallback className="bg-primary text-2xl text-primary-foreground">
-                  {getInitials(profile.full_name)}
-                </AvatarFallback>
-              </Avatar>
+              <div className="relative">
+                <Avatar className="h-24 w-24">
+                  <AvatarImage src={profile.avatar_url} />
+                  <AvatarFallback className="bg-primary text-2xl text-primary-foreground">
+                    {getInitials(profile.full_name)}
+                  </AvatarFallback>
+                </Avatar>
+                <Button
+                  size="icon"
+                  variant="secondary"
+                  className="absolute -bottom-2 -right-2 h-8 w-8 rounded-full shadow-md"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                >
+                  {uploading ? (
+                    <Upload className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Camera className="h-3 w-3" />
+                  )}
+                </Button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/jpg"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                />
+              </div>
               <h2 className="mt-4 text-2xl font-bold">{profile.full_name}</h2>
               <p className="text-muted-foreground">{profile.position || 'Employee'}</p>
               <Badge className="mt-2" variant="default">
