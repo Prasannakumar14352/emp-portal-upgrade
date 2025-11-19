@@ -79,38 +79,37 @@ export default function Profile() {
       .toUpperCase();
   };
 
-  const handleImageUpload = async (blob: Blob) => {
+  const handleImageUpload = async (croppedBlob: Blob) => {
     if (!user) return;
-
+    
     try {
-      // Delete old avatar if exists
+      const formData = new FormData();
+      formData.append('avatar', croppedBlob, 'avatar.jpg');
+      
+      // Include old avatar URL for deletion
       if (profile?.avatar_url) {
-        const oldPath = profile.avatar_url.split('/').slice(-2).join('/');
-        if (oldPath) {
-          await supabase.storage.from('avatars').remove([oldPath]);
-        }
+        formData.append('oldAvatarUrl', profile.avatar_url);
       }
 
-      // Upload new avatar
-      const filePath = `${user.id}/${Date.now()}.jpg`;
-      
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(filePath, blob, {
-          contentType: 'image/jpeg',
-          upsert: false,
-        });
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:3000/api/upload/avatar', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
 
-      if (uploadError) throw uploadError;
+      if (!response.ok) {
+        throw new Error('Upload failed');
+      }
 
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('avatars')
-        .getPublicUrl(filePath);
+      const data = await response.json();
+      const avatarUrl = `http://localhost:3000${data.avatarUrl}`;
 
       // Update profile with new avatar URL
       const updatedProfile = await userService.updateUserProfile(user.id, {
-        avatar_url: publicUrl,
+        avatar_url: avatarUrl,
       });
 
       setProfile(updatedProfile);

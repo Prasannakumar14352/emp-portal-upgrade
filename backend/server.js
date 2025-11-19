@@ -159,6 +159,7 @@ app.use('/api/attendance', attendanceRoutes);
 app.use('/api/performance', performanceRoutes);
 app.use('/api/docs', apiDocsRoutes);
 app.use('/api/postman', postmanRoutes);
+app.use('/api/upload', uploadRoutes);
 
 // Swagger API Documentation
 app.use('/api/swagger', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
