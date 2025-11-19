@@ -235,7 +235,7 @@ export default function Profile() {
             <CardContent className="space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">User ID</span>
-                <span className="font-medium font-mono text-sm">{profile.id}</span>
+                <span className="font-medium font-mono text-sm">{profile.user_id}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Account Created</span>

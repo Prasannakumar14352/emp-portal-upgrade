@@ -27,7 +27,7 @@ router.post('/request', [
     // Check if user exists
     const result = await pool.request()
       .input('email', sql.NVarChar, email)
-      .query('SELECT id, email, full_name FROM profiles WHERE email = @email');
+      .query('SELECT user_id, email, full_name FROM profiles WHERE email = @email');
 
     if (result.recordset.length === 0) {
       // Don't reveal if email exists or not

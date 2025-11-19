@@ -421,7 +421,7 @@ export default function Leaves() {
                   </div> */}
                   <MultiSelect
                     items={employees
-                      .filter((emp) => emp.id !== user?.id)
+                      .filter((emp) => emp.user_id !== user?.id)
                       .map((emp) => ({
                         label: `${emp.full_name} (${emp.email})`,
                         value: emp.email,
@@ -506,7 +506,7 @@ export default function Leaves() {
                         <p className="text-xs text-muted-foreground">
                           Manager: {(() => {
                             if (leave.manager_id) {
-                              const manager = employees.find(e => e.id === String(leave.manager_id));
+                              const manager = employees.find(e => e.user_id === String(leave.manager_id));
                               return manager ? manager.full_name : 'N/A';
                             }
                             return 'Not Assigned';

@@ -84,7 +84,7 @@ router.post('/signup', [
 
     const existingUser = await pool.request()
       .input('email', sql.NVarChar, email)
-      .query('SELECT id FROM profiles WHERE email = @email');
+      .query('SELECT user_id FROM profiles WHERE email = @email');
 
     if (existingUser.recordset.length > 0) {
       return res.status(400).json({ error: 'User already registered' });
@@ -97,23 +97,23 @@ router.post('/signup', [
       .input('full_name', sql.NVarChar, full_name)
       .query(`
         INSERT INTO profiles (email, full_name, created_at)
-        OUTPUT INSERTED.id, INSERTED.email, INSERTED.full_name
+        OUTPUT INSERTED.user_id, INSERTED.email, INSERTED.full_name
         VALUES (@email, @full_name, GETDATE())
       `);
 
     const newUser = result.recordset[0];
 
     await pool.request()
-      .input('user_id', sql.Int, newUser.id)
+      .input('user_id', sql.Int, newUser.user_id)
       .input('role', sql.NVarChar, 'employee')
       .query(`IF NOT EXISTS (SELECT 1 FROM user_roles WHERE user_id = @user_id AND role = @role)
         INSERT INTO user_roles (user_id, role, created_at) VALUES (@user_id, @role, GETDATE())`);
 
     // Create default preferences for new user
-    await createDefaultPreferences(newUser.id, pool);
+    await createDefaultPreferences(newUser.user_id, pool);
 
     const tokens = generateTokens({
-      id: newUser.id,
+      id: newUser.user_id,
       email: newUser.email,
       roles: ['employee']
     });
@@ -123,7 +123,7 @@ router.post('/signup', [
         access_token: tokens.accessToken,
         refresh_token: tokens.refreshToken,
         user: {
-          id: newUser.id,
+          id: newUser.user_id,
           email: newUser.email,
           full_name: newUser.full_name
         }
@@ -166,7 +166,7 @@ router.post('/login', [
 
     // Get all roles for this user
     const rolesResult = await pool.request()
-      .input('user_id', sql.Int, user.id)
+      .input('user_id', sql.Int, user.user_id)
       .query(`
         SELECT role
         FROM user_roles
@@ -181,10 +181,10 @@ router.post('/login', [
     // OAuth-only authentication - skip password check
 
     // Create default preferences if they don't exist
-    await createDefaultPreferences(user.id, pool);
+    await createDefaultPreferences(user.user_id, pool);
 
     const tokens = generateTokens({
-      id: user.id,
+      id: user.user_id,
       email: user.email,
       roles: roles
     });
@@ -194,7 +194,7 @@ router.post('/login', [
         access_token: tokens.accessToken,
         refresh_token: tokens.refreshToken,
         user: {
-          id: user.id,
+          id: user.user_id,
           email: user.email,
           full_name: user.full_name
         }
@@ -225,9 +225,9 @@ router.get('/session', authenticateToken, async (req, res) => {
     const userResult = await pool.request()
       .input('user_id', sql.Int, req.user.id)
       .query(`
-        SELECT id, email, full_name, department, position
+        SELECT user_id, email, full_name, department, position
         FROM profiles
-        WHERE id = @user_id
+        WHERE user_id = @user_id
       `);
 
     if (userResult.recordset.length === 0)
@@ -279,9 +279,9 @@ router.post('/refresh', async (req, res) => {
     const userResult = await pool.request()
       .input('user_id', sql.Int, decoded.id)
       .query(`
-        SELECT id, email, full_name
+        SELECT user_id, email, full_name
         FROM profiles
-        WHERE id = @user_id
+        WHERE user_id = @user_id
       `);
 
     if (userResult.recordset.length === 0)
@@ -303,7 +303,7 @@ router.post('/refresh', async (req, res) => {
       : ['employee'];
 
     const tokens = generateTokens({
-      id: user.id,
+      id: user.user_id,
       email: user.email,
       roles: roles
     });

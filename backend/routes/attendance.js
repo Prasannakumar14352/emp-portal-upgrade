@@ -304,7 +304,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
       .input('userId', sql.Int, userId)
       .query(`
         SELECT role FROM user_roles 
-        WHERE user_id = (SELECT id FROM profiles WHERE employee_id = @userId)
+        WHERE user_id = (SELECT user_id FROM profiles WHERE employee_id = @userId)
       `);
     
     const isHR = roleResult.recordset.some(r => r.role === 'hr');
