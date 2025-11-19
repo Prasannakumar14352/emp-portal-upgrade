@@ -44,7 +44,7 @@ router.post('/users',
           // Check if user exists
           const existingUser = await transaction.request()
             .input('email', sql.NVarChar, email)
-            .query('SELECT id FROM profiles WHERE email = @email');
+            .query('SELECT user_id FROM profiles WHERE email = @email');
 
           if (existingUser.recordset.length > 0) {
             failedUsers.push({ email, reason: 'User already exists' });
