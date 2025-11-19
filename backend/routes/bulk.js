@@ -54,7 +54,7 @@ router.post('/users',
           // Hash password if provided
           const hashedPassword = password ? await bcrypt.hash(password, 10) : null;
 
-          // Create profile
+          // Create profile (user_id will be auto-generated as int identity)
           const profileResult = await transaction.request()
             .input('email', sql.NVarChar, email)
             .input('full_name', sql.NVarChar, full_name)
@@ -63,16 +63,16 @@ router.post('/users',
             .input('phone', sql.NVarChar, phone || null)
             .input('password_hash', sql.NVarChar, hashedPassword)
             .query(`
-              INSERT INTO profiles (user_id, email, full_name, department, position, phone, password_hash, created_at)
+              INSERT INTO profiles (email, full_name, department, position, phone, password_hash, created_at)
               OUTPUT INSERTED.id, INSERTED.user_id, INSERTED.email, INSERTED.full_name
-              VALUES (NEWID(), @email, @full_name, @department, @position, @phone, @password_hash, GETDATE())
+              VALUES (@email, @full_name, @department, @position, @phone, @password_hash, GETDATE())
             `);
 
           const newProfile = profileResult.recordset[0];
 
           // Create employee record
           await transaction.request()
-            .input('user_id', sql.UniqueIdentifier, newProfile.user_id)
+            .input('user_id', sql.Int, newProfile.user_id)
             .input('full_name', sql.NVarChar, full_name)
             .input('email', sql.NVarChar, email)
             .input('phone', sql.NVarChar, phone || null)
@@ -86,7 +86,7 @@ router.post('/users',
           // Assign role
           const userRole = role || 'employee';
           await transaction.request()
-            .input('user_id', sql.UniqueIdentifier, newProfile.user_id)
+            .input('user_id', sql.Int, newProfile.user_id)
             .input('role', sql.NVarChar, userRole)
             .query(`
               INSERT INTO user_roles (user_id, role, created_at)
