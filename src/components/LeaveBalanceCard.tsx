@@ -1,109 +1,82 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Calendar } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Calendar, TrendingDown, ArrowRight, AlertTriangle } from "lucide-react";
 
 interface LeaveBalance {
   leaveType: string;
   totalDays: number;
   usedDays: number;
   remainingDays: number;
-  carryForward: number;
+  carryForward?: number;
 }
 
-interface LeaveBalanceCardProps {
+interface Props {
   balances: LeaveBalance[];
   year: number;
 }
 
-export function LeaveBalanceCard({ balances, year }: LeaveBalanceCardProps) {
-  const getProgressColor = (remaining: number, total: number) => {
-    const percentage = (remaining / total) * 100;
-    if (percentage > 50) return "bg-green-500";
-    if (percentage > 25) return "bg-yellow-500";
-    return "bg-red-500";
-  };
-
+export function LeaveBalanceCard({ balances, year }: Props) {
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
-            Leave Balance {year}
-          </CardTitle>
-          <Badge variant="outline">{balances.length} Types</Badge>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        {balances.some(b => (b.remainingDays / b.totalDays) < 0.25) && (
-          <Alert variant="destructive">
-            <AlertTriangle className="h-4 w-4" />
-            <AlertDescription>
-              You're running low on leave days! Consider planning your leave carefully.
-            </AlertDescription>
-          </Alert>
-        )}
-        {balances.map((balance, index) => {
-          const usagePercentage = (balance.usedDays / balance.totalDays) * 100;
-          
+    <div>
+      <h2 className="text-2xl font-semibold flex items-center gap-2 mb-6">
+        <Calendar className="w-5 h-5" />
+        Leave Balance {year}
+      </h2>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+        {balances.map((b, i) => {
+          const usagePercentage = (b.usedDays / b.totalDays) * 100 || 0;
+
           return (
-            <div key={index} className="space-y-3">
-              <div className="flex items-center justify-between">
+            <Card key={i} className="shadow-sm hover:shadow-md transition rounded-xl">
+              <CardHeader>
+                <CardTitle className="text-lg flex justify-between items-center">
+                  {b.leaveType}
+                  <Badge variant="outline">{b.totalDays} Days</Badge>
+                </CardTitle>
+              </CardHeader>
+
+              <CardContent className="space-y-4">
                 <div>
-                  <p className="font-medium">{balance.leaveType}</p>
                   <p className="text-sm text-muted-foreground">
-                    {balance.remainingDays} of {balance.totalDays} days remaining
+                    {b.remainingDays} of {b.totalDays} days remaining
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Used: {b.usedDays} days
                   </p>
                 </div>
-                {balance.carryForward > 0 && (
-                  <Badge variant="secondary" className="gap-1">
-                    <ArrowRight className="h-3 w-3" />
-                    {balance.carryForward} carried forward
-                  </Badge>
-                )}
-              </div>
-              
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Used: {balance.usedDays} days</span>
-                  <span className="font-medium">{usagePercentage.toFixed(0)}%</span>
-                </div>
-                <Progress 
-                  value={usagePercentage} 
-                  className="h-2"
-                />
-              </div>
 
-              <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                <div className="flex items-center gap-1">
-                  <div className="h-2 w-2 rounded-full bg-green-500" />
-                  Available: {balance.remainingDays}
-                </div>
-                <div className="flex items-center gap-1">
-                  <div className="h-2 w-2 rounded-full bg-blue-500" />
-                  Used: {balance.usedDays}
-                </div>
-                {balance.carryForward > 0 && (
-                  <div className="flex items-center gap-1">
-                    <TrendingDown className="h-3 w-3" />
-                    Carry: {balance.carryForward}
+                <div>
+                  <div className="flex justify-between text-xs mb-1 text-muted-foreground">
+                    <span>Usage</span>
+                    <span>{usagePercentage.toFixed(0)}%</span>
                   </div>
-                )}
-              </div>
-            </div>
+                  <Progress value={usagePercentage} className="h-2" />
+                </div>
+
+                <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-1">
+                    <div className="h-2 w-2 rounded-full bg-green-500" />
+                    Available: {b.remainingDays}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="h-2 w-2 rounded-full bg-blue-500" />
+                    Used: {b.usedDays}
+                  </div>
+
+                  {b.carryForward ? (
+                    <div className="flex items-center gap-1">
+                      <div className="h-2 w-2 rounded-full bg-yellow-500" />
+                      Carry: {b.carryForward}
+                    </div>
+                  ) : null}
+                </div>
+              </CardContent>
+            </Card>
           );
         })}
-
-        {balances.length === 0 && (
-          <div className="text-center py-6 text-muted-foreground">
-            <Calendar className="h-12 w-12 mx-auto mb-2 opacity-50" />
-            <p>No leave balance data available</p>
-            <p className="text-sm">Contact HR to set up your leave balances</p>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

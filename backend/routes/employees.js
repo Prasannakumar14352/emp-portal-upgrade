@@ -33,7 +33,7 @@ router.get('/', authenticateToken, async (req, res) => {
       .query(`
         SELECT 
           e.id, e.user_id, e.full_name, e.email, e.phone, 
-          e.department, e.position, e.status, e.created_at, e.updated_at, e.roles
+          e.department, e.position, e.status, e.created_at, e.updated_at, e.role
         FROM profiles e
         ORDER BY e.full_name
       `);
@@ -176,7 +176,7 @@ router.get('/department/:department', authenticateToken, async (req, res) => {
       .query(`
         SELECT 
           e.id, e.user_id, e.full_name, e.email, e.phone,
-          e.department, e.position, e.status, e.created_at, e.updated_at, e.roles
+          e.department, e.position, e.status, e.created_at, e.updated_at, e.role
         FROM profiles e
         WHERE e.department = @department
         ORDER BY e.full_name
