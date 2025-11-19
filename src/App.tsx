@@ -34,6 +34,7 @@ import AttendanceReports from "./pages/AttendanceReports";
 import AttendanceAnalytics from "./pages/AttendanceAnalytics";
 import RoleManagement from "./pages/RoleManagement";
 import HRAttendanceDashboard from "./pages/HRAttendanceDashboard";
+import EmployeeImport from "./pages/EmployeeImport";
 
 const queryClient = new QueryClient();
 
@@ -52,6 +53,7 @@ const App = () => (
           <Route path="/payslips" element={<ProtectedRoute><DashboardLayout><Payslips /></DashboardLayout></ProtectedRoute>} />
           <Route path="/holidays" element={<ProtectedRoute><DashboardLayout><Holidays /></DashboardLayout></ProtectedRoute>} />
           <Route path="/employees" element={<ProtectedRoute><DashboardLayout><Employees /></DashboardLayout></ProtectedRoute>} />
+          <Route path="/employee-import" element={<ProtectedRoute><DashboardLayout><EmployeeImport /></DashboardLayout></ProtectedRoute>} />
           <Route path="/statistics" element={<ProtectedRoute><DashboardLayout><Statistics /></DashboardLayout></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><DashboardLayout><Profile /></DashboardLayout></ProtectedRoute>} />
           <Route path="/notifications" element={<ProtectedRoute><DashboardLayout><Notifications /></DashboardLayout></ProtectedRoute>} />
