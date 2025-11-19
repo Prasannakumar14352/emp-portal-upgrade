@@ -30,12 +30,45 @@ export const useSignalR = () => {
       });
     };
 
+    // Listen for leave status updates
+    const handleLeaveStatusUpdate = (data: any) => {
+      const isApproved = data.status === 'Approved';
+      const isRejected = data.status === 'Rejected';
+      
+      if (isApproved) {
+        toast.success(data.message, {
+          description: data.comments || 'Your leave request has been approved',
+          action: {
+            label: 'View',
+            onClick: () => window.location.href = '/leaves',
+          },
+        });
+      } else if (isRejected) {
+        toast.error(data.message, {
+          description: data.comments || 'Your leave request has been rejected',
+          action: {
+            label: 'View',
+            onClick: () => window.location.href = '/leaves',
+          },
+        });
+      } else {
+        toast.info(data.message, {
+          description: data.comments || 'Your leave request status has been updated',
+        });
+      }
+
+      // Dispatch custom event to trigger data reload in Leaves page
+      window.dispatchEvent(new CustomEvent('leaveStatusUpdated', { detail: data }));
+    };
+
     signalrService.on('attendanceUpdate', handleAttendanceUpdate);
     signalrService.on('performanceReview', handlePerformanceReview);
+    signalrService.on('leaveStatusUpdate', handleLeaveStatusUpdate);
 
     return () => {
       signalrService.off('attendanceUpdate', handleAttendanceUpdate);
       signalrService.off('performanceReview', handlePerformanceReview);
+      signalrService.off('leaveStatusUpdate', handleLeaveStatusUpdate);
       signalrService.disconnect();
     };
   }, [user]);

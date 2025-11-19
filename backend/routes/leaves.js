@@ -284,6 +284,20 @@ router.patch('/:leaveId', authenticateToken, authorizeRole('hr', 'manager'), asy
 
     const updatedLeave = result.recordset[0];
 
+    // Emit real-time notification to employee
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`user-${updatedLeave.user_id}`).emit('leaveStatusUpdate', {
+        leaveId: updatedLeave.id,
+        status: updatedLeave.status,
+        leaveType: updatedLeave.leave_type,
+        approvedBy: isManager ? 'Manager' : 'HR',
+        comments: comments || '',
+        message: `Your ${updatedLeave.leave_type} request has been ${status.toLowerCase()} by ${isManager ? 'your manager' : 'HR'}`,
+        timestamp: new Date().toISOString()
+      });
+    }
+
     // Send email notifications
     try {
       const transporter = nodemailer.createTransporter({
