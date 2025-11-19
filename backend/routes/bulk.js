@@ -72,7 +72,7 @@ router.post('/users',
 
           // Create employee record
           await transaction.request()
-            .input('user_id', sql.Int, newProfile.id)
+            .input('user_id', sql.UniqueIdentifier, newProfile.user_id)
             .input('full_name', sql.NVarChar, full_name)
             .input('email', sql.NVarChar, email)
             .input('phone', sql.NVarChar, phone || null)
@@ -86,7 +86,7 @@ router.post('/users',
           // Assign role
           const userRole = role || 'employee';
           await transaction.request()
-            .input('user_id', sql.Int, newProfile.id)
+            .input('user_id', sql.UniqueIdentifier, newProfile.user_id)
             .input('role', sql.NVarChar, userRole)
             .query(`
               INSERT INTO user_roles (user_id, role, created_at)
