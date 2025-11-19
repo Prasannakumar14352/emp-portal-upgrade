@@ -439,6 +439,9 @@ export type Database = {
           id: string
           phone: string | null
           position: string | null
+          two_factor_backup_codes: string | null
+          two_factor_enabled: boolean | null
+          two_factor_secret: string | null
           updated_at: string | null
         }
         Insert: {
@@ -452,6 +455,9 @@ export type Database = {
           id: string
           phone?: string | null
           position?: string | null
+          two_factor_backup_codes?: string | null
+          two_factor_enabled?: boolean | null
+          two_factor_secret?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -465,6 +471,9 @@ export type Database = {
           id?: string
           phone?: string | null
           position?: string | null
+          two_factor_backup_codes?: string | null
+          two_factor_enabled?: boolean | null
+          two_factor_secret?: string | null
           updated_at?: string | null
         }
         Relationships: []
@@ -477,6 +486,8 @@ export type Database = {
           email_notifications: boolean | null
           id: string
           leave_update_notifications: boolean | null
+          notification_sound: string | null
+          notification_volume: number | null
           push_notifications: boolean | null
           updated_at: string | null
           user_id: number
@@ -488,6 +499,8 @@ export type Database = {
           email_notifications?: boolean | null
           id?: string
           leave_update_notifications?: boolean | null
+          notification_sound?: string | null
+          notification_volume?: number | null
           push_notifications?: boolean | null
           updated_at?: string | null
           user_id: number
@@ -499,6 +512,8 @@ export type Database = {
           email_notifications?: boolean | null
           id?: string
           leave_update_notifications?: boolean | null
+          notification_sound?: string | null
+          notification_volume?: number | null
           push_notifications?: boolean | null
           updated_at?: string | null
           user_id?: number

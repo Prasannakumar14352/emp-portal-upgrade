@@ -12,6 +12,10 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { useAuth } from "@/hooks/useAuth";
 import { settingsService } from "@/services/settingsService";
 import { Loader2 } from "lucide-react";
+import { TwoFactorSetup } from "@/components/TwoFactorSetup";
+import { twoFactorService } from "@/services/twoFactorService";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Slider } from "@/components/ui/slider";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 
 export default function Settings() {
@@ -24,6 +28,9 @@ export default function Settings() {
   const [changingPassword, setChangingPassword] = useState(false);
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
+  const [twoFactorDialogOpen, setTwoFactorDialogOpen] = useState(false);
+  const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
+  const [backupCodesRemaining, setBackupCodesRemaining] = useState(0);
   
   const [preferences, setPreferences] = useState({
     dark_mode: false,
@@ -31,6 +38,8 @@ export default function Settings() {
     email_notifications: true,
     push_notifications: true,
     leave_update_notifications: true,
+    notification_sound: 'default',
+    notification_volume: 50,
   });
 
   const [passwordData, setPasswordData] = useState({
@@ -42,6 +51,7 @@ export default function Settings() {
   useEffect(() => {
     if (user) {
       loadPreferences();
+      load2FAStatus();
     }
     // Check browser notification permission
     if ('Notification' in window) {
@@ -60,6 +70,8 @@ export default function Settings() {
           email_notifications: prefs.email_notifications,
           push_notifications: prefs.push_notifications,
           leave_update_notifications: prefs.leave_update_notifications,
+          notification_sound: prefs.notification_sound || 'default',
+          notification_volume: prefs.notification_volume || 50,
         });
         // Sync theme with preferences
         if (prefs.dark_mode !== (theme === "dark")) {
@@ -70,6 +82,16 @@ export default function Settings() {
       console.error('Failed to load preferences:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const load2FAStatus = async () => {
+    try {
+      const status = await twoFactorService.getStatus();
+      setTwoFactorEnabled(status.enabled);
+      setBackupCodesRemaining(status.backupCodesRemaining);
+    } catch (error) {
+      console.error('Failed to load 2FA status:', error);
     }
   };
 
@@ -326,6 +348,43 @@ export default function Settings() {
                 onCheckedChange={(checked) => updatePreference('leave_update_notifications', checked)}
               />
             </div>
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label>Notification Sound</Label>
+                <p className="text-sm text-muted-foreground">Choose your notification sound</p>
+              </div>
+              <Select
+                value={preferences.notification_sound}
+                onValueChange={(value) => setPreferences(prev => ({ ...prev, notification_sound: value }))}
+              >
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="default">Default</SelectItem>
+                  <SelectItem value="chime">Chime</SelectItem>
+                  <SelectItem value="ping">Ping</SelectItem>
+                  <SelectItem value="alert">Alert</SelectItem>
+                  <SelectItem value="success">Success</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label>Notification Volume</Label>
+                  <span className="text-sm text-muted-foreground">{preferences.notification_volume}%</span>
+                </div>
+                <Slider
+                  value={[preferences.notification_volume]}
+                  onValueChange={([value]) => setPreferences(prev => ({ ...prev, notification_volume: value }))}
+                  max={100}
+                  step={5}
+                  className="w-full"
+                />
+              </div>
+            </div>
           </CardContent>
         </Card>
 
@@ -341,10 +400,18 @@ export default function Settings() {
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
                 <Label>Two-Factor Authentication</Label>
-                <p className="text-sm text-muted-foreground">Add an extra layer of security</p>
+                <p className="text-sm text-muted-foreground">
+                  {twoFactorEnabled 
+                    ? `Enabled • ${backupCodesRemaining} backup codes remaining` 
+                    : 'Add an extra layer of security'}
+                </p>
               </div>
-              <Button variant="outline" size="sm" disabled>
-                Coming Soon
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setTwoFactorDialogOpen(true)}
+              >
+                {twoFactorEnabled ? 'Manage' : 'Enable'}
               </Button>
             </div>
 
@@ -425,6 +492,12 @@ export default function Settings() {
           </Button>
         </div>
       </div>
+
+      <TwoFactorSetup
+        open={twoFactorDialogOpen}
+        onOpenChange={setTwoFactorDialogOpen}
+        onSuccess={load2FAStatus}
+      />
     </div>
   );
 }
