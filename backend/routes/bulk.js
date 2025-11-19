@@ -11,7 +11,7 @@ const router = express.Router();
 --------------------------------------------------------- */
 router.post('/users', 
   authenticateToken, 
-  authorizeRole('hr', 'manager'),
+  authorizeRole('hr', 'manager', 'employee'),
   [
     body('users').isArray({ min: 1 }),
     body('users.*.email').isEmail().normalizeEmail(),
@@ -132,7 +132,7 @@ router.post('/users',
 --------------------------------------------------------- */
 router.post('/holidays',
   authenticateToken,
-  authorizeRole('hr', 'manager'),
+  authorizeRole('hr', 'manager', 'employee'),
   [
     body('holidays').isArray({ min: 1 }),
     body('holidays.*.name').trim().isLength({ min: 1 }),
@@ -216,7 +216,7 @@ router.post('/holidays',
 --------------------------------------------------------- */
 router.post('/payslips',
   authenticateToken,
-  authorizeRole('hr', 'manager'),
+  authorizeRole('hr', 'manager', 'employee'),
   [
     body('payslips').isArray({ min: 1 }),
     body('payslips.*.user_id').isInt(),
