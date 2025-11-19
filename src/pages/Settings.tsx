@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -14,6 +15,7 @@ import { Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 
 export default function Settings() {
+  const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
   const { role } = useUserRole();
   const { user } = useAuth();
@@ -21,6 +23,7 @@ export default function Settings() {
   const [saving, setSaving] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
   
   const [preferences, setPreferences] = useState({
     dark_mode: false,
@@ -39,6 +42,10 @@ export default function Settings() {
   useEffect(() => {
     if (user) {
       loadPreferences();
+    }
+    // Check browser notification permission
+    if ('Notification' in window) {
+      setNotificationPermission(Notification.permission);
     }
   }, [user]);
 
@@ -81,7 +88,42 @@ export default function Settings() {
     }
   };
 
-  const updatePreference = (key: keyof typeof preferences, value: boolean) => {
+  const requestNotificationPermission = async () => {
+    if (!('Notification' in window)) {
+      toast.error('Browser notifications are not supported');
+      return false;
+    }
+
+    if (Notification.permission === 'granted') {
+      return true;
+    }
+
+    const permission = await Notification.requestPermission();
+    setNotificationPermission(permission);
+
+    if (permission === 'granted') {
+      toast.success('Browser notifications enabled');
+      // Show a test notification
+      new Notification('Notifications Enabled', {
+        body: 'You will now receive push notifications',
+        icon: '/favicon.ico'
+      });
+      return true;
+    } else {
+      toast.error('Notification permission denied');
+      return false;
+    }
+  };
+
+  const updatePreference = async (key: keyof typeof preferences, value: boolean) => {
+    // If enabling push notifications, request browser permission first
+    if (key === 'push_notifications' && value) {
+      const granted = await requestNotificationPermission();
+      if (!granted) {
+        return; // Don't update preference if permission denied
+      }
+    }
+
     setPreferences(prev => ({ ...prev, [key]: value }));
     if (key === 'dark_mode') {
       setTheme(value ? "dark" : "light");
@@ -260,11 +302,17 @@ export default function Settings() {
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
                 <Label>Push Notifications</Label>
-                <p className="text-sm text-muted-foreground">Receive push notifications in browser</p>
+                <p className="text-sm text-muted-foreground">
+                  Receive push notifications in browser
+                  {notificationPermission === 'denied' && (
+                    <span className="text-destructive"> (Blocked by browser)</span>
+                  )}
+                </p>
               </div>
               <Switch
-                checked={preferences.push_notifications}
+                checked={preferences.push_notifications && notificationPermission === 'granted'}
                 onCheckedChange={(checked) => updatePreference('push_notifications', checked)}
+                disabled={notificationPermission === 'denied'}
               />
             </div>
 
@@ -303,12 +351,20 @@ export default function Settings() {
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
                 <Label>Password</Label>
-                <p className="text-sm text-muted-foreground">Change your account password</p>
+                <p className="text-sm text-muted-foreground">Change or reset your account password</p>
               </div>
-              <Dialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button variant="outline" size="sm">Change</Button>
-                </DialogTrigger>
+              <div className="flex gap-2">
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => navigate('/forgot-password')}
+                >
+                  Reset
+                </Button>
+                <Dialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" size="sm">Change</Button>
+                  </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
                     <DialogTitle>Change Password</DialogTitle>
@@ -356,6 +412,7 @@ export default function Settings() {
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
+              </div>
             </div>
           </CardContent>
         </Card>
