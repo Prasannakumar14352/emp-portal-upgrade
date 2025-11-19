@@ -16,7 +16,6 @@ import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
 import { userService, type UserProfile } from "@/services/userService";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
 import { AvatarUploadModal } from "@/components/AvatarUploadModal";
 
 export default function Profile() {
