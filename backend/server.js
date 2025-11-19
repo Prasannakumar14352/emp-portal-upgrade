@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const http = require('http');
+const path = require('path');
 const socketIO = require('socket.io');
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./config/swagger');
@@ -25,6 +26,7 @@ const attendanceRoutes = require('./routes/attendance');
 const performanceRoutes = require('./routes/performance');
 const apiDocsRoutes = require('./routes/apiDocs');
 const postmanRoutes = require('./routes/postman');
+const uploadRoutes = require('./routes/upload');
 
 const app = express();
 const server = http.createServer(app);
@@ -66,6 +68,9 @@ app.use(cors({
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Serve uploaded files statically
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Performance monitoring configuration
 const SLOW_REQUEST_THRESHOLD = 1000; // Log requests taking longer than 1 second
