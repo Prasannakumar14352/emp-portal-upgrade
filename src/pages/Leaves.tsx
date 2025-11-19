@@ -736,6 +736,7 @@ export default function Leaves() {
             <div>
               <label className="text-sm font-medium">Select Manager</label>
               <Select
+                key={editFormData.manager_id}
                 value={editFormData.manager_id?.toString()}
                 onValueChange={(value) => setEditFormData({ ...editFormData, manager_id: parseInt(value) })}
               >
