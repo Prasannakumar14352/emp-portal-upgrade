@@ -36,7 +36,7 @@ router.get('/:userId/profile', authenticateToken, async (req, res) => {
       .input('user_id', sql.Int, userId)
       .query(`
         SELECT 
-          p.id, p.email, p.full_name, p.phone, 
+          p.user_id, p.email, p.full_name, p.phone, 
           p.department, p.position, p.avatar_url, p.hire_date, p.created_at, p.updated_at
         FROM profiles p
         WHERE p.user_id = @user_id
@@ -86,7 +86,7 @@ router.patch('/:userId/profile', authenticateToken, async (req, res) => {
           hire_date = COALESCE(@hire_date, hire_date),
           updated_at = GETDATE()
         OUTPUT 
-          INSERTED.id, INSERTED.email, INSERTED.full_name, 
+          INSERTED.user_id, INSERTED.email, INSERTED.full_name, 
           INSERTED.phone, INSERTED.department, INSERTED.position,
           INSERTED.avatar_url, INSERTED.hire_date
         WHERE user_id = @user_id
@@ -107,7 +107,7 @@ router.get('/', authenticateToken, authorizeRole('hr', 'manager'), async (req, r
     const result = await pool.request()
       .query(`
         SELECT 
-          p.id, p.email, p.full_name, p.phone, 
+          p.user_id, p.email, p.full_name, p.phone, 
           p.department, p.position, p.avatar_url, p.hire_date, p.created_at, p.updated_at
         FROM profiles p
         ORDER BY p.full_name
@@ -128,7 +128,7 @@ router.get('/with-roles', authenticateToken, authorizeRole('hr', 'manager'), asy
     const result = await pool.request()
       .query(`
         SELECT 
-          p.id, p.email, p.full_name, p.department, p.position,
+          p.user_id, p.email, p.full_name, p.department, p.position,
           ur.role, ur.id as role_id, ur.created_at as role_assigned_at
         FROM profiles p
         LEFT JOIN user_roles ur ON p.user_id = ur.user_id
@@ -138,9 +138,9 @@ router.get('/with-roles', authenticateToken, authorizeRole('hr', 'manager'), asy
     // Group roles by user
     const usersMap = new Map();
     result.recordset.forEach(row => {
-      if (!usersMap.has(row.id)) {
-        usersMap.set(row.id, {
-          id: row.id,
+      if (!usersMap.has(row.user_id)) {
+        usersMap.set(row.user_id, {
+          user_id: row.user_id,
           email: row.email,
           full_name: row.full_name,
           department: row.department,
@@ -149,7 +149,7 @@ router.get('/with-roles', authenticateToken, authorizeRole('hr', 'manager'), asy
         });
       }
       if (row.role) {
-        usersMap.get(row.id).roles.push({
+        usersMap.get(row.user_id).roles.push({
           role: row.role,
           role_id: row.role_id,
           role_assigned_at: row.role_assigned_at

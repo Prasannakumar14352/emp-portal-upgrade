@@ -158,7 +158,7 @@ router.get('/all', authenticateToken, authorizeRole('hr', 'manager'), async (req
     
     let query = `
       SELECT 
-        p.id as user_id,
+        p.user_id,
         p.full_name,
         p.email,
         COALESCE(p.department, 'Not Assigned') as department,

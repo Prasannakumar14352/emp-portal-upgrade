@@ -154,7 +154,7 @@ router.post('/login', [
     const userResult = await pool.request()
       .input('email', sql.NVarChar, email)
       .query(`
-        SELECT id, email, full_name
+        SELECT user_id, email, full_name
         FROM profiles
         WHERE email = @email
       `);
