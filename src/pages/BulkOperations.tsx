@@ -3,11 +3,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Upload, Users, Calendar, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { useUserRole } from "@/hooks/useUserRole";
 import { Navigate } from "react-router-dom";
 import { bulkService } from "@/services/bulkService";
+import * as XLSX from "xlsx";
 
 export default function BulkOperations() {
   const { role, loading } = useUserRole();
@@ -15,6 +18,8 @@ export default function BulkOperations() {
   const [holidaysData, setHolidaysData] = useState("");
   const [payslipsData, setPayslipsData] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [userFile, setUserFile] = useState<File | null>(null);
+  const [holidayFile, setHolidayFile] = useState<File | null>(null);
 
   if (loading) {
     return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
@@ -24,10 +29,63 @@ export default function BulkOperations() {
     return <Navigate to="/" replace />;
   }
 
+  const handleUserFileUpload = async (file: File) => {
+    try {
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data);
+      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+      
+      const users = jsonData.map((row: any) => ({
+        email: row.email || row.Email,
+        full_name: row.full_name || row["Full Name"] || row.name || row.Name,
+        department: row.department || row.Department,
+        position: row.position || row.Position,
+        phone: row.phone || row.Phone,
+        role: row.role || row.Role || "employee",
+        password: row.password || row.Password
+      }));
+
+      return users;
+    } catch (error) {
+      console.error("Error parsing Excel file:", error);
+      throw new Error("Failed to parse Excel file. Please check the format.");
+    }
+  };
+
+  const handleHolidayFileUpload = async (file: File) => {
+    try {
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data);
+      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+      
+      const holidays = jsonData.map((row: any) => ({
+        name: row.name || row.Name,
+        date: row.date || row.Date,
+        type: row.type || row.Type,
+        description: row.description || row.Description
+      }));
+
+      return holidays;
+    } catch (error) {
+      console.error("Error parsing Excel file:", error);
+      throw new Error("Failed to parse Excel file. Please check the format.");
+    }
+  };
+
   const handleBulkUsers = async () => {
     try {
       setUploading(true);
-      const users = JSON.parse(usersData);
+      let users;
+
+      if (userFile) {
+        users = await handleUserFileUpload(userFile);
+      } else if (usersData.trim()) {
+        users = JSON.parse(usersData);
+      } else {
+        throw new Error("Please provide user data via Excel file or JSON");
+      }
       
       if (!Array.isArray(users)) {
         throw new Error("Data must be an array");
@@ -44,6 +102,7 @@ export default function BulkOperations() {
       }
 
       setUsersData("");
+      setUserFile(null);
     } catch (error: any) {
       toast.error(error.message || "Failed to create users");
       console.error("Error creating users:", error);
@@ -136,13 +195,42 @@ export default function BulkOperations() {
             <CardHeader>
               <CardTitle>Bulk Create Users</CardTitle>
               <CardDescription>
-                Paste JSON array of user objects. Each user should have: email, full_name, password (optional), department, position, phone (optional), role (optional: 'hr' or 'manager')
+                Upload an Excel file or paste JSON array of user objects.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="text-sm text-muted-foreground bg-muted p-4 rounded-md">
-                <p className="font-semibold mb-2">Example format:</p>
-                <pre className="text-xs overflow-x-auto">
+            <CardContent className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="user-file">Upload Excel File</Label>
+                <div className="text-xs text-muted-foreground mb-2">
+                  Required columns: <strong>email, full_name</strong><br />
+                  Optional columns: department, position, phone, role (employee/hr/manager), password
+                </div>
+                <Input
+                  id="user-file"
+                  type="file"
+                  accept=".xlsx,.xls"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    setUserFile(file || null);
+                    if (file) setUsersData("");
+                  }}
+                  disabled={uploading}
+                />
+              </div>
+
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-background px-2 text-muted-foreground">Or paste JSON</span>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="text-sm text-muted-foreground bg-muted p-4 rounded-md">
+                  <p className="font-semibold mb-2">Example JSON format:</p>
+                  <pre className="text-xs overflow-x-auto">
 {`[
   {
     "email": "john@example.com",
@@ -154,18 +242,24 @@ export default function BulkOperations() {
     "role": "employee"
   }
 ]`}
-                </pre>
+                  </pre>
+                </div>
+                <Textarea
+                  placeholder="Paste JSON data here..."
+                  value={usersData}
+                  onChange={(e) => {
+                    setUsersData(e.target.value);
+                    if (e.target.value) setUserFile(null);
+                  }}
+                  rows={10}
+                  className="font-mono text-sm"
+                  disabled={uploading}
+                />
               </div>
-              <Textarea
-                placeholder="Paste JSON data here..."
-                value={usersData}
-                onChange={(e) => setUsersData(e.target.value)}
-                rows={10}
-                className="font-mono text-sm"
-              />
+
               <Button 
                 onClick={handleBulkUsers} 
-                disabled={!usersData || uploading}
+                disabled={(!usersData && !userFile) || uploading}
                 className="w-full"
               >
                 <Upload className="w-4 h-4 mr-2" />
@@ -180,13 +274,42 @@ export default function BulkOperations() {
             <CardHeader>
               <CardTitle>Bulk Create Holidays</CardTitle>
               <CardDescription>
-                Paste JSON array of holiday objects. Each holiday should have: name, date (YYYY-MM-DD), type, description (optional)
+                Upload an Excel file or paste JSON array of holiday objects.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="text-sm text-muted-foreground bg-muted p-4 rounded-md">
-                <p className="font-semibold mb-2">Example format:</p>
-                <pre className="text-xs overflow-x-auto">
+            <CardContent className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="holiday-file">Upload Excel File</Label>
+                <div className="text-xs text-muted-foreground mb-2">
+                  Required columns: <strong>name, date (YYYY-MM-DD), type</strong><br />
+                  Optional columns: description
+                </div>
+                <Input
+                  id="holiday-file"
+                  type="file"
+                  accept=".xlsx,.xls"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    setHolidayFile(file || null);
+                    if (file) setHolidaysData("");
+                  }}
+                  disabled={uploading}
+                />
+              </div>
+
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-background px-2 text-muted-foreground">Or paste JSON</span>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="text-sm text-muted-foreground bg-muted p-4 rounded-md">
+                  <p className="font-semibold mb-2">Example JSON format:</p>
+                  <pre className="text-xs overflow-x-auto">
 {`[
   {
     "name": "New Year's Day",
@@ -195,18 +318,24 @@ export default function BulkOperations() {
     "description": "First day of the year"
   }
 ]`}
-                </pre>
+                  </pre>
+                </div>
+                <Textarea
+                  placeholder="Paste JSON data here..."
+                  value={holidaysData}
+                  onChange={(e) => {
+                    setHolidaysData(e.target.value);
+                    if (e.target.value) setHolidayFile(null);
+                  }}
+                  rows={10}
+                  className="font-mono text-sm"
+                  disabled={uploading}
+                />
               </div>
-              <Textarea
-                placeholder="Paste JSON data here..."
-                value={holidaysData}
-                onChange={(e) => setHolidaysData(e.target.value)}
-                rows={10}
-                className="font-mono text-sm"
-              />
+
               <Button 
                 onClick={handleBulkHolidays} 
-                disabled={!holidaysData || uploading}
+                disabled={(!holidaysData && !holidayFile) || uploading}
                 className="w-full"
               >
                 <Upload className="w-4 h-4 mr-2" />
