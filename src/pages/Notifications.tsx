@@ -8,13 +8,11 @@ import { useAuth } from "@/hooks/useAuth";
 import { notificationService, type Notification } from "@/services/notificationService";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
-import { supabase } from "@/integrations/supabase/client";
 
 export default function Notifications() {
   const { user } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
-  const [supabaseUserId, setSupabaseUserId] = useState<string | null>(null);
   const [preferences, setPreferences] = useState({
     email_notifications: true,
     push_notifications: true,
@@ -22,38 +20,16 @@ export default function Notifications() {
   });
 
   useEffect(() => {
-    const initializeNotifications = async () => {
-      // Get Supabase user ID (UUID)
-      const { data: { user: supabaseUser } } = await supabase.auth.getUser();
-      
-      if (supabaseUser) {
-        setSupabaseUserId(supabaseUser.id);
-        loadNotifications(supabaseUser.id);
-        loadPreferences(supabaseUser.id);
-        
-        // Subscribe to real-time notifications
-        const channel = notificationService.subscribeToNotifications(supabaseUser.id, (newNotification) => {
-          setNotifications((prev) => [newNotification, ...prev]);
-          toast.info(newNotification.title, {
-            description: newNotification.message,
-          });
-        });
-
-        return () => {
-          channel.unsubscribe();
-        };
-      }
-    };
-
     if (user) {
-      initializeNotifications();
+      loadNotifications();
+      loadPreferences();
     }
   }, [user]);
 
-  const loadNotifications = async (userId: string) => {
+  const loadNotifications = async () => {
     try {
       setLoading(true);
-      const data = await notificationService.getUserNotifications(userId);
+      const data = await notificationService.getUserNotifications();
       setNotifications(data);
     } catch (error) {
       console.error('Failed to load notifications:', error);
@@ -63,9 +39,9 @@ export default function Notifications() {
     }
   };
 
-  const loadPreferences = async (userId: string) => {
+  const loadPreferences = async () => {
     try {
-      const prefs = await notificationService.getUserPreferences(userId);
+      const prefs = await notificationService.getUserPreferences();
       if (prefs) {
         setPreferences({
           email_notifications: prefs.email_notifications,
@@ -81,9 +57,8 @@ export default function Notifications() {
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   const markAllAsRead = async () => {
-    if (!supabaseUserId) return;
     try {
-      await notificationService.markAllAsRead(supabaseUserId);
+      await notificationService.markAllAsRead();
       setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
       toast.success('All notifications marked as read');
     } catch (error) {
@@ -113,10 +88,9 @@ export default function Notifications() {
   };
 
   const togglePreference = async (key: keyof typeof preferences) => {
-    if (!supabaseUserId) return;
     try {
       const newValue = !preferences[key];
-      await notificationService.updateUserPreferences(supabaseUserId, {
+      await notificationService.updateUserPreferences({
         [key]: newValue,
       });
       setPreferences((prev) => ({ ...prev, [key]: newValue }));
