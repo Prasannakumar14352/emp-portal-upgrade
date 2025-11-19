@@ -22,6 +22,8 @@ export interface NotificationPreferences {
 class NotificationService {
   // Get employee_id (integer) from Supabase UUID
   private async getEmployeeId(supabaseUserId: string): Promise<number | null> {
+    console.log('Getting employee_id for Supabase user:', supabaseUserId);
+    
     const { data, error } = await supabase
       .from('profiles')
       .select('employee_id')
@@ -33,12 +35,26 @@ class NotificationService {
       return null;
     }
 
-    return data?.employee_id || null;
+    console.log('Found employee_id:', data?.employee_id);
+    
+    if (!data?.employee_id) {
+      console.error('No employee_id found in profiles for user:', supabaseUserId);
+      return null;
+    }
+
+    return data.employee_id;
   }
 
   async getUserNotifications(supabaseUserId: string): Promise<Notification[]> {
+    console.log('Fetching notifications for Supabase user:', supabaseUserId);
+    
     const employeeId = await this.getEmployeeId(supabaseUserId);
-    if (!employeeId) return [];
+    if (!employeeId) {
+      console.error('Cannot fetch notifications: No employee_id found');
+      return [];
+    }
+
+    console.log('Querying notifications for employee_id:', employeeId);
 
     const { data, error } = await supabase
       .from('notifications')
@@ -51,6 +67,7 @@ class NotificationService {
       throw error;
     }
 
+    console.log('Fetched notifications:', data?.length || 0);
     return data || [];
   }
 
