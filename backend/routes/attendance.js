@@ -281,6 +281,77 @@ router.get('/analytics/stats', authenticateToken, async (req, res) => {
   }
 });
 
+// Update attendance record with business rules
+router.put('/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { userId, checkInTime, checkOutTime, notes, date } = req.body;
+    
+    const pool = await getConnection();
+    
+    // Get the attendance record
+    const recordResult = await pool.request()
+      .input('id', sql.UniqueIdentifier, id)
+      .query('SELECT * FROM attendance_records WHERE id = @id');
+    
+    const record = recordResult.recordset[0];
+    if (!record) {
+      return res.status(404).json({ error: 'Attendance record not found' });
+    }
+    
+    // Check if user has HR role
+    const roleResult = await pool.request()
+      .input('userId', sql.Int, userId)
+      .query(`
+        SELECT role FROM user_roles 
+        WHERE user_id = (SELECT id FROM profiles WHERE employee_id = @userId)
+      `);
+    
+    const isHR = roleResult.recordset.some(r => r.role === 'hr');
+    
+    // Get the date difference
+    const recordDate = new Date(record.date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    recordDate.setHours(0, 0, 0, 0);
+    
+    const daysDifference = Math.floor((today - recordDate) / (1000 * 60 * 60 * 24));
+    
+    // Business logic: Employee can update only if it's the next day (daysDifference === 1)
+    // HR can update anytime
+    if (!isHR && record.user_id !== userId) {
+      return res.status(403).json({ error: 'You can only update your own attendance' });
+    }
+    
+    if (!isHR && daysDifference > 1) {
+      return res.status(403).json({ 
+        error: 'You can only update attendance for the previous day. Please contact HR for older records.' 
+      });
+    }
+    
+    // Update the record
+    await pool.request()
+      .input('id', sql.UniqueIdentifier, id)
+      .input('checkInTime', sql.DateTime2, checkInTime ? new Date(checkInTime) : null)
+      .input('checkOutTime', sql.DateTime2, checkOutTime ? new Date(checkOutTime) : null)
+      .input('notes', sql.NVarChar, notes || null)
+      .query(`
+        UPDATE attendance_records 
+        SET 
+          check_in_time = @checkInTime,
+          check_out_time = @checkOutTime,
+          notes = @notes,
+          updated_at = GETDATE()
+        WHERE id = @id
+      `);
+    
+    res.json({ message: 'Attendance updated successfully' });
+  } catch (error) {
+    logError(error, req, { context: 'Error updating attendance' });
+    res.status(500).json({ error: error.message });
+  }
+});
+
 router.get('/analytics/departments', authenticateToken, async (req, res) => {
   try {
     const today = new Date().toISOString().split('T')[0];
