@@ -22,7 +22,7 @@ export default function RoleManagement() {
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const { role: currentUserRole, loading: roleLoading } = useUserRole();
 
-  const canManage = currentUserRole === 'hr';
+  const canManage = currentUserRole === 'hr' || currentUserRole === 'manager';
 
   useEffect(() => {
     if (canManage) {
@@ -110,7 +110,7 @@ export default function RoleManagement() {
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
             <p className="font-semibold mb-2">Access Denied</p>
-            <p>You need HR role to access the role management panel.</p>
+            <p>You need HR or Manager role to access the role management panel.</p>
             <p className="text-sm mt-2">Your current role: <span className="font-mono font-bold">{currentUserRole}</span></p>
           </AlertDescription>
         </Alert>
