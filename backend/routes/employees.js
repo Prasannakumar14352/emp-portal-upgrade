@@ -55,7 +55,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
       .input('id', sql.Int, id)
       .query(`
         SELECT 
-          e.id, e.user_id, e.full_name, e.email, e.phone,
+          e.user_id, e.full_name, e.email, e.phone,
           e.department, e.position, e.status, e.created_at, e.updated_at,
           ur.role
         FROM profiles e
@@ -110,7 +110,6 @@ router.patch('/:id', authenticateToken, authorizeRole('hr', 'manager'), async (r
     const pool = await getConnection();
     
     const result = await pool.request()
-      .input('id', sql.Int, id)
       .input('full_name', sql.NVarChar, full_name)
       .input('email', sql.NVarChar, email)
       .input('phone', sql.NVarChar, phone)
@@ -118,6 +117,7 @@ router.patch('/:id', authenticateToken, authorizeRole('hr', 'manager'), async (r
       .input('position', sql.NVarChar, position)
       .input('status', sql.NVarChar, status)
       .input('role', sql.NVarChar, role)
+      .input('user_id', sql.Int, user_id)
       .query(`
         UPDATE profiles
         SET 
@@ -130,7 +130,7 @@ router.patch('/:id', authenticateToken, authorizeRole('hr', 'manager'), async (r
           updated_at = GETDATE(),
           role = COALESCE(@role, role)
         OUTPUT INSERTED.*
-        WHERE id = @id
+        WHERE user_id = @user_id
       `);
 
     if (result.recordset.length === 0) {
@@ -175,7 +175,7 @@ router.get('/department/:department', authenticateToken, async (req, res) => {
       .input('department', sql.NVarChar, department)
       .query(`
         SELECT 
-          e.id, e.user_id, e.full_name, e.email, e.phone,
+          e.user_id, e.full_name, e.email, e.phone,
           e.department, e.position, e.status, e.created_at, e.updated_at, e.role
         FROM profiles e
         WHERE e.department = @department
