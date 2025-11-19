@@ -63,9 +63,9 @@ router.post('/users',
             .input('phone', sql.NVarChar, phone || null)
             .input('password_hash', sql.NVarChar, hashedPassword)
             .query(`
-              INSERT INTO profiles (email, full_name, department, position, phone, password_hash, created_at)
-              OUTPUT INSERTED.id, INSERTED.email, INSERTED.full_name
-              VALUES (@email, @full_name, @department, @position, @phone, @password_hash, GETDATE())
+              INSERT INTO profiles (user_id, email, full_name, department, position, phone, password_hash, created_at)
+              OUTPUT INSERTED.id, INSERTED.user_id, INSERTED.email, INSERTED.full_name
+              VALUES (NEWID(), @email, @full_name, @department, @position, @phone, @password_hash, GETDATE())
             `);
 
           const newProfile = profileResult.recordset[0];
