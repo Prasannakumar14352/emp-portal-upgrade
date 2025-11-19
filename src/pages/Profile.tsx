@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Mail, Phone, Calendar, Briefcase, Edit, Camera, Upload } from "lucide-react";
+import { Mail, Phone, Calendar, Briefcase, Edit, Camera } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -17,14 +17,14 @@ import { useAuth } from "@/hooks/useAuth";
 import { userService, type UserProfile } from "@/services/userService";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { AvatarUploadModal } from "@/components/AvatarUploadModal";
 
 export default function Profile() {
   const { user } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [form, setForm] = useState({
     full_name: '',
     email: '',
@@ -79,48 +79,27 @@ export default function Profile() {
       .toUpperCase();
   };
 
-  const validateImage = (file: File): string | null => {
-    const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'];
-    const maxSize = 5 * 1024 * 1024; // 5MB
+  const handleImageUpload = async (blob: Blob) => {
+    if (!user) return;
 
-    if (!validTypes.includes(file.type)) {
-      return 'Please upload a valid image file (JPEG, PNG, or WebP)';
-    }
-
-    if (file.size > maxSize) {
-      return 'Image size must be less than 5MB';
-    }
-
-    return null;
-  };
-
-  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file || !user) return;
-
-    const validationError = validateImage(file);
-    if (validationError) {
-      toast.error(validationError);
-      return;
-    }
-
-    setUploading(true);
     try {
       // Delete old avatar if exists
       if (profile?.avatar_url) {
-        const oldPath = profile.avatar_url.split('/').pop();
+        const oldPath = profile.avatar_url.split('/').slice(-2).join('/');
         if (oldPath) {
-          await supabase.storage.from('avatars').remove([`${user.id}/${oldPath}`]);
+          await supabase.storage.from('avatars').remove([oldPath]);
         }
       }
 
       // Upload new avatar
-      const fileExt = file.name.split('.').pop();
-      const filePath = `${user.id}/${Date.now()}.${fileExt}`;
+      const filePath = `${user.id}/${Date.now()}.jpg`;
       
       const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(filePath, file);
+        .upload(filePath, blob, {
+          contentType: 'image/jpeg',
+          upsert: false,
+        });
 
       if (uploadError) throw uploadError;
 
@@ -138,11 +117,7 @@ export default function Profile() {
       toast.success('Profile picture updated successfully');
     } catch (error: any) {
       toast.error(error.message || 'Failed to upload image');
-    } finally {
-      setUploading(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
+      throw error;
     }
   };
 
@@ -176,22 +151,10 @@ export default function Profile() {
                   size="icon"
                   variant="secondary"
                   className="absolute -bottom-2 -right-2 h-8 w-8 rounded-full shadow-md"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploading}
+                  onClick={() => setUploadModalOpen(true)}
                 >
-                  {uploading ? (
-                    <Upload className="h-3 w-3 animate-spin" />
-                  ) : (
-                    <Camera className="h-3 w-3" />
-                  )}
+                  <Camera className="h-3 w-3" />
                 </Button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp,image/jpg"
-                  onChange={handleImageUpload}
-                  className="hidden"
-                />
               </div>
               <h2 className="mt-4 text-2xl font-bold">{profile.full_name}</h2>
               <p className="text-muted-foreground">{profile.position || 'Employee'}</p>
@@ -357,6 +320,12 @@ export default function Profile() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AvatarUploadModal
+        open={uploadModalOpen}
+        onOpenChange={setUploadModalOpen}
+        onUpload={handleImageUpload}
+      />
     </div>
   );
 }
