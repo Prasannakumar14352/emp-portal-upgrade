@@ -498,7 +498,7 @@ router.put('/:leaveId', authenticateToken, async (req, res) => {
     }
 
     // Update the leave request
-    const result = await pool.request()
+    await pool.request()
       .input('leave_id', sql.Int, leaveId)
       .input('leave_type', sql.NVarChar, leave_type)
       .input('start_date', sql.Date, start_date)
@@ -513,9 +513,13 @@ router.put('/:leaveId', authenticateToken, async (req, res) => {
             days = @days,
             reason = @reason,
             updated_at = GETDATE()
-        OUTPUT INSERTED.*
         WHERE id = @leave_id
       `);
+
+    // Fetch the updated leave request
+    const result = await pool.request()
+      .input('leave_id', sql.Int, leaveId)
+      .query('SELECT * FROM leaves WHERE id = @leave_id');
 
     const updatedLeave = result.recordset[0];
 
