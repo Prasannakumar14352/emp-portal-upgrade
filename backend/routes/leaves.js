@@ -2,6 +2,7 @@ const express = require('express');
 const { getConnection, sql } = require('../config/database');
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
 const { logError } = require('../utils/logger');
+const { shouldSendLeaveNotification, filterEmailRecipients } = require('../utils/emailHelper');
 
 const router = express.Router();
 
@@ -154,40 +155,49 @@ router.post('/', authenticateToken, async (req, res) => {
           <p>Please log in to the system to review and approve/reject this request.</p>
         `;
 
-        // Collect all recipients
+        // Collect all recipients with user_id for preference checking
         const recipients = [];
 
         // Add manager email
         if (manager_id) {
           const managerResult = await pool.request()
             .input('manager_id', sql.Int, manager_id)
-            .query('SELECT email, full_name FROM profiles WHERE user_id = @manager_id');
+            .query('SELECT user_id, email, full_name FROM profiles WHERE user_id = @manager_id');
           
           if (managerResult.recordset.length > 0) {
-            recipients.push(managerResult.recordset[0].email);
+            recipients.push({
+              user_id: managerResult.recordset[0].user_id,
+              email: managerResult.recordset[0].email
+            });
           }
         }
 
         // Add all HR users
         const hrResult = await pool.request()
           .query(`
-            SELECT p.email 
+            SELECT p.user_id, p.email 
             FROM profiles p
             INNER JOIN user_roles ur ON p.user_id = ur.user_id
             WHERE ur.role = 'hr'
           `);
         
         hrResult.recordset.forEach(hr => {
-          if (!recipients.includes(hr.email)) {
-            recipients.push(hr.email);
+          if (!recipients.find(r => r.email === hr.email)) {
+            recipients.push({
+              user_id: hr.user_id,
+              email: hr.email
+            });
           }
         });
 
-        // Send to all recipients (manager + HR)
-        if (recipients.length > 0) {
+        // Filter recipients based on their email preferences
+        const filteredEmails = await filterEmailRecipients(recipients);
+
+        // Send to all recipients who have notifications enabled
+        if (filteredEmails.length > 0) {
           const emailOptions = {
             from: process.env.GMAIL_USER,
-            to: recipients.join(', '),
+            to: filteredEmails.join(', '),
             subject: emailSubject,
             html: emailHtml
           };
@@ -198,7 +208,7 @@ router.post('/', authenticateToken, async (req, res) => {
           }
 
           await transporter.sendMail(emailOptions);
-          console.log('Leave notification sent to:', recipients.join(', '));
+          console.log('Leave notification sent to:', filteredEmails.join(', '));
           if (cc_emails && cc_emails.length > 0) {
             console.log('CC sent to:', cc_emails.join(', '));
           }
@@ -349,46 +359,61 @@ router.patch('/:leaveId', authenticateToken, authorizeRole('hr', 'manager'), asy
         const employee = employeeResult.recordset[0];
         const approver = approverResult.recordset[0];
         
-        // Notify employee
-        await transporter.sendMail({
-          from: process.env.GMAIL_USER,
-          to: employee.email,
-          subject: `Leave Request ${status} by ${isManager ? 'Manager' : 'HR'}`,
-          html: `
-            <h2>Leave Request Update</h2>
-            <p>Your leave request has been <strong>${status}</strong> by ${isManager ? 'your manager' : 'HR'} (${approver.full_name}).</p>
-            <p><strong>Leave Type:</strong> ${updatedLeave.leave_type}</p>
-            <p><strong>Duration:</strong> ${updatedLeave.start_date} to ${updatedLeave.end_date} (${updatedLeave.days} days)</p>
-            ${comments ? `<p><strong>Comments:</strong> ${comments}</p>` : ''}
-            ${isManager && status === 'Approved' ? '<p><em>Your request now awaits HR approval.</em></p>' : ''}
-          `
-        });
+        // Check if employee wants to receive leave notifications
+        const shouldNotifyEmployee = await shouldSendLeaveNotification(updatedLeave.user_id);
+        
+        // Notify employee if they have notifications enabled
+        if (shouldNotifyEmployee) {
+          await transporter.sendMail({
+            from: process.env.GMAIL_USER,
+            to: employee.email,
+            subject: `Leave Request ${status} by ${isManager ? 'Manager' : 'HR'}`,
+            html: `
+              <h2>Leave Request Update</h2>
+              <p>Your leave request has been <strong>${status}</strong> by ${isManager ? 'your manager' : 'HR'} (${approver.full_name}).</p>
+              <p><strong>Leave Type:</strong> ${updatedLeave.leave_type}</p>
+              <p><strong>Duration:</strong> ${updatedLeave.start_date} to ${updatedLeave.end_date} (${updatedLeave.days} days)</p>
+              ${comments ? `<p><strong>Comments:</strong> ${comments}</p>` : ''}
+              ${isManager && status === 'Approved' ? '<p><em>Your request now awaits HR approval.</em></p>' : ''}
+            `
+          });
+        } else {
+          console.log(`Skipping leave notification email to ${employee.email} - notifications disabled`);
+        }
 
-        // If manager approved, notify HR
+        // If manager approved, notify HR (always notify HR regardless of preferences)
         if (isManager && status === 'Approved') {
           const hrResult = await pool.request()
             .query(`
-              SELECT p.email, p.full_name 
+              SELECT p.email, p.full_name, p.user_id
               FROM profiles p
               JOIN user_roles ur ON p.user_id = ur.user_id
               WHERE ur.role = 'hr'
             `);
           
           if (hrResult.recordset.length > 0) {
-            const hrEmails = hrResult.recordset.map(hr => hr.email);
-            await transporter.sendMail({
-              from: process.env.GMAIL_USER,
-              to: hrEmails,
-              subject: 'Leave Request Requires HR Approval',
-              html: `
-                <h2>Leave Request Awaiting HR Approval</h2>
-                <p><strong>${employee.full_name}</strong>'s leave request has been approved by the manager and now requires HR approval.</p>
-                <p><strong>Leave Type:</strong> ${updatedLeave.leave_type}</p>
-                <p><strong>Duration:</strong> ${updatedLeave.start_date} to ${updatedLeave.end_date} (${updatedLeave.days} days)</p>
-                <p><strong>Manager:</strong> ${approver.full_name}</p>
-                <p>Please log in to the system to review and approve/reject this request.</p>
-              `
-            });
+            // Filter HR emails based on their preferences
+            const hrWithPrefs = hrResult.recordset.map(hr => ({
+              user_id: hr.user_id,
+              email: hr.email
+            }));
+            const hrEmails = await filterEmailRecipients(hrWithPrefs);
+            
+            if (hrEmails.length > 0) {
+              await transporter.sendMail({
+                from: process.env.GMAIL_USER,
+                to: hrEmails,
+                subject: 'Leave Request Requires HR Approval',
+                html: `
+                  <h2>Leave Request Awaiting HR Approval</h2>
+                  <p><strong>${employee.full_name}</strong>'s leave request has been approved by the manager and now requires HR approval.</p>
+                  <p><strong>Leave Type:</strong> ${updatedLeave.leave_type}</p>
+                  <p><strong>Duration:</strong> ${updatedLeave.start_date} to ${updatedLeave.end_date} (${updatedLeave.days} days)</p>
+                  <p><strong>Manager:</strong> ${approver.full_name}</p>
+                  <p>Please log in to the system to review and approve/reject this request.</p>
+                `
+              });
+            }
           }
         }
       }
