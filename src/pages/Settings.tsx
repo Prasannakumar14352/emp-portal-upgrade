@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
 import { Settings as SettingsIcon, Moon, Bell, Lock, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { useTheme } from "next-themes";
@@ -10,6 +11,7 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { useAuth } from "@/hooks/useAuth";
 import { settingsService } from "@/services/settingsService";
 import { Loader2 } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 
 export default function Settings() {
   const { theme, setTheme } = useTheme();
@@ -17,6 +19,8 @@ export default function Settings() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
   
   const [preferences, setPreferences] = useState({
     dark_mode: false,
@@ -24,6 +28,12 @@ export default function Settings() {
     email_notifications: true,
     push_notifications: true,
     leave_update_notifications: true,
+  });
+
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
   });
 
   useEffect(() => {
@@ -35,7 +45,7 @@ export default function Settings() {
   const loadPreferences = async () => {
     try {
       setLoading(true);
-      const prefs = await settingsService.getUserPreferences(user!.id);
+      const prefs = await settingsService.getUserPreferences(parseInt(user!.id));
       if (prefs) {
         setPreferences({
           dark_mode: prefs.dark_mode,
@@ -61,7 +71,7 @@ export default function Settings() {
     
     try {
       setSaving(true);
-      await settingsService.createOrUpdatePreferences(user.id, preferences);
+      await settingsService.createOrUpdatePreferences(parseInt(user.id), preferences);
       toast.success("Settings saved successfully!");
     } catch (error) {
       console.error('Failed to save preferences:', error);
@@ -75,6 +85,35 @@ export default function Settings() {
     setPreferences(prev => ({ ...prev, [key]: value }));
     if (key === 'dark_mode') {
       setTheme(value ? "dark" : "light");
+    }
+  };
+
+  const handlePasswordChange = async () => {
+    if (!user) return;
+
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      toast.error("New passwords don't match");
+      return;
+    }
+
+    if (passwordData.newPassword.length < 12) {
+      toast.error("Password must be at least 12 characters");
+      return;
+    }
+
+    try {
+      setChangingPassword(true);
+      await settingsService.changePassword(parseInt(user.id), {
+        currentPassword: passwordData.currentPassword,
+        newPassword: passwordData.newPassword,
+      });
+      toast.success("Password changed successfully");
+      setPasswordDialogOpen(false);
+      setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    } catch (error: any) {
+      toast.error(error.message || "Failed to change password");
+    } finally {
+      setChangingPassword(false);
     }
   };
 
@@ -256,7 +295,9 @@ export default function Settings() {
                 <Label>Two-Factor Authentication</Label>
                 <p className="text-sm text-muted-foreground">Add an extra layer of security</p>
               </div>
-              <Button variant="outline" size="sm">Enable</Button>
+              <Button variant="outline" size="sm" disabled>
+                Coming Soon
+              </Button>
             </div>
 
             <div className="flex items-center justify-between">
@@ -264,7 +305,57 @@ export default function Settings() {
                 <Label>Password</Label>
                 <p className="text-sm text-muted-foreground">Change your account password</p>
               </div>
-              <Button variant="outline" size="sm">Change</Button>
+              <Dialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm">Change</Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Change Password</DialogTitle>
+                    <DialogDescription>
+                      Enter your current password and a new password. New password must be at least 12 characters.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="currentPassword">Current Password</Label>
+                      <Input
+                        id="currentPassword"
+                        type="password"
+                        value={passwordData.currentPassword}
+                        onChange={(e) => setPasswordData(prev => ({ ...prev, currentPassword: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="newPassword">New Password</Label>
+                      <Input
+                        id="newPassword"
+                        type="password"
+                        value={passwordData.newPassword}
+                        onChange={(e) => setPasswordData(prev => ({ ...prev, newPassword: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="confirmPassword">Confirm New Password</Label>
+                      <Input
+                        id="confirmPassword"
+                        type="password"
+                        value={passwordData.confirmPassword}
+                        onChange={(e) => setPasswordData(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setPasswordDialogOpen(false)} disabled={changingPassword}>
+                      Cancel
+                    </Button>
+                    <Button onClick={handlePasswordChange} disabled={changingPassword}>
+                      {changingPassword && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                      Change Password
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </div>
           </CardContent>
         </Card>

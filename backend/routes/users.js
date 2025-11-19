@@ -254,4 +254,183 @@ router.delete('/roles/:roleId', authenticateToken, authorizeRole('hr'), async (r
   }
 });
 
+// GET /api/users/:userId/preferences - Get user preferences
+router.get('/:userId/preferences', authenticateToken, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    // Verify user can only access their own preferences or is HR
+    if (parseInt(req.user.id) !== parseInt(userId) && req.user.role !== 'hr') {
+      return res.status(403).json({ error: 'Not authorized' });
+    }
+
+    const pool = await getConnection();
+    
+    const result = await pool.request()
+      .input('user_id', sql.Int, userId)
+      .query(`
+        SELECT 
+          id, user_id, dark_mode, compact_view,
+          email_notifications, push_notifications, leave_update_notifications,
+          created_at, updated_at
+        FROM user_preferences
+        WHERE user_id = @user_id
+      `);
+
+    if (result.recordset.length === 0) {
+      return res.status(404).json({ error: 'Preferences not found' });
+    }
+
+    res.json(result.recordset[0]);
+  } catch (err) {
+    logError(err, req, { context: 'Get preferences error', userId: req.params.userId });
+    res.status(500).json({ error: 'Failed to get preferences' });
+  }
+});
+
+// PUT /api/users/:userId/preferences - Update user preferences
+router.put('/:userId/preferences', authenticateToken, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    // Verify user can only update their own preferences
+    if (parseInt(req.user.id) !== parseInt(userId)) {
+      return res.status(403).json({ error: 'Not authorized' });
+    }
+
+    const { dark_mode, compact_view, email_notifications, push_notifications, leave_update_notifications } = req.body;
+    const pool = await getConnection();
+
+    // Check if preferences exist
+    const existing = await pool.request()
+      .input('user_id', sql.Int, userId)
+      .query('SELECT id FROM user_preferences WHERE user_id = @user_id');
+
+    if (existing.recordset.length === 0) {
+      // Create new preferences
+      const result = await pool.request()
+        .input('user_id', sql.Int, userId)
+        .input('dark_mode', sql.Bit, dark_mode ?? false)
+        .input('compact_view', sql.Bit, compact_view ?? false)
+        .input('email_notifications', sql.Bit, email_notifications ?? true)
+        .input('push_notifications', sql.Bit, push_notifications ?? true)
+        .input('leave_update_notifications', sql.Bit, leave_update_notifications ?? true)
+        .query(`
+          INSERT INTO user_preferences (
+            user_id, dark_mode, compact_view, 
+            email_notifications, push_notifications, leave_update_notifications,
+            created_at, updated_at
+          )
+          OUTPUT INSERTED.*
+          VALUES (
+            @user_id, @dark_mode, @compact_view,
+            @email_notifications, @push_notifications, @leave_update_notifications,
+            GETDATE(), GETDATE()
+          )
+        `);
+      
+      return res.json(result.recordset[0]);
+    } else {
+      // Update existing preferences
+      const updates = [];
+      const request = pool.request().input('user_id', sql.Int, userId);
+      
+      if (dark_mode !== undefined) {
+        updates.push('dark_mode = @dark_mode');
+        request.input('dark_mode', sql.Bit, dark_mode);
+      }
+      if (compact_view !== undefined) {
+        updates.push('compact_view = @compact_view');
+        request.input('compact_view', sql.Bit, compact_view);
+      }
+      if (email_notifications !== undefined) {
+        updates.push('email_notifications = @email_notifications');
+        request.input('email_notifications', sql.Bit, email_notifications);
+      }
+      if (push_notifications !== undefined) {
+        updates.push('push_notifications = @push_notifications');
+        request.input('push_notifications', sql.Bit, push_notifications);
+      }
+      if (leave_update_notifications !== undefined) {
+        updates.push('leave_update_notifications = @leave_update_notifications');
+        request.input('leave_update_notifications', sql.Bit, leave_update_notifications);
+      }
+
+      if (updates.length > 0) {
+        updates.push('updated_at = GETDATE()');
+        const result = await request.query(`
+          UPDATE user_preferences
+          SET ${updates.join(', ')}
+          OUTPUT INSERTED.*
+          WHERE user_id = @user_id
+        `);
+        
+        return res.json(result.recordset[0]);
+      }
+
+      return res.status(400).json({ error: 'No updates provided' });
+    }
+  } catch (err) {
+    logError(err, req, { context: 'Update preferences error', userId: req.params.userId });
+    res.status(500).json({ error: 'Failed to update preferences' });
+  }
+});
+
+// POST /api/users/:userId/change-password - Change user password
+router.post('/:userId/change-password', authenticateToken, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { currentPassword, newPassword } = req.body;
+
+    // Verify user can only change their own password
+    if (parseInt(req.user.id) !== parseInt(userId)) {
+      return res.status(403).json({ error: 'Not authorized' });
+    }
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: 'Current and new password required' });
+    }
+
+    if (newPassword.length < 12) {
+      return res.status(400).json({ error: 'New password must be at least 12 characters' });
+    }
+
+    const pool = await getConnection();
+    const bcrypt = require('bcrypt');
+
+    // Get current password hash
+    const userResult = await pool.request()
+      .input('user_id', sql.Int, userId)
+      .query('SELECT password_hash FROM profiles WHERE user_id = @user_id');
+
+    if (userResult.recordset.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Verify current password
+    const validPassword = await bcrypt.compare(currentPassword, userResult.recordset[0].password_hash);
+    if (!validPassword) {
+      return res.status(401).json({ error: 'Current password is incorrect' });
+    }
+
+    // Hash new password
+    const newPasswordHash = await bcrypt.hash(newPassword, 10);
+
+    // Update password
+    await pool.request()
+      .input('user_id', sql.Int, userId)
+      .input('password_hash', sql.NVarChar, newPasswordHash)
+      .query(`
+        UPDATE profiles
+        SET password_hash = @password_hash, updated_at = GETDATE()
+        WHERE user_id = @user_id
+      `);
+
+    res.json({ message: 'Password changed successfully' });
+  } catch (err) {
+    logError(err, req, { context: 'Change password error', userId: req.params.userId });
+    res.status(500).json({ error: 'Failed to change password' });
+  }
+});
+
 module.exports = router;

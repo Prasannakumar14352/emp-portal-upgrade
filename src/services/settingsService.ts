@@ -1,8 +1,8 @@
 import { apiClient } from './apiClient';
 
 export interface UserPreferences {
-  id: string;
-  user_id: string;
+  id: number;
+  user_id: number;
   dark_mode: boolean;
   compact_view: boolean;
   email_notifications: boolean;
@@ -12,8 +12,13 @@ export interface UserPreferences {
   updated_at: string;
 }
 
+export interface ChangePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
+}
+
 class SettingsService {
-  async getUserPreferences(userId: string): Promise<UserPreferences | null> {
+  async getUserPreferences(userId: number): Promise<UserPreferences | null> {
     try {
       const response = await apiClient.get<UserPreferences>(`/users/${userId}/preferences`);
       return response;
@@ -26,12 +31,21 @@ class SettingsService {
     }
   }
 
-  async createOrUpdatePreferences(userId: string, preferences: Partial<Omit<UserPreferences, 'id' | 'user_id' | 'created_at' | 'updated_at'>>): Promise<UserPreferences> {
+  async createOrUpdatePreferences(userId: number, preferences: Partial<Omit<UserPreferences, 'id' | 'user_id' | 'created_at' | 'updated_at'>>): Promise<UserPreferences> {
     try {
       const response = await apiClient.put<UserPreferences>(`/users/${userId}/preferences`, preferences);
       return response;
     } catch (error) {
       console.error('Error updating preferences:', error);
+      throw error;
+    }
+  }
+
+  async changePassword(userId: number, passwordData: ChangePasswordRequest): Promise<void> {
+    try {
+      await apiClient.post(`/users/${userId}/change-password`, passwordData);
+    } catch (error) {
+      console.error('Error changing password:', error);
       throw error;
     }
   }
