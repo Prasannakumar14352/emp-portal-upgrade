@@ -11,6 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Calendar, Plus, CheckCircle, XCircle, Clock, Trash2, Eye, Edit, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
+import { useSignalR } from "@/hooks/useSignalR";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { leaveService, type Leave, type LeaveBalance, type LeaveConflict } from "@/services/leaveService";
 import { leaveTypeService, type LeaveType } from "@/services/leaveTypeService";
 import { managerService, type Manager } from "@/services/managerService";
@@ -34,6 +36,7 @@ import {
 export default function Leaves() {
   const [open, setOpen] = useState(false);
   const { user } = useAuth();
+  useSignalR(); // Enable real-time notifications
   const [leaveBalance, setLeaveBalance] = useState<LeaveBalance[]>([]);
   const [leaveHistory, setLeaveHistory] = useState<Leave[]>([]);
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
@@ -69,6 +72,22 @@ export default function Leaves() {
     if (user) {
       loadLeaveData();
     }
+  }, [user]);
+
+  // Listen for real-time leave status updates and reload data
+  useEffect(() => {
+    const handleLeaveUpdate = () => {
+      if (user) {
+        loadLeaveData();
+      }
+    };
+
+    // Listen to custom event dispatched by SignalR
+    window.addEventListener('leaveStatusUpdated', handleLeaveUpdate);
+    
+    return () => {
+      window.removeEventListener('leaveStatusUpdated', handleLeaveUpdate);
+    };
   }, [user]);
 
   useEffect(() => {
@@ -514,7 +533,7 @@ export default function Leaves() {
                       <Eye className="h-4 w-4 mr-1" />
                       Details
                     </Button>
-                    {leave.status === "Pending" && (
+                    {leave.status === "Pending" ? (
                       <>
                         <Button
                           variant="outline"
@@ -536,6 +555,27 @@ export default function Leaves() {
                           Cancel
                         </Button>
                       </>
+                    ) : (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled
+                                className="opacity-50 cursor-not-allowed"
+                              >
+                                <Edit className="h-4 w-4 mr-1" />
+                                Edit
+                              </Button>
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Cannot edit {leave.status.toLowerCase()} leave requests</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     )}
                   </div>
                 </div>
