@@ -94,7 +94,22 @@ export default function Leaves() {
         managerService.getAllManagers(),
         employeeService.getAllEmployees(),
       ]);
-      setLeaveBalance(balances);
+      
+      // If no leave balances exist, create default ones from leave types
+      const effectiveBalances = balances.length > 0 
+        ? balances 
+        : types.map(type => ({
+            id: String(type.id),
+            user_id: user!.id,
+            year: new Date().getFullYear(),
+            leave_type: type.name,
+            total_days: type.default_days,
+            used_days: 0,
+            remaining_days: type.default_days,
+            carry_forward_days: 0
+          }));
+      
+      setLeaveBalance(effectiveBalances);
       setLeaveHistory(history);
       setLeaveTypes(types);
       setManagers(managersList);
@@ -470,10 +485,22 @@ export default function Leaves() {
                       <p className="text-sm text-muted-foreground">Reason: {leave.reason}</p>
                       <div className="flex flex-col gap-1 mt-2">
                         <p className="text-xs text-muted-foreground">
-                          Manager: {leave.manager_status} {leave.manager_approved_at && `on ${new Date(leave.manager_approved_at).toLocaleDateString()}`}
+                          Manager: {(() => {
+                            if (leave.manager_id) {
+                              const manager = employees.find(e => e.id === String(leave.manager_id));
+                              return manager ? manager.full_name : 'N/A';
+                            }
+                            return 'Not Assigned';
+                          })()} - {leave.manager_status} {leave.manager_approved_at && `on ${new Date(leave.manager_approved_at).toLocaleDateString()}`}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          HR: {leave.hr_status} {leave.hr_approved_at && `on ${new Date(leave.hr_approved_at).toLocaleDateString()}`}
+                          HR: {(() => {
+                            if (leave.hr_approved_by) {
+                              const hrPerson = employees.find(e => e.user_id === leave.hr_approved_by);
+                              return hrPerson ? hrPerson.full_name : 'N/A';
+                            }
+                            return 'Not Yet Reviewed';
+                          })()} - {leave.hr_status} {leave.hr_approved_at && `on ${new Date(leave.hr_approved_at).toLocaleDateString()}`}
                         </p>
                       </div>
                     </div>
