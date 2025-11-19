@@ -120,8 +120,8 @@ router.get('/', authenticateToken, authorizeRole('hr', 'manager'), async (req, r
   }
 });
 
-// GET /api/users/with-roles - Get all users with their roles (HR only)
-router.get('/with-roles', authenticateToken, authorizeRole('hr'), async (req, res) => {
+// GET /api/users/with-roles - Get all users with their roles (HR and Manager)
+router.get('/with-roles', authenticateToken, authorizeRole('hr', 'manager'), async (req, res) => {
   try {
     const pool = await getConnection();
 
@@ -164,8 +164,8 @@ router.get('/with-roles', authenticateToken, authorizeRole('hr'), async (req, re
   }
 });
 
-// POST /api/users/:userId/roles - Assign role to user (HR only)
-router.post('/:userId/roles', authenticateToken, authorizeRole('hr'), async (req, res) => {
+// POST /api/users/:userId/roles - Assign role to user (HR and Manager)
+router.post('/:userId/roles', authenticateToken, authorizeRole('hr', 'manager'), async (req, res) => {
   try {
     const { userId } = req.params;
     const { role } = req.body;
@@ -216,8 +216,8 @@ router.post('/:userId/roles', authenticateToken, authorizeRole('hr'), async (req
   }
 });
 
-// DELETE /api/users/roles/:roleId - Remove role from user (HR only)
-router.delete('/roles/:roleId', authenticateToken, authorizeRole('hr'), async (req, res) => {
+// DELETE /api/users/roles/:roleId - Remove role from user (HR and Manager)
+router.delete('/roles/:roleId', authenticateToken, authorizeRole('hr', 'manager'), async (req, res) => {
   try {
     const { roleId } = req.params;
     const pool = await getConnection();
