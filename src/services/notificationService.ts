@@ -2,7 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 export interface Notification {
   id: string;
-  user_id: string;
+  user_id: number;
   type: string;
   title: string;
   message: string;
@@ -13,18 +13,37 @@ export interface Notification {
 
 export interface NotificationPreferences {
   id?: string;
-  user_id: string;
+  user_id: number;
   email_notifications: boolean;
   push_notifications: boolean;
   leave_update_notifications: boolean;
 }
 
 class NotificationService {
-  async getUserNotifications(userId: string): Promise<Notification[]> {
+  // Get employee_id (integer) from Supabase UUID
+  private async getEmployeeId(supabaseUserId: string): Promise<number | null> {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('employee_id')
+      .eq('id', supabaseUserId)
+      .single();
+
+    if (error) {
+      console.error('Error fetching employee_id:', error);
+      return null;
+    }
+
+    return data?.employee_id || null;
+  }
+
+  async getUserNotifications(supabaseUserId: string): Promise<Notification[]> {
+    const employeeId = await this.getEmployeeId(supabaseUserId);
+    if (!employeeId) return [];
+
     const { data, error } = await supabase
       .from('notifications')
       .select('*')
-      .eq('user_id', userId)
+      .eq('user_id', employeeId)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -47,11 +66,14 @@ class NotificationService {
     }
   }
 
-  async markAllAsRead(userId: string): Promise<void> {
+  async markAllAsRead(supabaseUserId: string): Promise<void> {
+    const employeeId = await this.getEmployeeId(supabaseUserId);
+    if (!employeeId) return;
+
     const { error } = await supabase
       .from('notifications')
       .update({ read: true })
-      .eq('user_id', userId)
+      .eq('user_id', employeeId)
       .eq('read', false);
 
     if (error) {
@@ -72,11 +94,14 @@ class NotificationService {
     }
   }
 
-  async getUnreadCount(userId: string): Promise<number> {
+  async getUnreadCount(supabaseUserId: string): Promise<number> {
+    const employeeId = await this.getEmployeeId(supabaseUserId);
+    if (!employeeId) return 0;
+
     const { count, error } = await supabase
       .from('notifications')
       .select('*', { count: 'exact', head: true })
-      .eq('user_id', userId)
+      .eq('user_id', employeeId)
       .eq('read', false);
 
     if (error) {
@@ -87,11 +112,14 @@ class NotificationService {
     return count || 0;
   }
 
-  async getUserPreferences(userId: string): Promise<NotificationPreferences | null> {
+  async getUserPreferences(supabaseUserId: string): Promise<NotificationPreferences | null> {
+    const employeeId = await this.getEmployeeId(supabaseUserId);
+    if (!employeeId) return null;
+
     const { data, error } = await supabase
       .from('user_preferences')
       .select('*')
-      .eq('user_id', userId)
+      .eq('user_id', employeeId)
       .single();
 
     if (error) {
@@ -103,15 +131,17 @@ class NotificationService {
   }
 
   async updateUserPreferences(
-    userId: string,
+    supabaseUserId: string,
     preferences: Partial<NotificationPreferences>
   ): Promise<void> {
+    const employeeId = await this.getEmployeeId(supabaseUserId);
+    if (!employeeId) return;
+
     const { error } = await supabase
       .from('user_preferences')
       .upsert({
-        user_id: userId,
-        ...preferences,
-        updated_at: new Date().toISOString()
+        user_id: employeeId,
+        ...preferences
       });
 
     if (error) {
@@ -121,24 +151,32 @@ class NotificationService {
   }
 
   // Subscribe to real-time notification updates
-  subscribeToNotifications(userId: string, callback: (notification: Notification) => void) {
-    const channel = supabase
-      .channel('notifications-channel')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${userId}`
-        },
-        (payload) => {
-          callback(payload.new as Notification);
-        }
-      )
-      .subscribe();
+  subscribeToNotifications(supabaseUserId: string, callback: (notification: Notification) => void) {
+    // Get employee_id and subscribe
+    this.getEmployeeId(supabaseUserId).then(employeeId => {
+      if (!employeeId) return;
 
-    return channel;
+      const channel = supabase
+        .channel('notifications-channel')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'notifications',
+            filter: `user_id=eq.${employeeId}`
+          },
+          (payload) => {
+            callback(payload.new as Notification);
+          }
+        )
+        .subscribe();
+
+      return channel;
+    });
+
+    // Return a dummy channel for now
+    return supabase.channel('notifications-channel');
   }
 }
 
