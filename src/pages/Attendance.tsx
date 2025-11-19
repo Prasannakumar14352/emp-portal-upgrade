@@ -1,11 +1,16 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Calendar, Clock, CheckCircle, XCircle, AlertCircle, Loader2, LogIn, LogOut } from "lucide-react";
+import { Calendar, Clock, CheckCircle, XCircle, AlertCircle, Loader2, LogIn, LogOut, Edit } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
 import { apiClient } from "@/services/apiClient";
 import { toast } from "sonner";
+import { userService } from "@/services/userService";
 
 interface AttendanceRecord {
   id: string;
@@ -41,12 +46,29 @@ export default function Attendance() {
     attendanceRate: 0
   });
   const [recentAttendance, setRecentAttendance] = useState<AttendanceRecord[]>([]);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [selectedRecord, setSelectedRecord] = useState<AttendanceRecord | null>(null);
+  const [editCheckIn, setEditCheckIn] = useState("");
+  const [editCheckOut, setEditCheckOut] = useState("");
+  const [editNotes, setEditNotes] = useState("");
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
       loadAttendanceData();
+      loadUserRole();
     }
   }, [user]);
+
+  const loadUserRole = async () => {
+    if (!user) return;
+    try {
+      const role = await userService.getUserRole(user.id);
+      setUserRole(role);
+    } catch (error) {
+      console.error('Failed to load user role:', error);
+    }
+  };
 
   const loadAttendanceData = async () => {
     if (!user) return;
@@ -100,6 +122,50 @@ export default function Attendance() {
     } catch (error: any) {
       console.error('Check-out failed:', error);
       toast.error(error.message || 'Failed to check out');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const canEditRecord = (record: AttendanceRecord) => {
+    if (userRole === 'hr') return true;
+    
+    const recordDate = new Date(record.date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    recordDate.setHours(0, 0, 0, 0);
+    
+    const daysDifference = Math.floor((today.getTime() - recordDate.getTime()) / (1000 * 60 * 60 * 24));
+    
+    return daysDifference === 1;
+  };
+
+  const handleEditClick = (record: AttendanceRecord) => {
+    setSelectedRecord(record);
+    setEditCheckIn(record.check_in_time ? new Date(record.check_in_time).toISOString().slice(0, 16) : "");
+    setEditCheckOut(record.check_out_time ? new Date(record.check_out_time).toISOString().slice(0, 16) : "");
+    setEditNotes(record.notes || "");
+    setEditDialogOpen(true);
+  };
+
+  const handleUpdateAttendance = async () => {
+    if (!user || !selectedRecord) return;
+    
+    try {
+      setActionLoading(true);
+      await apiClient.put(`/attendance/${selectedRecord.id}`, {
+        userId: user.id,
+        checkInTime: editCheckIn || null,
+        checkOutTime: editCheckOut || null,
+        notes: editNotes,
+        date: selectedRecord.date
+      });
+      toast.success('Attendance updated successfully!');
+      setEditDialogOpen(false);
+      await loadAttendanceData();
+    } catch (error: any) {
+      console.error('Update failed:', error);
+      toast.error(error.message || 'Failed to update attendance');
     } finally {
       setActionLoading(false);
     }
@@ -265,12 +331,84 @@ export default function Attendance() {
                     </p>
                   </div>
                 </div>
-                {getStatusBadge(record.status)}
+                <div className="flex items-center gap-2">
+                  {getStatusBadge(record.status)}
+                  {canEditRecord(record) && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleEditClick(record)}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
               </div>
             ))}
           </div>
         </CardContent>
       </Card>
+
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Update Attendance</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="edit-date">Date</Label>
+              <Input
+                id="edit-date"
+                type="text"
+                value={selectedRecord ? new Date(selectedRecord.date).toLocaleDateString() : ""}
+                disabled
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-checkin">Check In Time</Label>
+              <Input
+                id="edit-checkin"
+                type="datetime-local"
+                value={editCheckIn}
+                onChange={(e) => setEditCheckIn(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-checkout">Check Out Time</Label>
+              <Input
+                id="edit-checkout"
+                type="datetime-local"
+                value={editCheckOut}
+                onChange={(e) => setEditCheckOut(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-notes">Notes</Label>
+              <Textarea
+                id="edit-notes"
+                value={editNotes}
+                onChange={(e) => setEditNotes(e.target.value)}
+                placeholder="Add notes about this attendance record..."
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpdateAttendance} disabled={actionLoading}>
+              {actionLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                "Update"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
