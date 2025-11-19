@@ -9,6 +9,42 @@ const { authenticateToken } = require('../middleware/auth');
 const router = express.Router();
 
 /* ---------------------------------------------------------
+   CREATE DEFAULT PREFERENCES HELPER
+--------------------------------------------------------- */
+const createDefaultPreferences = async (userId, pool) => {
+  try {
+    // Check if preferences already exist
+    const existing = await pool.request()
+      .input('user_id', sql.Int, userId)
+      .query('SELECT id FROM user_preferences WHERE user_id = @user_id');
+    
+    if (existing.recordset.length === 0) {
+      // Create default preferences
+      await pool.request()
+        .input('user_id', sql.Int, userId)
+        .query(`
+          INSERT INTO user_preferences (
+            user_id, dark_mode, compact_view, 
+            email_notifications, push_notifications, leave_update_notifications,
+            notification_sound, notification_volume,
+            created_at, updated_at
+          )
+          VALUES (
+            @user_id, 0, 0, 
+            1, 1, 1,
+            'default', 50,
+            GETDATE(), GETDATE()
+          )
+        `);
+      console.log(`Default preferences created for user ${userId}`);
+    }
+  } catch (err) {
+    console.error('Error creating default preferences:', err);
+    // Don't throw - preferences creation shouldn't block login/signup
+  }
+};
+
+/* ---------------------------------------------------------
    TOKEN GENERATOR
 --------------------------------------------------------- */
 const generateTokens = (user) => {
@@ -69,6 +105,9 @@ router.post('/signup', [
       .query(`IF NOT EXISTS (SELECT 1 FROM user_roles WHERE user_id = @user_id AND role = @role)
         INSERT INTO user_roles (user_id, role, created_at) VALUES (@user_id, @role, GETDATE())`);
 
+    // Create default preferences for new user
+    await createDefaultPreferences(newUser.id, pool);
+
     const tokens = generateTokens({
       id: newUser.id,
       email: newUser.email,
@@ -123,6 +162,9 @@ router.post('/login', [
 
     // For SQL Server with profiles (no password stored)
     // OAuth-only authentication - skip password check
+
+    // Create default preferences if they don't exist
+    await createDefaultPreferences(user.id, pool);
 
     const tokens = generateTokens({
       id: user.id,

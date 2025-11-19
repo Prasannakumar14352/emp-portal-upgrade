@@ -272,13 +272,37 @@ router.get('/:userId/preferences', authenticateToken, async (req, res) => {
         SELECT 
           id, user_id, dark_mode, compact_view,
           email_notifications, push_notifications, leave_update_notifications,
+          notification_sound, notification_volume,
           created_at, updated_at
         FROM user_preferences
         WHERE user_id = @user_id
       `);
 
     if (result.recordset.length === 0) {
-      return res.status(404).json({ error: 'Preferences not found' });
+      // Create default preferences if they don't exist
+      const createResult = await pool.request()
+        .input('user_id', sql.Int, userId)
+        .query(`
+          INSERT INTO user_preferences (
+            user_id, dark_mode, compact_view, 
+            email_notifications, push_notifications, leave_update_notifications,
+            notification_sound, notification_volume,
+            created_at, updated_at
+          )
+          OUTPUT 
+            INSERTED.id, INSERTED.user_id, INSERTED.dark_mode, INSERTED.compact_view,
+            INSERTED.email_notifications, INSERTED.push_notifications, 
+            INSERTED.leave_update_notifications, INSERTED.notification_sound, 
+            INSERTED.notification_volume, INSERTED.created_at, INSERTED.updated_at
+          VALUES (
+            @user_id, 0, 0, 
+            1, 1, 1,
+            'default', 50,
+            GETDATE(), GETDATE()
+          )
+        `);
+      
+      return res.json(createResult.recordset[0]);
     }
 
     res.json(result.recordset[0]);
@@ -298,7 +322,7 @@ router.put('/:userId/preferences', authenticateToken, async (req, res) => {
       return res.status(403).json({ error: 'Not authorized' });
     }
 
-    const { dark_mode, compact_view, email_notifications, push_notifications, leave_update_notifications } = req.body;
+    const { dark_mode, compact_view, email_notifications, push_notifications, leave_update_notifications, notification_sound, notification_volume } = req.body;
     const pool = await getConnection();
 
     // Check if preferences exist
@@ -315,16 +339,20 @@ router.put('/:userId/preferences', authenticateToken, async (req, res) => {
         .input('email_notifications', sql.Bit, email_notifications ?? true)
         .input('push_notifications', sql.Bit, push_notifications ?? true)
         .input('leave_update_notifications', sql.Bit, leave_update_notifications ?? true)
+        .input('notification_sound', sql.NVarChar, notification_sound ?? 'default')
+        .input('notification_volume', sql.Int, notification_volume ?? 50)
         .query(`
           INSERT INTO user_preferences (
             user_id, dark_mode, compact_view, 
             email_notifications, push_notifications, leave_update_notifications,
+            notification_sound, notification_volume,
             created_at, updated_at
           )
           OUTPUT INSERTED.*
           VALUES (
             @user_id, @dark_mode, @compact_view,
             @email_notifications, @push_notifications, @leave_update_notifications,
+            @notification_sound, @notification_volume,
             GETDATE(), GETDATE()
           )
         `);
@@ -354,6 +382,14 @@ router.put('/:userId/preferences', authenticateToken, async (req, res) => {
       if (leave_update_notifications !== undefined) {
         updates.push('leave_update_notifications = @leave_update_notifications');
         request.input('leave_update_notifications', sql.Bit, leave_update_notifications);
+      }
+      if (notification_sound !== undefined) {
+        updates.push('notification_sound = @notification_sound');
+        request.input('notification_sound', sql.NVarChar, notification_sound);
+      }
+      if (notification_volume !== undefined) {
+        updates.push('notification_volume = @notification_volume');
+        request.input('notification_volume', sql.Int, notification_volume);
       }
 
       if (updates.length > 0) {
