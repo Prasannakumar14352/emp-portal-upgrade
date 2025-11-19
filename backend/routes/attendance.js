@@ -416,4 +416,103 @@ router.get('/analytics/trends', authenticateToken, async (req, res) => {
   }
 });
 
+// Get attendance calendar data for HR dashboard
+router.get('/calendar', authenticateToken, async (req, res) => {
+  try {
+    const { year, month, department } = req.query;
+    
+    const pool = await getConnection();
+    
+    // Get all employees with optional department filter
+    let employeeQuery = 'SELECT user_id, full_name, department FROM employees WHERE status = \'Active\'';
+    const request = pool.request();
+    
+    if (department && department !== 'all') {
+      employeeQuery += ' AND department = @department';
+      request.input('department', sql.NVarChar, department);
+    }
+    
+    const employeesResult = await request.query(employeeQuery);
+    const employees = employeesResult.recordset;
+    
+    // Get attendance records for the month
+    const startDate = new Date(parseInt(year), parseInt(month) - 1, 1);
+    const endDate = new Date(parseInt(year), parseInt(month), 0);
+    
+    const attendanceResult = await pool.request()
+      .input('startDate', sql.Date, startDate)
+      .input('endDate', sql.Date, endDate)
+      .query(`
+        SELECT 
+          user_id,
+          CONVERT(VARCHAR, date, 23) as date,
+          status,
+          check_in_time,
+          check_out_time,
+          work_hours
+        FROM attendance_records
+        WHERE date >= @startDate AND date <= @endDate
+      `);
+    
+    // Organize attendance by user and date
+    const attendanceMap = {};
+    attendanceResult.recordset.forEach(record => {
+      if (!attendanceMap[record.user_id]) {
+        attendanceMap[record.user_id] = {};
+      }
+      attendanceMap[record.user_id][record.date] = {
+        status: record.status,
+        check_in_time: record.check_in_time,
+        check_out_time: record.check_out_time,
+        work_hours: record.work_hours
+      };
+    });
+    
+    // Combine employee and attendance data
+    const result = employees.map(emp => ({
+      user_id: emp.user_id,
+      full_name: emp.full_name,
+      department: emp.department,
+      attendance: attendanceMap[emp.user_id] || {}
+    }));
+    
+    res.json(result);
+  } catch (error) {
+    logError(error, req, { context: 'Error fetching calendar attendance', year, month, department });
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get attendance reports for export
+router.get('/reports', authenticateToken, async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    
+    const pool = await getConnection();
+    const result = await pool.request()
+      .input('startDate', sql.Date, startDate)
+      .input('endDate', sql.Date, endDate)
+      .query(`
+        SELECT 
+          e.employee_id,
+          e.full_name as employee_name,
+          e.department,
+          CONVERT(VARCHAR, ar.date, 23) as date,
+          ar.check_in_time,
+          ar.check_out_time,
+          ar.work_hours,
+          ar.status
+        FROM attendance_records ar
+        JOIN employees e ON ar.user_id = e.user_id
+        WHERE ar.date >= @startDate AND ar.date <= @endDate
+        ORDER BY ar.date DESC, e.full_name
+      `);
+    
+    res.json(result.recordset);
+  } catch (error) {
+    logError(error, req, { context: 'Error fetching attendance reports', startDate, endDate });
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;

@@ -6,10 +6,14 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Download, Filter, Loader2, Search } from "lucide-react";
+import { Calendar, Download, Filter, Loader2, Search, FileText } from "lucide-react";
 import { apiClient } from "@/services/apiClient";
 import { toast } from "sonner";
+import { useUserRole } from "@/hooks/useUserRole";
+import { useNavigate } from "react-router-dom";
 import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 interface AttendanceReport {
   employee_id: string;
@@ -23,9 +27,19 @@ interface AttendanceReport {
 }
 
 export default function AttendanceReports() {
+  const { role } = useUserRole();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [reports, setReports] = useState<AttendanceReport[]>([]);
   const [filteredReports, setFilteredReports] = useState<AttendanceReport[]>([]);
+
+  // Check HR access
+  useEffect(() => {
+    if (role !== 'hr' && role !== 'manager') {
+      toast.error('Access denied. HR/Manager role required.');
+      navigate('/');
+    }
+  }, [role, navigate]);
   
   // Filters
   const [startDate, setStartDate] = useState('');
@@ -118,6 +132,52 @@ export default function AttendanceReports() {
     );
   };
 
+  const exportToPDF = () => {
+    try {
+      const doc = new jsPDF();
+      
+      // Add title
+      doc.setFontSize(16);
+      doc.text('Attendance Report', 14, 15);
+      
+      // Add date range
+      doc.setFontSize(10);
+      doc.text(`Period: ${startDate} to ${endDate}`, 14, 22);
+      
+      // Add stats
+      const stats = calculateStats();
+      doc.text(`Total Records: ${stats.total} | Present: ${stats.present} | Late: ${stats.late} | Absent: ${stats.absent}`, 14, 28);
+      
+      // Prepare table data
+      const tableData = filteredReports.map(r => [
+        r.employee_id,
+        r.employee_name,
+        r.department,
+        new Date(r.date).toLocaleDateString(),
+        r.check_in_time ? new Date(r.check_in_time).toLocaleTimeString() : '-',
+        r.check_out_time ? new Date(r.check_out_time).toLocaleTimeString() : '-',
+        r.work_hours?.toFixed(2) || '-',
+        r.status
+      ]);
+      
+      // Add table
+      autoTable(doc, {
+        head: [['ID', 'Name', 'Department', 'Date', 'Check In', 'Check Out', 'Hours', 'Status']],
+        body: tableData,
+        startY: 32,
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [66, 139, 202] }
+      });
+      
+      // Save PDF
+      doc.save(`attendance-report-${startDate}-to-${endDate}.pdf`);
+      toast.success('PDF exported successfully');
+    } catch (error) {
+      console.error('Export failed:', error);
+      toast.error('Failed to export PDF');
+    }
+  };
+
   const exportToExcel = () => {
     const data = filteredReports.map(report => ({
       'Employee ID': report.employee_id,
@@ -156,10 +216,16 @@ export default function AttendanceReports() {
           <h1 className="text-3xl font-bold">Attendance Reports</h1>
           <p className="text-muted-foreground">View and analyze attendance data</p>
         </div>
-        <Button onClick={exportToExcel} disabled={filteredReports.length === 0}>
-          <Download className="h-4 w-4 mr-2" />
-          Export to Excel
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={exportToPDF} variant="outline" disabled={filteredReports.length === 0}>
+            <FileText className="h-4 w-4 mr-2" />
+            Export to PDF
+          </Button>
+          <Button onClick={exportToExcel} disabled={filteredReports.length === 0}>
+            <Download className="h-4 w-4 mr-2" />
+            Export to Excel
+          </Button>
+        </div>
       </div>
 
       {/* Summary Cards */}
