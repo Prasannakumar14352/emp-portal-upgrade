@@ -28,7 +28,7 @@ BEGIN
         BEGIN TRANSACTION;
         
         -- Check if profile exists by email, if not create it
-        SELECT @user_id = id FROM profiles WHERE email = @email;
+        SELECT @user_id = user_id FROM profiles WHERE email = @email;
         
         IF @user_id IS NULL
         BEGIN
