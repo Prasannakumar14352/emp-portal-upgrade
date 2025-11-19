@@ -377,6 +377,32 @@ router.put('/:userId/preferences', authenticateToken, async (req, res) => {
 });
 
 // POST /api/users/:userId/change-password - Change user password
+// Update notification sound preferences
+router.put('/:userId/notification-sound', authenticateToken, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { notification_sound, notification_volume } = req.body;
+    const pool = await getConnection();
+
+    await pool.request()
+      .input('user_id', sql.Int, userId)
+      .input('notification_sound', sql.NVarChar, notification_sound)
+      .input('notification_volume', sql.Int, notification_volume)
+      .query(`
+        UPDATE user_preferences 
+        SET notification_sound = @notification_sound,
+            notification_volume = @notification_volume,
+            updated_at = GETDATE()
+        WHERE user_id = @user_id
+      `);
+
+    res.json({ message: 'Sound preferences updated successfully' });
+  } catch (err) {
+    logError(err, req, { context: 'Update sound preferences error', userId });
+    res.status(500).json({ error: 'Failed to update sound preferences' });
+  }
+});
+
 router.post('/:userId/change-password', authenticateToken, async (req, res) => {
   try {
     const { userId } = req.params;

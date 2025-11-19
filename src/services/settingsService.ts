@@ -8,6 +8,8 @@ export interface UserPreferences {
   email_notifications: boolean;
   push_notifications: boolean;
   leave_update_notifications: boolean;
+  notification_sound?: string;
+  notification_volume?: number;
   created_at: string;
   updated_at: string;
 }
