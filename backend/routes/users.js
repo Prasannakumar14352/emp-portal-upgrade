@@ -21,7 +21,7 @@ router.get('/:userId/role', authenticateToken, async (req, res) => {
 
     res.json({ role: result.recordset[0].role });
   } catch (err) {
-    logError(err, req, { context: 'Get role error', userId });
+    logError(err, req, { context: 'Get role error', userId: req.params.userId });
     res.status(500).json({ error: 'Failed to get user role' });
   }
 });
@@ -48,7 +48,7 @@ router.get('/:userId/profile', authenticateToken, async (req, res) => {
 
     res.json(result.recordset[0]);
   } catch (err) {
-    logError(err, req, { context: 'Get profile error', userId });
+    logError(err, req, { context: 'Get profile error', userId: req.params.userId });
     res.status(500).json({ error: 'Failed to get user profile' });
   }
 });
@@ -94,7 +94,7 @@ router.patch('/:userId/profile', authenticateToken, async (req, res) => {
 
     res.json(result.recordset[0]);
   } catch (err) {
-    logError(err, req, { context: 'Update profile error', userId });
+    logError(err, req, { context: 'Update profile error', userId: req.params.userId });
     res.status(500).json({ error: 'Failed to update profile' });
   }
 });
@@ -211,7 +211,7 @@ router.post('/:userId/roles', authenticateToken, authorizeRole('hr', 'manager'),
       role: result.recordset[0]
     });
   } catch (err) {
-    logError(err, req, { context: 'Assign role error', userId, role });
+    logError(err, req, { context: 'Assign role error', userId: req.params.userId, role: req.body.role });
     res.status(500).json({ error: 'Failed to assign role' });
   }
 });
@@ -434,7 +434,7 @@ router.put('/:userId/notification-sound', authenticateToken, async (req, res) =>
 
     res.json({ message: 'Sound preferences updated successfully' });
   } catch (err) {
-    logError(err, req, { context: 'Update sound preferences error', userId });
+    logError(err, req, { context: 'Update sound preferences error', userId: req.params.userId });
     res.status(500).json({ error: 'Failed to update sound preferences' });
   }
 });
