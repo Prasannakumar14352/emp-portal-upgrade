@@ -284,18 +284,44 @@ router.patch('/:leaveId', authenticateToken, authorizeRole('hr', 'manager'), asy
 
     const updatedLeave = result.recordset[0];
 
-    // Emit real-time notification to employee
-    const io = req.app.get('io');
-    if (io) {
-      io.to(`user-${updatedLeave.user_id}`).emit('leaveStatusUpdate', {
-        leaveId: updatedLeave.id,
-        status: updatedLeave.status,
-        leaveType: updatedLeave.leave_type,
-        approvedBy: isManager ? 'Manager' : 'HR',
-        comments: comments || '',
-        message: `Your ${updatedLeave.leave_type} request has been ${status.toLowerCase()} by ${isManager ? 'your manager' : 'HR'}`,
-        timestamp: new Date().toISOString()
-      });
+    // Check user preferences and emit real-time notification if enabled
+    const prefsResult = await pool.request()
+      .input('user_id', sql.Int, updatedLeave.user_id)
+      .query('SELECT leave_update_notifications FROM user_preferences WHERE user_id = @user_id');
+    
+    const shouldNotify = prefsResult.recordset.length === 0 || prefsResult.recordset[0].leave_update_notifications !== false;
+
+    if (shouldNotify) {
+      // Emit real-time notification to employee
+      const io = req.app.get('io');
+      if (io) {
+        io.to(`user-${updatedLeave.user_id}`).emit('leaveStatusUpdate', {
+          leaveId: updatedLeave.id,
+          status: updatedLeave.status,
+          leaveType: updatedLeave.leave_type,
+          approvedBy: isManager ? 'Manager' : 'HR',
+          comments: comments || '',
+          message: `Your ${updatedLeave.leave_type} request has been ${status.toLowerCase()} by ${isManager ? 'your manager' : 'HR'}`,
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      // Insert notification into database
+      await pool.request()
+        .input('user_id', sql.Int, updatedLeave.user_id)
+        .input('type', sql.NVarChar, status === 'Approved' ? 'leave_approved' : 'leave_rejected')
+        .input('title', sql.NVarChar, `Leave Request ${status}`)
+        .input('message', sql.NVarChar, `Your ${updatedLeave.leave_type} request has been ${status.toLowerCase()} by ${isManager ? 'your manager' : 'HR'}`)
+        .input('metadata', sql.NVarChar, JSON.stringify({
+          leaveId: updatedLeave.id,
+          leaveType: updatedLeave.leave_type,
+          approvedBy: isManager ? 'Manager' : 'HR',
+          comments: comments || ''
+        }))
+        .query(`
+          INSERT INTO notifications (user_id, type, title, message, metadata, created_at)
+          VALUES (@user_id, @type, @title, @message, @metadata, GETDATE())
+        `);
     }
 
     // Send email notifications
