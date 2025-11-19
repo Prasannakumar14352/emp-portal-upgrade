@@ -180,7 +180,7 @@ router.post('/:userId/roles', authenticateToken, authorizeRole('hr', 'manager'),
     const userCheck = await pool.request()
       .input('user_id', sql.Int, userId)
       .input('role', sql.NVarChar, role)
-      .query('SELECT id FROM profiles WHERE user_id = @user_id AND role = @role');
+      .query('SELECT user_id FROM profiles WHERE user_id = @user_id AND role = @role');
 
     if (userCheck.recordset.length === 0) {
       return res.status(404).json({ error: 'User not found' });

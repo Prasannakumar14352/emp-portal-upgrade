@@ -64,7 +64,7 @@ router.post('/users',
             .input('password_hash', sql.NVarChar, hashedPassword)
             .query(`
               INSERT INTO profiles (email, full_name, department, position, phone, password_hash, created_at)
-              OUTPUT INSERTED.id, INSERTED.user_id, INSERTED.email, INSERTED.full_name
+              OUTPUT INSERTED.user_id, INSERTED.email, INSERTED.full_name
               VALUES (@email, @full_name, @department, @position, @phone, @password_hash, GETDATE())
             `);
 
@@ -94,7 +94,7 @@ router.post('/users',
             `);
 
           createdUsers.push({
-            id: newProfile.id,
+            user_id: newProfile.user_id,
             email: newProfile.email,
             full_name: newProfile.full_name,
             role: userRole
@@ -251,7 +251,7 @@ router.post('/payslips',
           // Check if user exists
           const userExists = await transaction.request()
             .input('user_id', sql.Int, user_id)
-            .query('SELECT id FROM profiles WHERE id = @user_id');
+            .query('SELECT user_id FROM profiles WHERE user_id = @user_id');
 
           if (userExists.recordset.length === 0) {
             failedPayslips.push({ user_id, month, year, reason: 'User does not exist' });

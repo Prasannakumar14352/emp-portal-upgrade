@@ -32,7 +32,7 @@ router.get('/', authenticateToken, async (req, res) => {
     const result = await pool.request()
       .query(`
         SELECT 
-          e.id, e.user_id, e.full_name, e.email, e.phone, 
+          e.user_id, e.full_name, e.email, e.phone, 
           e.department, e.position, e.status, e.created_at, e.updated_at, e.role
         FROM profiles e
         ORDER BY e.full_name
@@ -60,7 +60,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
           ur.role
         FROM profiles e
         LEFT JOIN user_roles ur ON e.user_id = ur.user_id
-        WHERE e.id = @id
+        WHERE e.user_id = @id
       `);
 
     if (result.recordset.length === 0) {
@@ -77,7 +77,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
 // POST /api/employees - Create new employee (HR/Manager only)
 router.post('/', authenticateToken, authorizeRole('hr', 'manager'), async (req, res) => {
   try {
-    const { full_name, email, phone, department, position, status, user_id } = req.body;
+    const { full_name, email, phone, department, position, status, user_id, role } = req.body;
     const pool = await getConnection();
     
     const result = await pool.request()
@@ -106,7 +106,7 @@ router.post('/', authenticateToken, authorizeRole('hr', 'manager'), async (req, 
 router.patch('/:id', authenticateToken, authorizeRole('hr', 'manager'), async (req, res) => {
   try {
     const { id } = req.params;
-    const { full_name, email, phone, department, position, status } = req.body;
+    const { full_name, email, phone, department, position, status, role } = req.body;
     const pool = await getConnection();
     
     const result = await pool.request()
@@ -117,7 +117,7 @@ router.patch('/:id', authenticateToken, authorizeRole('hr', 'manager'), async (r
       .input('position', sql.NVarChar, position)
       .input('status', sql.NVarChar, status)
       .input('role', sql.NVarChar, role)
-      .input('user_id', sql.Int, user_id)
+      .input('user_id', sql.Int, id)
       .query(`
         UPDATE profiles
         SET 
@@ -152,7 +152,7 @@ router.delete('/:id', authenticateToken, authorizeRole('hr'), async (req, res) =
     
     const result = await pool.request()
       .input('id', sql.Int, id)
-      .query('DELETE FROM employees WHERE id = @id');
+      .query('DELETE FROM employees WHERE user_id = @id');
 
     if (result.rowsAffected[0] === 0) {
       return res.status(404).json({ error: 'Employee not found' });

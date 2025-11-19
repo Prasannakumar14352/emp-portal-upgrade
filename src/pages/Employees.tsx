@@ -79,7 +79,7 @@ export default function Employees() {
           <div className="space-y-3">
             {filteredEmployees.map((employee) => (
               <div
-                key={employee.id}
+                key={employee.user_id}
                 className="flex items-center gap-4 rounded-lg border p-4 transition-colors hover:bg-muted/50 cursor-pointer"
                 onClick={() => setSelectedEmployee(employee)}
               >
@@ -141,7 +141,7 @@ export default function Employees() {
         <EmployeeDetailModal
           isOpen={!!selectedEmployee}
           onClose={() => setSelectedEmployee(null)}
-          employeeId={selectedEmployee.id}
+          employeeId={selectedEmployee.user_id}
           employeeName={selectedEmployee.full_name}
           employeeEmail={selectedEmployee.email}
           employeeDepartment={selectedEmployee.department}
