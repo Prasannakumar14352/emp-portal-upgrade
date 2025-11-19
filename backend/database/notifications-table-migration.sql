@@ -12,8 +12,7 @@ BEGIN
         message NVARCHAR(MAX) NOT NULL,
         [read] BIT NOT NULL DEFAULT 0,
         created_at DATETIME2 NOT NULL DEFAULT GETDATE(),
-        metadata NVARCHAR(MAX) NULL,
-        CONSTRAINT FK_notifications_user_id FOREIGN KEY (user_id) REFERENCES profiles(user_id)
+        metadata NVARCHAR(MAX) NULL
     );
 
     -- Create indexes for better query performance
