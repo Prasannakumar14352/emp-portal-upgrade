@@ -26,18 +26,24 @@ const authorizeRole = (...allowedRoles) => {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    const userRole = req.user.role || 'none';
+    // Support both single role (legacy) and multiple roles (array)
+    const userRoles = Array.isArray(req.user.roles) 
+      ? req.user.roles 
+      : (req.user.role ? [req.user.role] : ['employee']);
     
-    if (!allowedRoles.includes(userRole)) {
-      console.log(`Authorization failed - User role: ${userRole}, Required roles: ${allowedRoles.join(', ')}`);
+    // Check if user has any of the allowed roles
+    const hasPermission = userRoles.some(role => allowedRoles.includes(role));
+    
+    if (!hasPermission) {
+      console.log(`Authorization failed - User roles: ${userRoles.join(', ')}, Required roles: ${allowedRoles.join(', ')}`);
       return res.status(403).json({ 
         error: 'Forbidden: Insufficient permissions',
         details: {
-          currentRole: userRole,
+          currentRoles: userRoles,
           requiredRoles: allowedRoles,
-          message: userRole === 'employee' || userRole === 'none' 
+          message: userRoles.every(r => r === 'employee' || r === 'none')
             ? 'You need HR or Manager role to perform this action. Contact your administrator to grant you the appropriate role.'
-            : 'Your role does not have permission for this action.'
+            : 'Your roles do not have permission for this action.'
         }
       });
     }

@@ -49,7 +49,11 @@ const createDefaultPreferences = async (userId, pool) => {
 --------------------------------------------------------- */
 const generateTokens = (user) => {
   const accessToken = jwt.sign(
-    { id: user.id, email: user.email, role: user.role },
+    { 
+      id: user.id, 
+      email: user.email, 
+      roles: user.roles || [user.role || 'employee']
+    },
     process.env.JWT_SECRET,
     { expiresIn: process.env.JWT_EXPIRES_IN || '1h' }
   );
@@ -111,7 +115,7 @@ router.post('/signup', [
     const tokens = generateTokens({
       id: newUser.id,
       email: newUser.email,
-      role: 'employee'
+      roles: ['employee']
     });
 
     res.status(201).json({
@@ -146,19 +150,32 @@ router.post('/login', [
     const { email, password } = req.body;
     const pool = await getConnection();
 
-    const result = await pool.request()
+    // First get user basic info
+    const userResult = await pool.request()
       .input('email', sql.NVarChar, email)
       .query(`
-        SELECT p.id, p.email, p.full_name, ur.role, p.user_id, p.created_at, p.updated_at, p.roles
-        FROM profiles p
-        LEFT JOIN user_roles ur ON p.user_id = ur.user_ids
-        WHERE p.email = @email
+        SELECT id, email, full_name
+        FROM profiles
+        WHERE email = @email
       `);
 
-    if (result.recordset.length === 0)
+    if (userResult.recordset.length === 0)
       return res.status(401).json({ error: 'Invalid email or password' });
 
-    const user = result.recordset[0];
+    const user = userResult.recordset[0];
+
+    // Get all roles for this user
+    const rolesResult = await pool.request()
+      .input('user_id', sql.Int, user.id)
+      .query(`
+        SELECT role
+        FROM user_roles
+        WHERE user_id = @user_id
+      `);
+
+    const roles = rolesResult.recordset.length > 0 
+      ? rolesResult.recordset.map(r => r.role)
+      : ['employee'];
 
     // For SQL Server with profiles (no password stored)
     // OAuth-only authentication - skip password check
@@ -169,7 +186,7 @@ router.post('/login', [
     const tokens = generateTokens({
       id: user.id,
       email: user.email,
-      role: user.role || 'employee'
+      roles: roles
     });
 
     res.json({
@@ -204,19 +221,32 @@ router.get('/session', authenticateToken, async (req, res) => {
   try {
     const pool = await getConnection();
 
-    const result = await pool.request()
+    // Get user basic info
+    const userResult = await pool.request()
       .input('user_id', sql.Int, req.user.id)
       .query(`
-        SELECT p.id, p.email, p.full_name, p.department, p.position, ur.role
-        FROM profiles p
-        LEFT JOIN user_roles ur ON p.id = ur.user_id
-        WHERE p.id = @user_id
+        SELECT id, email, full_name, department, position
+        FROM profiles
+        WHERE id = @user_id
       `);
 
-    if (result.recordset.length === 0)
+    if (userResult.recordset.length === 0)
       return res.status(404).json({ error: 'User not found' });
 
-    const user = result.recordset[0];
+    const user = userResult.recordset[0];
+
+    // Get all roles for this user
+    const rolesResult = await pool.request()
+      .input('user_id', sql.Int, req.user.id)
+      .query(`
+        SELECT role
+        FROM user_roles
+        WHERE user_id = @user_id
+      `);
+
+    user.roles = rolesResult.recordset.length > 0 
+      ? rolesResult.recordset.map(r => r.role)
+      : ['employee'];
 
     res.json({
       session: {
@@ -244,24 +274,38 @@ router.post('/refresh', async (req, res) => {
     const decoded = jwt.verify(refresh_token, process.env.JWT_REFRESH_SECRET);
 
     const pool = await getConnection();
-    const result = await pool.request()
+    
+    // Get user basic info
+    const userResult = await pool.request()
       .input('user_id', sql.Int, decoded.id)
       .query(`
-        SELECT p.id, p.email, p.full_name, ur.role
-        FROM profiles p
-        LEFT JOIN user_roles ur ON p.id = ur.user_id
-        WHERE p.id = @user_id
+        SELECT id, email, full_name
+        FROM profiles
+        WHERE id = @user_id
       `);
 
-    if (result.recordset.length === 0)
+    if (userResult.recordset.length === 0)
       return res.status(404).json({ error: 'User not found' });
 
-    const user = result.recordset[0];
+    const user = userResult.recordset[0];
+
+    // Get all roles for this user
+    const rolesResult = await pool.request()
+      .input('user_id', sql.Int, decoded.id)
+      .query(`
+        SELECT role
+        FROM user_roles
+        WHERE user_id = @user_id
+      `);
+
+    const roles = rolesResult.recordset.length > 0 
+      ? rolesResult.recordset.map(r => r.role)
+      : ['employee'];
 
     const tokens = generateTokens({
       id: user.id,
       email: user.email,
-      role: user.role || 'employee'
+      roles: roles
     });
 
     res.json({
