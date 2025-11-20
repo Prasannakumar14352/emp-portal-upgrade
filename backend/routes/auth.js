@@ -470,7 +470,12 @@ router.get('/oauth/callback/azure', async (req, res) => {
         context: 'Failed to sync OAuth user with stored procedure',
         email,
         fullName,
-        storedProcedure: 'sp_sync_oauth_user'
+        storedProcedure: 'sp_sync_oauth_user',
+        sqlErrorNumber: syncErr.number,
+        sqlErrorCode: syncErr.code,
+        sqlErrorState: syncErr.state,
+        sqlErrorMessage: syncErr.message,
+        sqlErrorProcedure: syncErr.procName
       });
       throw new Error(`User synchronization failed: ${syncErr.message}`);
     }
@@ -510,7 +515,9 @@ router.get('/oauth/callback/azure', async (req, res) => {
               email,
               userId,
               roleAttempted: role,
-              errorDetails: roleErr.message
+              sqlErrorNumber: roleErr.number,
+              sqlErrorCode: roleErr.code,
+              sqlErrorMessage: roleErr.message
             });
           }
         }
@@ -519,7 +526,10 @@ router.get('/oauth/callback/azure', async (req, res) => {
       logError(userIdErr, req, { 
         context: 'Failed to fetch user_id from profiles table',
         email,
-        employee_id
+        employee_id,
+        sqlErrorNumber: userIdErr.number,
+        sqlErrorCode: userIdErr.code,
+        sqlErrorMessage: userIdErr.message
       });
     }
 
