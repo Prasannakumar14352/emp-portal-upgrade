@@ -11,7 +11,7 @@ router.get('/departments', authenticateToken, async (req, res) => {
     const pool = await getConnection();
     const result = await pool.request().query(`
       SELECT DISTINCT department 
-      FROM employees 
+      FROM profiles 
       WHERE department IS NOT NULL 
       ORDER BY department ASC
     `);
@@ -152,7 +152,7 @@ router.delete('/:id', authenticateToken, authorizeRole('hr'), async (req, res) =
     
     const result = await pool.request()
       .input('id', sql.Int, id)
-      .query('DELETE FROM employees WHERE employee_id = @id');
+      .query('DELETE FROM profiles WHERE employee_id = @id');
 
     if (result.rowsAffected[0] === 0) {
       return res.status(404).json({ error: 'Employee not found' });

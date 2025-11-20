@@ -49,11 +49,11 @@ router.post('/reviews', authenticateToken, async (req, res) => {
     // Get employee and reviewer names
     const employeeResult = await pool.request()
       .input('employeeId', sql.Int, employee_id)
-      .query('SELECT full_name FROM employees WHERE employee_id = @employeeId');
+      .query('SELECT full_name FROM profiles WHERE employee_id = @employeeId');
     
     const reviewerResult = await pool.request()
       .input('reviewerId', sql.Int, reviewer_id)
-      .query('SELECT full_name FROM employees WHERE employee_id = @reviewerId');
+      .query('SELECT full_name FROM profiles WHERE employee_id = @reviewerId');
     
     const employeeName = employeeResult.recordset[0]?.full_name || 'Unknown Employee';
     const reviewerName = reviewerResult.recordset[0]?.full_name || 'Unknown Reviewer';

@@ -125,7 +125,7 @@ router.post('/checkin', authenticateToken, async (req, res) => {
     // Get user name for notification
     const userResult = await pool.request()
       .input('userId', sql.Int, userId)
-      .query('SELECT full_name FROM employees WHERE employee_id = @userId');
+      .query('SELECT full_name FROM profiles WHERE employee_id = @userId');
     
     const userName = userResult.recordset[0]?.full_name || 'Unknown User';
 
@@ -200,7 +200,7 @@ router.post('/checkout', authenticateToken, async (req, res) => {
     // Get user name for notification
     const userResult = await pool.request()
       .input('userId', sql.Int, userId)
-      .query('SELECT full_name FROM employees WHERE employee_id = @userId');
+      .query('SELECT full_name FROM profiles WHERE employee_id = @userId');
     
     const userName = userResult.recordset[0]?.full_name || 'Unknown User';
 
@@ -371,7 +371,7 @@ router.get('/analytics/departments', authenticateToken, async (req, res) => {
             THEN 100.0 
             ELSE 0 
           END) as INT) as attendanceRate
-        FROM employees e
+        FROM profiles e
         LEFT JOIN attendance_records ar ON e.employee_id = ar.employee_id AND ar.date = @date
         GROUP BY e.department
         ORDER BY e.department
@@ -424,7 +424,7 @@ router.get('/calendar', authenticateToken, async (req, res) => {
     const pool = await getConnection();
     
     // Get all employees with optional department filter
-    let employeeQuery = 'SELECT employee_id, full_name, department FROM employees WHERE status = \'Active\'';
+    let employeeQuery = 'SELECT employee_id, full_name, department FROM profiles WHERE status = \'Active\'';
     const request = pool.request();
     
     if (department && department !== 'all') {
@@ -618,7 +618,7 @@ router.get('/analytics/department-comparison', authenticateToken, async (req, re
           COUNT(CASE WHEN ar.status = 'absent' THEN 1 END) as total_absent,
           CAST(AVG(CASE WHEN ar.status IN ('present', 'late') THEN 100.0 ELSE 0 END) as DECIMAL(5,2)) as attendance_rate,
           CAST(AVG(ar.work_hours) as DECIMAL(5,2)) as avg_work_hours
-        FROM employees e
+        FROM profiles e
         LEFT JOIN attendance_records ar ON e.employee_id = ar.employee_id 
           AND ar.date >= DATEADD(day, -@days, GETDATE())
         WHERE e.status = 'Active'

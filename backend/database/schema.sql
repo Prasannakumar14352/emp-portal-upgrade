@@ -368,7 +368,7 @@ BEGIN
         END
         
         -- Check if employee record exists, if not create it
-        IF NOT EXISTS (SELECT 1 FROM employees WHERE employee_id = @employee_id)
+        IF NOT EXISTS (SELECT 1 FROM profiles WHERE employee_id = @employee_id)
         BEGIN
             INSERT INTO employees (employee_id, full_name, email, department, position, status, created_at, updated_at)
             VALUES (@employee_id, @full_name, @email, @department, @position, 'Active', GETDATE(), GETDATE());
@@ -475,7 +475,7 @@ PRINT '  - Database queries use sql.Int for employee_id parameters';
 PRINT '';
 PRINT 'To verify data is being written to SQL Server:';
 PRINT '  SELECT * FROM profiles ORDER BY created_at DESC;';
-PRINT '  SELECT * FROM employees ORDER BY created_at DESC;';
+PRINT '  SELECT * FROM profiles ORDER BY created_at DESC;';
 PRINT '  SELECT * FROM user_roles ORDER BY created_at DESC;';
 PRINT '';
 PRINT '========================================';

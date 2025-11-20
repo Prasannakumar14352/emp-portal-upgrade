@@ -47,7 +47,7 @@ BEGIN
         END
         
         -- Check if employee record exists, if not create it
-        IF NOT EXISTS (SELECT 1 FROM employees WHERE employee_id = @employee_id)
+        IF NOT EXISTS (SELECT 1 FROM profiles WHERE employee_id = @employee_id)
         BEGIN
             INSERT INTO employees (employee_id, full_name, email, department, position, status, created_at, updated_at)
             VALUES (@employee_id, @full_name, @email, @department, @position, 'Active', GETDATE(), GETDATE());

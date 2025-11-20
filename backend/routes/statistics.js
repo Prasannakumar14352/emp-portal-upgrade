@@ -181,7 +181,7 @@ router.get('/team', authenticateToken, authorizeRole('hr', 'manager'), async (re
           COUNT(DISTINCT l.id) as total_leave_requests,
           SUM(CASE WHEN l.status = 'Pending' THEN 1 ELSE 0 END) as pending_requests,
           AVG(CASE WHEN l.status = 'Approved' THEN l.days ELSE NULL END) as avg_leave_days
-        FROM employees e
+        FROM profiles e
         LEFT JOIN leaves l ON e.employee_id = l.employee_id AND YEAR(l.created_at) = @year
         ${departmentFilter}
       `);
@@ -195,7 +195,7 @@ router.get('/team', authenticateToken, authorizeRole('hr', 'manager'), async (re
           COUNT(DISTINCT e.id) as employee_count,
           COUNT(l.id) as leave_count,
           SUM(CASE WHEN l.status = 'Approved' THEN l.days ELSE 0 END) as total_leave_days
-        FROM employees e
+        FROM profiles e
         LEFT JOIN leaves l ON e.employee_id = l.employee_id AND YEAR(l.created_at) = @year
         GROUP BY e.department
         ORDER BY employee_count DESC
@@ -212,7 +212,7 @@ router.get('/team', authenticateToken, authorizeRole('hr', 'manager'), async (re
           e.position,
           COUNT(l.id) as leave_count,
           SUM(l.days) as total_days
-        FROM employees e
+        FROM profiles e
         INNER JOIN leaves l ON e.employee_id = l.employee_id
         WHERE l.status = 'Approved' 
           AND YEAR(l.created_at) = @year
