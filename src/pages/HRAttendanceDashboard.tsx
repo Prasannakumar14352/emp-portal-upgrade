@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Calendar, ChevronLeft, ChevronRight, Loader2, Edit } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, Loader2, Edit, FileText, CalendarDays } from "lucide-react";
 import { apiClient } from "@/services/apiClient";
 import { toast } from "sonner";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -272,6 +272,24 @@ export default function HRAttendanceDashboard() {
         <div>
           <h1 className="text-3xl font-bold text-foreground">Attendance Dashboard</h1>
           <p className="text-muted-foreground">Calendar view of employee attendance</p>
+        </div>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            onClick={() => navigate('/attendance-reports')}
+            className="flex items-center gap-2"
+          >
+            <FileText className="h-4 w-4" />
+            Reports
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={() => navigate('/leave-calendar')}
+            className="flex items-center gap-2"
+          >
+            <CalendarDays className="h-4 w-4" />
+            Leave Calendar
+          </Button>
         </div>
       </div>
 
