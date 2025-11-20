@@ -65,7 +65,7 @@ router.get('/user/:userId', authenticateToken, async (req, res) => {
 
     res.json(result.recordset);
   } catch (err) {
-    logError(err, req, { context: 'Get user leaves error', userId });
+    logError(err, req, { context: 'Get user leaves error', userId: req.params.userId });
     res.status(500).json({ error: 'Failed to get leaves' });
   }
 });
