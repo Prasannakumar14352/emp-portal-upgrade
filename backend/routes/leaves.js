@@ -35,6 +35,7 @@ router.get('/conflicts', authenticateToken, async (req, res) => {
 
     res.json(result.recordset);
   } catch (err) {
+    console.error('Check conflicts error:', err);
     logError(err, req, { context: 'Check conflicts error' });
     res.status(500).json({ error: 'Failed to check conflicts' });
   }
@@ -65,6 +66,7 @@ router.get('/user/:userId', authenticateToken, async (req, res) => {
 
     res.json(result.recordset);
   } catch (err) {
+    console.error('Get user leaves error:', err);
     logError(err, req, { context: 'Get user leaves error', userId: req.params.userId });
     res.status(500).json({ error: 'Failed to get leaves' });
   }
@@ -99,6 +101,7 @@ router.get('/', authenticateToken, authorizeRole('hr', 'manager'), async (req, r
     const result = await request.query(query);
     res.json(result.recordset);
   } catch (err) {
+    console.error('Get leaves error:', err);
     logError(err, req, { context: 'Get leaves error', status });
     res.status(500).json({ error: 'Failed to get leaves' });
   }
@@ -215,11 +218,13 @@ router.post('/', authenticateToken, async (req, res) => {
         }
       }
     } catch (emailErr) {
+      console.error('Send email error:', emailErr);
       logError(emailErr, req, { context: 'Failed to send email notification' });
     }
 
     res.status(201).json(result.recordset[0]);
   } catch (err) {
+    console.error('Create leave error:', err);
     logError(err, req, { context: 'Create leave error', data: req.body });
     res.status(500).json({ error: 'Failed to create leave request' });
   }
@@ -418,6 +423,7 @@ router.patch('/:leaveId', authenticateToken, authorizeRole('hr', 'manager'), asy
         }
       }
     } catch (emailErr) {
+      console.error('Send email error:', emailErr);
       logError(emailErr, req, { context: 'Failed to send email notification' });
     }
 
@@ -447,6 +453,7 @@ router.patch('/:leaveId', authenticateToken, authorizeRole('hr', 'manager'), asy
 
     res.json(updatedLeave);
   } catch (err) {
+    console.error('Update leave error:', err);
     logError(err, req, { context: 'Update leave error', leaveId });
     res.status(500).json({ error: 'Failed to update leave status' });
   }
@@ -479,6 +486,7 @@ router.get('/balances/:userId', authenticateToken, async (req, res) => {
 
     res.json(result.recordset);
   } catch (err) {
+    console.error('Get leave balances error:', err);
     logError(err, req, { context: 'Get leave balances error', userId });
     res.status(500).json({ error: 'Failed to get leave balances' });
   }
@@ -503,6 +511,7 @@ router.post('/:leaveId/comments', authenticateToken, authorizeRole('hr', 'manage
 
     res.status(201).json(result.recordset[0]);
   } catch (err) {
+    console.error('Add comment error:', err);
     logError(err, req, { context: 'Add comment error', leaveId });
     res.status(500).json({ error: 'Failed to add comment' });
   }
@@ -528,6 +537,7 @@ router.get('/:leaveId/comments', authenticateToken, async (req, res) => {
 
     res.json(result.recordset);
   } catch (err) {
+    console.error('Get comments error:', err);
     logError(err, req, { context: 'Get comments error', leaveId });
     res.status(500).json({ error: 'Failed to get comments' });
   }
@@ -660,11 +670,13 @@ router.put('/:leaveId', authenticateToken, async (req, res) => {
         }
       }
     } catch (emailErr) {
+      console.error('Send email error:', emailErr);
       logError(emailErr, req, { context: 'Failed to send edit notification email' });
     }
 
     res.json(updatedLeave);
   } catch (err) {
+    console.error('Edit leave error:', err);
     logError(err, req, { context: 'Edit leave error', leaveId });
     res.status(500).json({ error: 'Failed to edit leave request' });
   }
@@ -772,11 +784,13 @@ router.delete('/:leaveId', authenticateToken, async (req, res) => {
         }
       }
     } catch (emailErr) {
+      console.error('Send email error:', emailErr);
       logError(emailErr, req, { context: 'Failed to send cancellation email notification' });
     }
 
     res.json({ message: 'Leave request cancelled successfully' });
   } catch (err) {
+    console.error('Cancel leave error:', err);
     logError(err, req, { context: 'Cancel leave error', leaveId });
     res.status(500).json({ error: 'Failed to cancel leave request' });
   }
