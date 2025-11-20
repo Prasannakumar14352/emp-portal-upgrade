@@ -100,6 +100,80 @@ router.get('/', authenticateToken, async (req, res) => {
   }
 });
 
+// Create or update attendance record (for HR/Managers)
+router.post('/', authenticateToken, async (req, res) => {
+  try {
+    const { userId, date, checkInTime, checkOutTime, status, notes } = req.body;
+    
+    // Check if requesting user has HR/Manager role using auth token
+    const userRoles = Array.isArray(req.user.roles) ? req.user.roles : (req.user.role ? [req.user.role] : ['employee']);
+    const isHROrManager = userRoles.some(role => role === 'hr' || role === 'manager');
+    
+    if (!isHROrManager) {
+      return res.status(403).json({ error: 'Access denied. HR/Manager role required.' });
+    }
+    
+    const pool = await getConnection();
+    
+    // Check if record exists
+    const existing = await pool.request()
+      .input('userId', sql.Int, userId)
+      .input('date', sql.Date, date)
+      .query(`
+        SELECT id FROM attendance_records 
+        WHERE employee_id = @userId AND date = @date
+      `);
+    
+    // Calculate work hours if both times provided
+    let workHours = null;
+    if (checkInTime && checkOutTime) {
+      const checkIn = new Date(checkInTime);
+      const checkOut = new Date(checkOutTime);
+      workHours = (checkOut - checkIn) / (1000 * 60 * 60);
+    }
+    
+    if (existing.recordset[0]) {
+      // Update existing record
+      await pool.request()
+        .input('id', sql.UniqueIdentifier, existing.recordset[0].id)
+        .input('checkInTime', sql.DateTime2, checkInTime ? new Date(checkInTime) : null)
+        .input('checkOutTime', sql.DateTime2, checkOutTime ? new Date(checkOutTime) : null)
+        .input('status', sql.NVarChar, status || 'present')
+        .input('notes', sql.NVarChar, notes || null)
+        .input('workHours', sql.Decimal(5, 2), workHours)
+        .query(`
+          UPDATE attendance_records 
+          SET check_in_time = @checkInTime,
+              check_out_time = @checkOutTime,
+              status = @status,
+              notes = @notes,
+              work_hours = @workHours,
+              updated_at = GETDATE()
+          WHERE id = @id
+        `);
+    } else {
+      // Create new record
+      await pool.request()
+        .input('userId', sql.Int, userId)
+        .input('date', sql.Date, date)
+        .input('checkInTime', sql.DateTime2, checkInTime ? new Date(checkInTime) : null)
+        .input('checkOutTime', sql.DateTime2, checkOutTime ? new Date(checkOutTime) : null)
+        .input('status', sql.NVarChar, status || 'present')
+        .input('notes', sql.NVarChar, notes || null)
+        .input('workHours', sql.Decimal(5, 2), workHours)
+        .query(`
+          INSERT INTO attendance_records (employee_id, date, check_in_time, check_out_time, status, notes, work_hours)
+          VALUES (@userId, @date, @checkInTime, @checkOutTime, @status, @notes, @workHours)
+        `);
+    }
+    
+    res.json({ message: 'Attendance record saved successfully' });
+  } catch (error) {
+    logError(error, req, { context: 'Error creating/updating attendance' });
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Check in
 router.post('/checkin', authenticateToken, async (req, res) => {
   try {
@@ -285,11 +359,11 @@ router.get('/analytics/stats', authenticateToken, async (req, res) => {
 router.put('/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const { userId, checkInTime, checkOutTime, notes, date } = req.body;
+    const { userId, checkInTime, checkOutTime, notes, status } = req.body;
     
     const pool = await getConnection();
     
-    console.log('[Attendance Update] Request received:', { id, userId, checkInTime, checkOutTime });
+    console.log('[Attendance Update] Request received:', { id, userId, checkInTime, checkOutTime, status });
     
     // Get the attendance record
     const recordResult = await pool.request()
@@ -301,23 +375,16 @@ router.put('/:id', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Attendance record not found' });
     }
     
-    console.log('[Attendance Update] Record found:', { 
-      recordEmployeeId: record.employee_id, 
-      requestUserId: userId,
-      typesMatch: typeof record.employee_id === typeof parseInt(userId)
+    // Check if requesting user has HR/Manager role using auth token
+    const userRoles = Array.isArray(req.user.roles) ? req.user.roles : (req.user.role ? [req.user.role] : ['employee']);
+    const isHROrManager = userRoles.some(role => role === 'hr' || role === 'manager');
+    
+    console.log('[Attendance Update] Auth check:', { 
+      requestingUserRoles: userRoles, 
+      isHROrManager,
+      recordEmployeeId: record.employee_id,
+      requestUserId: userId
     });
-    
-    // Check if user has HR role
-    const roleResult = await pool.request()
-      .input('userId', sql.Int, parseInt(userId))
-      .query(`
-        SELECT role FROM user_roles 
-        WHERE employee_id = @userId
-      `);
-    
-    const isHR = roleResult.recordset.some(r => r.role === 'hr');
-    
-    console.log('[Attendance Update] Role check:', { isHR, roles: roleResult.recordset });
     
     // Get the date difference
     const recordDate = new Date(record.date);
@@ -327,38 +394,58 @@ router.put('/:id', authenticateToken, async (req, res) => {
     
     const daysDifference = Math.floor((today - recordDate) / (1000 * 60 * 60 * 24));
     
-    // Business logic: Employee can update only if it's the next day (daysDifference === 1)
-    // HR can update anytime
-    // Convert both to integers for proper comparison
+    // Business logic: 
+    // - HR/Manager can update any attendance anytime
+    // - Employee can update only their own attendance for the previous day
     const recordEmployeeId = parseInt(record.employee_id);
     const requestUserId = parseInt(userId);
     
-    if (!isHR && recordEmployeeId !== requestUserId) {
-      console.log('[Attendance Update] Permission denied:', { recordEmployeeId, requestUserId, isHR });
+    if (!isHROrManager && recordEmployeeId !== requestUserId) {
+      console.log('[Attendance Update] Permission denied - not own record');
       return res.status(403).json({ error: 'You can only update your own attendance' });
     }
     
-    if (!isHR && daysDifference > 1) {
+    if (!isHROrManager && daysDifference > 1) {
       return res.status(403).json({ 
         error: 'You can only update attendance for the previous day. Please contact HR for older records.' 
       });
     }
     
+    // Calculate work hours if both times provided
+    let workHours = null;
+    if (checkInTime && checkOutTime) {
+      const checkIn = new Date(checkInTime);
+      const checkOut = new Date(checkOutTime);
+      workHours = (checkOut - checkIn) / (1000 * 60 * 60); // hours
+    }
+    
     // Update the record
-    await pool.request()
+    const updateRequest = pool.request()
       .input('id', sql.UniqueIdentifier, id)
       .input('checkInTime', sql.DateTime2, checkInTime ? new Date(checkInTime) : null)
       .input('checkOutTime', sql.DateTime2, checkOutTime ? new Date(checkOutTime) : null)
       .input('notes', sql.NVarChar, notes || null)
-      .query(`
-        UPDATE attendance_records 
-        SET 
-          check_in_time = @checkInTime,
-          check_out_time = @checkOutTime,
-          notes = @notes,
-          updated_at = GETDATE()
-        WHERE id = @id
-      `);
+      .input('workHours', sql.Decimal(5, 2), workHours);
+    
+    let updateQuery = `
+      UPDATE attendance_records 
+      SET 
+        check_in_time = @checkInTime,
+        check_out_time = @checkOutTime,
+        notes = @notes,
+        work_hours = @workHours,
+        updated_at = GETDATE()
+    `;
+    
+    // Allow HR/Manager to update status
+    if (isHROrManager && status) {
+      updateRequest.input('status', sql.NVarChar, status);
+      updateQuery += ', status = @status';
+    }
+    
+    updateQuery += ' WHERE id = @id';
+    
+    await updateRequest.query(updateQuery);
     
     res.json({ message: 'Attendance updated successfully' });
   } catch (error) {
@@ -459,6 +546,7 @@ router.get('/calendar', authenticateToken, async (req, res) => {
       .input('endDate', sql.Date, endDate)
       .query(`
         SELECT 
+          id,
           employee_id,
           CONVERT(VARCHAR, date, 23) as date,
           status,
@@ -479,7 +567,8 @@ router.get('/calendar', authenticateToken, async (req, res) => {
         status: record.status,
         check_in_time: record.check_in_time,
         check_out_time: record.check_out_time,
-        work_hours: record.work_hours
+        work_hours: record.work_hours,
+        id: record.id
       };
     });
     

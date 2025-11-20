@@ -3,7 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Calendar, ChevronLeft, ChevronRight, Loader2, Edit } from "lucide-react";
 import { apiClient } from "@/services/apiClient";
 import { toast } from "sonner";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -19,8 +23,20 @@ interface EmployeeAttendance {
       check_in_time?: string;
       check_out_time?: string;
       work_hours?: number;
+      id?: string;
     };
   };
+}
+
+interface EditDialogData {
+  employeeId: string;
+  employeeName: string;
+  date: string;
+  checkInTime: string;
+  checkOutTime: string;
+  status: string;
+  notes: string;
+  recordId?: string;
 }
 
 export default function HRAttendanceDashboard() {
@@ -31,6 +47,9 @@ export default function HRAttendanceDashboard() {
   const [department, setDepartment] = useState('all');
   const [departments, setDepartments] = useState<string[]>([]);
   const [attendanceData, setAttendanceData] = useState<EmployeeAttendance[]>([]);
+  const [editDialog, setEditDialog] = useState(false);
+  const [editData, setEditData] = useState<EditDialogData | null>(null);
+  const [saving, setSaving] = useState(false);
 
   // Check HR access
   useEffect(() => {
@@ -96,8 +115,82 @@ export default function HRAttendanceDashboard() {
     setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
   };
 
-  const getStatusBadge = (status?: string) => {
-    if (!status) return <Badge variant="outline">-</Badge>;
+  const handleEditClick = (employee: EmployeeAttendance, date: number) => {
+    const dateStr = getDateString(date);
+    const attendanceRecord = employee.attendance[dateStr];
+    
+    setEditData({
+      employeeId: employee.employee_id,
+      employeeName: employee.full_name,
+      date: dateStr,
+      checkInTime: attendanceRecord?.check_in_time ? new Date(attendanceRecord.check_in_time).toTimeString().slice(0, 5) : '',
+      checkOutTime: attendanceRecord?.check_out_time ? new Date(attendanceRecord.check_out_time).toTimeString().slice(0, 5) : '',
+      status: attendanceRecord?.status || 'absent',
+      notes: '',
+      recordId: attendanceRecord?.id
+    });
+    setEditDialog(true);
+  };
+
+  const handleSaveAttendance = async () => {
+    if (!editData) return;
+    
+    try {
+      setSaving(true);
+      
+      // Format times for API
+      const checkInTime = editData.checkInTime 
+        ? `${editData.date}T${editData.checkInTime}:00` 
+        : null;
+      const checkOutTime = editData.checkOutTime 
+        ? `${editData.date}T${editData.checkOutTime}:00` 
+        : null;
+      
+      if (editData.recordId) {
+        // Update existing record
+        await apiClient.put(`/attendance/${editData.recordId}`, {
+          userId: editData.employeeId,
+          checkInTime,
+          checkOutTime,
+          status: editData.status,
+          notes: editData.notes
+        });
+      } else {
+        // Create new record
+        await apiClient.post('/attendance', {
+          userId: editData.employeeId,
+          date: editData.date,
+          checkInTime,
+          checkOutTime,
+          status: editData.status,
+          notes: editData.notes
+        });
+      }
+      
+      toast.success('Attendance updated successfully');
+      setEditDialog(false);
+      setEditData(null);
+      loadAttendanceData();
+    } catch (error: any) {
+      console.error('Failed to save attendance:', error);
+      toast.error(error.response?.data?.error || 'Failed to save attendance');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const getStatusBadge = (status?: string, onClick?: () => void) => {
+    if (!status) {
+      return (
+        <Badge 
+          variant="outline" 
+          className="w-8 justify-center cursor-pointer hover:bg-accent"
+          onClick={onClick}
+        >
+          -
+        </Badge>
+      );
+    }
     
     const variants = {
       present: "default",
@@ -114,7 +207,11 @@ export default function HRAttendanceDashboard() {
     } as const;
 
     return (
-      <Badge variant={variants[status as keyof typeof variants] || "outline"} className="w-8 justify-center">
+      <Badge 
+        variant={variants[status as keyof typeof variants] || "outline"} 
+        className="w-8 justify-center cursor-pointer hover:opacity-80"
+        onClick={onClick}
+      >
         {labels[status as keyof typeof labels] || "-"}
       </Badge>
     );
@@ -208,7 +305,7 @@ export default function HRAttendanceDashboard() {
                           const attendance = employee.attendance[dateStr];
                           return (
                             <td key={day} className="px-2 py-3 text-center">
-                              {getStatusBadge(attendance?.status)}
+                              {getStatusBadge(attendance?.status, () => handleEditClick(employee, day))}
                             </td>
                           );
                         })}
@@ -251,6 +348,90 @@ export default function HRAttendanceDashboard() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Edit Attendance Dialog */}
+      <Dialog open={editDialog} onOpenChange={setEditDialog}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Edit Attendance</DialogTitle>
+          </DialogHeader>
+          
+          {editData && (
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>Employee</Label>
+                <Input value={editData.employeeName} disabled />
+              </div>
+              
+              <div className="space-y-2">
+                <Label>Date</Label>
+                <Input value={editData.date} disabled />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="checkIn">Check In Time</Label>
+                  <Input
+                    id="checkIn"
+                    type="time"
+                    value={editData.checkInTime}
+                    onChange={(e) => setEditData({ ...editData, checkInTime: e.target.value })}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="checkOut">Check Out Time</Label>
+                  <Input
+                    id="checkOut"
+                    type="time"
+                    value={editData.checkOutTime}
+                    onChange={(e) => setEditData({ ...editData, checkOutTime: e.target.value })}
+                  />
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="status">Status</Label>
+                <Select 
+                  value={editData.status} 
+                  onValueChange={(value) => setEditData({ ...editData, status: value })}
+                >
+                  <SelectTrigger id="status">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="present">Present</SelectItem>
+                    <SelectItem value="late">Late</SelectItem>
+                    <SelectItem value="absent">Absent</SelectItem>
+                    <SelectItem value="half-day">Half Day</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="notes">Notes (Optional)</Label>
+                <Textarea
+                  id="notes"
+                  value={editData.notes}
+                  onChange={(e) => setEditData({ ...editData, notes: e.target.value })}
+                  placeholder="Add any notes about this attendance record..."
+                  rows={3}
+                />
+              </div>
+            </div>
+          )}
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDialog(false)} disabled={saving}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveAttendance} disabled={saving}>
+              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
