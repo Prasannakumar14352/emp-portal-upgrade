@@ -150,6 +150,31 @@ export default function HRAttendanceDashboard() {
         ? new Date(editData.originalCheckOutTime).toTimeString().slice(0, 5)
         : '';
       
+      // Get the final check-in and check-out times (either edited or original)
+      const finalCheckInTime = editData.checkInTime || originalCheckInTimeStr;
+      const finalCheckOutTime = editData.checkOutTime || originalCheckOutTimeStr;
+      
+      // Validate 9-hour work requirement for present status
+      if (editData.status === 'present' && finalCheckInTime && finalCheckOutTime) {
+        const [checkInHours, checkInMinutes] = finalCheckInTime.split(':').map(Number);
+        const [checkOutHours, checkOutMinutes] = finalCheckOutTime.split(':').map(Number);
+        
+        const checkInDate = new Date();
+        checkInDate.setHours(checkInHours, checkInMinutes, 0, 0);
+        
+        const checkOutDate = new Date();
+        checkOutDate.setHours(checkOutHours, checkOutMinutes, 0, 0);
+        
+        const diffInMs = checkOutDate.getTime() - checkInDate.getTime();
+        const diffInHours = diffInMs / (1000 * 60 * 60);
+        
+        if (diffInHours < 9) {
+          toast.error(`Work hours must be at least 9 hours for present status. Current: ${diffInHours.toFixed(2)} hours`);
+          setSaving(false);
+          return;
+        }
+      }
+      
       // Only format times that were actually changed
       const checkInTime = editData.checkInTime && editData.checkInTime !== originalCheckInTimeStr
         ? `${editData.date}T${editData.checkInTime}:00` 
