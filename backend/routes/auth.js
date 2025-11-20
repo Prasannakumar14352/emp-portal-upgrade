@@ -406,7 +406,7 @@ router.get('/oauth/callback/azure', async (req, res) => {
     const fullName = userInfo.displayName;
 
     /* 2.5) Fetch User's Azure AD Group Memberships */
-    let userRoles = ['employee']; // Default role
+    let userRoles = []; // Start with empty roles
     
     try {
       const groupsRes = await axios.get(
@@ -437,12 +437,21 @@ router.get('/oauth/callback/azure', async (req, res) => {
       if (isHR) userRoles.push('hr');
       if (isManager) userRoles.push('manager');
       
+      // Only add employee role if no other roles were detected
+      if (userRoles.length === 0) {
+        userRoles.push('employee');
+      }
+      
       logInfo(`Detected roles for ${email}: ${userRoles.join(', ')}`);
     } catch (groupErr) {
       logError(groupErr, req, { 
         context: 'Failed to fetch Azure AD groups, using default employee role',
         email 
       });
+      // On error, default to employee role
+      if (userRoles.length === 0) {
+        userRoles.push('employee');
+      }
     }
 
     /* 3) Sync OAuth user using stored procedure */
@@ -518,6 +527,26 @@ router.get('/oauth/callback/azure', async (req, res) => {
               sqlErrorNumber: roleErr.number,
               sqlErrorCode: roleErr.code,
               sqlErrorMessage: roleErr.message
+            });
+          }
+        }
+        
+        // Clean up: Remove 'employee' role if user has 'hr' or 'manager' roles
+        if (userRoles.includes('hr') || userRoles.includes('manager')) {
+          try {
+            await pool.request()
+              .input('employee_id', sql.Int, userId)
+              .query(`
+                DELETE FROM user_roles 
+                WHERE employee_id = @employee_id 
+                AND role = 'employee'
+              `);
+            logInfo(`Removed redundant 'employee' role for user ${email} with elevated roles`);
+          } catch (cleanupErr) {
+            logError(cleanupErr, req, { 
+              context: 'Failed to cleanup employee role',
+              email,
+              userId
             });
           }
         }
