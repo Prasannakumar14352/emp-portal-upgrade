@@ -248,10 +248,20 @@ router.get('/session', authenticateToken, async (req, res) => {
       ? rolesResult.recordset.map(r => r.role)
       : ['employee'];
 
+    // Map user_id to id for frontend compatibility
+    const sessionUser = {
+      id: user.user_id,
+      email: user.email,
+      full_name: user.full_name,
+      department: user.department,
+      position: user.position,
+      roles: user.roles
+    };
+
     res.json({
       session: {
         access_token: req.headers.authorization.split(' ')[1],
-        user
+        user: sessionUser
       }
     });
 
@@ -312,7 +322,11 @@ router.post('/refresh', async (req, res) => {
       session: {
         access_token: tokens.accessToken,
         refresh_token: tokens.refreshToken,
-        user
+        user: {
+          id: user.user_id,
+          email: user.email,
+          full_name: user.full_name
+        }
       }
     });
 
