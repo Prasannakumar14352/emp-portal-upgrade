@@ -37,6 +37,8 @@ interface EditDialogData {
   status: string;
   notes: string;
   recordId?: string;
+  originalCheckInTime?: string;
+  originalCheckOutTime?: string;
 }
 
 export default function HRAttendanceDashboard() {
@@ -127,7 +129,9 @@ export default function HRAttendanceDashboard() {
       checkOutTime: attendanceRecord?.check_out_time ? new Date(attendanceRecord.check_out_time).toTimeString().slice(0, 5) : '',
       status: attendanceRecord?.status || 'absent',
       notes: '',
-      recordId: attendanceRecord?.id
+      recordId: attendanceRecord?.id,
+      originalCheckInTime: attendanceRecord?.check_in_time || '',
+      originalCheckOutTime: attendanceRecord?.check_out_time || ''
     });
     setEditDialog(true);
   };
@@ -138,30 +142,47 @@ export default function HRAttendanceDashboard() {
     try {
       setSaving(true);
       
-      // Format times for API
-      const checkInTime = editData.checkInTime 
+      // Extract original time components
+      const originalCheckInTimeStr = editData.originalCheckInTime 
+        ? new Date(editData.originalCheckInTime).toTimeString().slice(0, 5)
+        : '';
+      const originalCheckOutTimeStr = editData.originalCheckOutTime 
+        ? new Date(editData.originalCheckOutTime).toTimeString().slice(0, 5)
+        : '';
+      
+      // Only format times that were actually changed
+      const checkInTime = editData.checkInTime && editData.checkInTime !== originalCheckInTimeStr
         ? `${editData.date}T${editData.checkInTime}:00` 
-        : null;
-      const checkOutTime = editData.checkOutTime 
+        : editData.originalCheckInTime || null;
+      
+      const checkOutTime = editData.checkOutTime && editData.checkOutTime !== originalCheckOutTimeStr
         ? `${editData.date}T${editData.checkOutTime}:00` 
-        : null;
+        : editData.originalCheckOutTime || null;
       
       if (editData.recordId) {
-        // Update existing record
-        await apiClient.put(`/attendance/${editData.recordId}`, {
+        // Update existing record - only send changed fields
+        const updateData: any = {
           userId: editData.employeeId,
-          checkInTime,
-          checkOutTime,
           status: editData.status,
           notes: editData.notes
-        });
+        };
+        
+        // Only include times if they were changed
+        if (editData.checkInTime !== originalCheckInTimeStr) {
+          updateData.checkInTime = checkInTime;
+        }
+        if (editData.checkOutTime !== originalCheckOutTimeStr) {
+          updateData.checkOutTime = checkOutTime;
+        }
+        
+        await apiClient.put(`/attendance/${editData.recordId}`, updateData);
       } else {
         // Create new record
         await apiClient.post('/attendance', {
           userId: editData.employeeId,
           date: editData.date,
-          checkInTime,
-          checkOutTime,
+          checkInTime: editData.checkInTime ? `${editData.date}T${editData.checkInTime}:00` : null,
+          checkOutTime: editData.checkOutTime ? `${editData.date}T${editData.checkOutTime}:00` : null,
           status: editData.status,
           notes: editData.notes
         });
