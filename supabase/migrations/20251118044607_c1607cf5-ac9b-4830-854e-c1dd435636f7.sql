@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS public.performance_reviews (
 -- Create performance_goals table
 CREATE TABLE IF NOT EXISTS public.performance_goals (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  employee_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   title text NOT NULL,
   description text,
   progress integer DEFAULT 0 CHECK (progress >= 0 AND progress <= 100),
@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS public.performance_goals (
 -- Create attendance_records table
 CREATE TABLE IF NOT EXISTS public.attendance_records (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  employee_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   date date NOT NULL DEFAULT CURRENT_DATE,
   check_in_time timestamptz,
   check_out_time timestamptz,
@@ -43,7 +43,7 @@ CREATE TABLE IF NOT EXISTS public.attendance_records (
   notes text,
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now(),
-  UNIQUE(user_id, date)
+  UNIQUE(employee_id, date)
 );
 
 -- Enable RLS
@@ -82,7 +82,7 @@ WITH CHECK (auth.uid() = employee_id AND status = 'acknowledged');
 CREATE POLICY "Users can view own goals"
 ON public.performance_goals FOR SELECT
 TO authenticated
-USING (auth.uid() = user_id);
+USING (auth.uid() = employee_id);
 
 CREATE POLICY "HR and managers can view all goals"
 ON public.performance_goals FOR SELECT
@@ -92,12 +92,12 @@ USING (has_role(auth.uid(), 'hr'::app_role) OR has_role(auth.uid(), 'manager'::a
 CREATE POLICY "Users can create own goals"
 ON public.performance_goals FOR INSERT
 TO authenticated
-WITH CHECK (auth.uid() = user_id);
+WITH CHECK (auth.uid() = employee_id);
 
 CREATE POLICY "Users can update own goals"
 ON public.performance_goals FOR UPDATE
 TO authenticated
-USING (auth.uid() = user_id);
+USING (auth.uid() = employee_id);
 
 CREATE POLICY "HR and managers can manage all goals"
 ON public.performance_goals FOR ALL
@@ -108,7 +108,7 @@ USING (has_role(auth.uid(), 'hr'::app_role) OR has_role(auth.uid(), 'manager'::a
 CREATE POLICY "Users can view own attendance"
 ON public.attendance_records FOR SELECT
 TO authenticated
-USING (auth.uid() = user_id);
+USING (auth.uid() = employee_id);
 
 CREATE POLICY "HR and managers can view all attendance"
 ON public.attendance_records FOR SELECT
@@ -118,12 +118,12 @@ USING (has_role(auth.uid(), 'hr'::app_role) OR has_role(auth.uid(), 'manager'::a
 CREATE POLICY "Users can insert own attendance"
 ON public.attendance_records FOR INSERT
 TO authenticated
-WITH CHECK (auth.uid() = user_id);
+WITH CHECK (auth.uid() = employee_id);
 
 CREATE POLICY "Users can update own attendance"
 ON public.attendance_records FOR UPDATE
 TO authenticated
-USING (auth.uid() = user_id);
+USING (auth.uid() = employee_id);
 
 CREATE POLICY "HR and managers can manage all attendance"
 ON public.attendance_records FOR ALL

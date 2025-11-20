@@ -2,7 +2,7 @@ import { apiClient } from './apiClient';
 
 export interface UserSession {
   id: number;
-  user_id: number;
+  employee_id: number;
   login_time: string;
   logout_time?: string;
   session_duration?: number;
@@ -19,7 +19,7 @@ export interface SessionStatistics {
 }
 
 export interface EmployeeSessionStats {
-  user_id: number;
+  employee_id: number;
   full_name: string;
   email: string;
   department: string;

@@ -51,12 +51,12 @@
  *           schema:
  *             type: object
  *             required:
- *               - user_id
+ *               - employee_id
  *               - title
  *               - message
  *               - type
  *             properties:
- *               user_id:
+ *               employee_id:
  *                 type: integer
  *                 example: 1
  *               title:

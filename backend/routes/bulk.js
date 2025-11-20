@@ -44,7 +44,7 @@ router.post('/users',
           // Check if user exists
           const existingUser = await transaction.request()
             .input('email', sql.NVarChar, email)
-            .query('SELECT user_id FROM profiles WHERE email = @email');
+            .query('SELECT employee_id FROM profiles WHERE email = @email');
 
           if (existingUser.recordset.length > 0) {
             failedUsers.push({ email, reason: 'User already exists' });
@@ -54,7 +54,7 @@ router.post('/users',
           // Hash password if provided
           const hashedPassword = password ? await bcrypt.hash(password, 10) : null;
 
-          // Create profile (user_id will be auto-generated as int identity)
+          // Create profile (employee_id will be auto-generated as int identity)
           const profileResult = await transaction.request()
             .input('email', sql.NVarChar, email)
             .input('full_name', sql.NVarChar, full_name)
@@ -64,7 +64,7 @@ router.post('/users',
             .input('password_hash', sql.NVarChar, hashedPassword)
             .query(`
               INSERT INTO profiles (email, full_name, department, position, phone, password_hash, created_at)
-              OUTPUT INSERTED.user_id, INSERTED.email, INSERTED.full_name
+              OUTPUT INSERTED.employee_id, INSERTED.email, INSERTED.full_name
               VALUES (@email, @full_name, @department, @position, @phone, @password_hash, GETDATE())
             `);
 
@@ -72,29 +72,29 @@ router.post('/users',
 
           // Create employee record
           await transaction.request()
-            .input('user_id', sql.Int, newProfile.user_id)
+            .input('employee_id', sql.Int, newProfile.employee_id)
             .input('full_name', sql.NVarChar, full_name)
             .input('email', sql.NVarChar, email)
             .input('phone', sql.NVarChar, phone || null)
             .input('department', sql.NVarChar, department || 'Not Assigned')
             .input('position', sql.NVarChar, position || 'Employee')
             .query(`
-              INSERT INTO employees (user_id, full_name, email, phone, department, position, status, created_at)
-              VALUES (@user_id, @full_name, @email, @phone, @department, @position, 'Active', GETDATE())
+              INSERT INTO employees (employee_id, full_name, email, phone, department, position, status, created_at)
+              VALUES (@employee_id, @full_name, @email, @phone, @department, @position, 'Active', GETDATE())
             `);
 
           // Assign role
           const userRole = role || 'employee';
           await transaction.request()
-            .input('user_id', sql.Int, newProfile.user_id)
+            .input('employee_id', sql.Int, newProfile.employee_id)
             .input('role', sql.NVarChar, userRole)
             .query(`
-              INSERT INTO user_roles (user_id, role, created_at)
-              VALUES (@user_id, @role, GETDATE())
+              INSERT INTO user_roles (employee_id, role, created_at)
+              VALUES (@employee_id, @role, GETDATE())
             `);
 
           createdUsers.push({
-            user_id: newProfile.user_id,
+            employee_id: newProfile.employee_id,
             email: newProfile.email,
             full_name: newProfile.full_name,
             role: userRole
@@ -219,7 +219,7 @@ router.post('/payslips',
   authorizeRole('hr', 'manager'),
   [
     body('payslips').isArray({ min: 1 }),
-    body('payslips.*.user_id').isInt(),
+    body('payslips.*.employee_id').isInt(),
     body('payslips.*.month').trim().isLength({ min: 1 }),
     body('payslips.*.year').isInt({ min: 2020, max: 2100 }),
     body('payslips.*.basic_salary').isFloat({ min: 0 }),
@@ -246,32 +246,32 @@ router.post('/payslips',
 
       for (const payslipData of payslips) {
         try {
-          const { user_id, month, year, basic_salary, allowances, deductions, net_salary, file_url } = payslipData;
+          const { employee_id, month, year, basic_salary, allowances, deductions, net_salary, file_url } = payslipData;
 
           // Check if user exists
           const userExists = await transaction.request()
-            .input('user_id', sql.Int, user_id)
-            .query('SELECT user_id FROM profiles WHERE user_id = @user_id');
+            .input('employee_id', sql.Int, employee_id)
+            .query('SELECT employee_id FROM profiles WHERE employee_id = @employee_id');
 
           if (userExists.recordset.length === 0) {
-            failedPayslips.push({ user_id, month, year, reason: 'User does not exist' });
+            failedPayslips.push({ employee_id, month, year, reason: 'User does not exist' });
             continue;
           }
 
           // Check if payslip already exists
           const existing = await transaction.request()
-            .input('user_id', sql.Int, user_id)
+            .input('employee_id', sql.Int, employee_id)
             .input('month', sql.NVarChar, month)
             .input('year', sql.Int, year)
-            .query('SELECT id FROM payslips WHERE user_id = @user_id AND month = @month AND year = @year');
+            .query('SELECT id FROM payslips WHERE employee_id = @employee_id AND month = @month AND year = @year');
 
           if (existing.recordset.length > 0) {
-            failedPayslips.push({ user_id, month, year, reason: 'Payslip already exists' });
+            failedPayslips.push({ employee_id, month, year, reason: 'Payslip already exists' });
             continue;
           }
 
           const result = await transaction.request()
-            .input('user_id', sql.Int, user_id)
+            .input('employee_id', sql.Int, employee_id)
             .input('month', sql.NVarChar, month)
             .input('year', sql.Int, year)
             .input('basic_salary', sql.Decimal(10, 2), basic_salary)
@@ -280,17 +280,17 @@ router.post('/payslips',
             .input('net_salary', sql.Decimal(10, 2), net_salary)
             .input('file_url', sql.NVarChar, file_url || null)
             .query(`
-              INSERT INTO payslips (user_id, month, year, basic_salary, allowances, deductions, net_salary, file_url, created_at)
+              INSERT INTO payslips (employee_id, month, year, basic_salary, allowances, deductions, net_salary, file_url, created_at)
               OUTPUT INSERTED.*
-              VALUES (@user_id, @month, @year, @basic_salary, @allowances, @deductions, @net_salary, @file_url, GETDATE())
+              VALUES (@employee_id, @month, @year, @basic_salary, @allowances, @deductions, @net_salary, @file_url, GETDATE())
             `);
 
           createdPayslips.push(result.recordset[0]);
 
         } catch (payslipError) {
-          console.error(`Failed to create payslip for user ${payslipData.user_id}:`, payslipError);
+          console.error(`Failed to create payslip for user ${payslipData.employee_id}:`, payslipError);
           failedPayslips.push({
-            user_id: payslipData.user_id,
+            employee_id: payslipData.employee_id,
             month: payslipData.month,
             year: payslipData.year,
             reason: payslipError.message

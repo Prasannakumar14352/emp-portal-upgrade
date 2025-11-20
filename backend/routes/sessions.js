@@ -13,11 +13,11 @@ router.post('/', authenticateToken, async (req, res) => {
     const pool = await getConnection();
     
     const result = await pool.request()
-      .input('user_id', sql.Int, userId)
+      .input('employee_id', sql.Int, userId)
       .query(`
-        INSERT INTO user_sessions (user_id, login_time, created_at)
+        INSERT INTO user_sessions (employee_id, login_time, created_at)
         OUTPUT INSERTED.*
-        VALUES (@user_id, GETDATE(), GETDATE())
+        VALUES (@employee_id, GETDATE(), GETDATE())
       `);
 
     res.status(201).json(result.recordset[0]);
@@ -39,14 +39,14 @@ router.patch('/:id/end', authenticateToken, async (req, res) => {
     // Verify session belongs to user
     const session = await pool.request()
       .input('id', sql.Int, sessionId)
-      .input('user_id', sql.Int, userId)
-      .query('SELECT id, user_id FROM user_sessions WHERE id = @id');
+      .input('employee_id', sql.Int, userId)
+      .query('SELECT id, employee_id FROM user_sessions WHERE id = @id');
     
     if (session.recordset.length === 0) {
       return res.status(404).json({ error: 'Session not found' });
     }
     
-    if (session.recordset[0].user_id !== userId && req.user.role !== 'hr' && req.user.role !== 'manager') {
+    if (session.recordset[0].employee_id !== userId && req.user.role !== 'hr' && req.user.role !== 'manager') {
       return res.status(403).json({ error: 'Unauthorized to end this session' });
     }
 
@@ -83,7 +83,7 @@ router.get('/user/:userId', authenticateToken, async (req, res) => {
     const pool = await getConnection();
     let query = `
       SELECT * FROM user_sessions 
-      WHERE user_id = @user_id
+      WHERE employee_id = @employee_id
     `;
     
     if (startDate) {
@@ -95,7 +95,7 @@ router.get('/user/:userId', authenticateToken, async (req, res) => {
     
     query += ' ORDER BY login_time DESC';
 
-    const request = pool.request().input('user_id', sql.Int, targetUserId);
+    const request = pool.request().input('employee_id', sql.Int, targetUserId);
     
     if (startDate) {
       request.input('startDate', sql.DateTime2, startDate);
@@ -128,7 +128,7 @@ router.get('/user/:userId/stats', authenticateToken, async (req, res) => {
     const pool = await getConnection();
     
     const result = await pool.request()
-      .input('user_id', sql.Int, targetUserId)
+      .input('employee_id', sql.Int, targetUserId)
       .query(`
         SELECT 
           COUNT(*) as total_sessions,
@@ -138,7 +138,7 @@ router.get('/user/:userId/stats', authenticateToken, async (req, res) => {
           COALESCE(SUM(CASE WHEN login_time >= DATEADD(day, -7, GETDATE()) THEN session_duration ELSE 0 END), 0) as this_week_duration,
           COALESCE(SUM(CASE WHEN YEAR(login_time) = YEAR(GETDATE()) AND MONTH(login_time) = MONTH(GETDATE()) THEN session_duration ELSE 0 END), 0) as this_month_duration
         FROM user_sessions
-        WHERE user_id = @user_id
+        WHERE employee_id = @employee_id
       `);
 
     res.json(result.recordset[0]);
@@ -158,7 +158,7 @@ router.get('/all', authenticateToken, authorizeRole('hr', 'manager'), async (req
     
     let query = `
       SELECT 
-        p.user_id,
+        p.employee_id,
         p.full_name,
         p.email,
         COALESCE(p.department, 'Not Assigned') as department,
@@ -168,7 +168,7 @@ router.get('/all', authenticateToken, authorizeRole('hr', 'manager'), async (req
         COALESCE(AVG(s.session_duration), 0) as average_duration,
         COALESCE(MAX(s.login_time), 'Never') as last_login
       FROM profiles p
-      LEFT JOIN user_sessions s ON p.user_id = s.user_id
+      LEFT JOIN user_sessions s ON p.employee_id = s.employee_id
     `;
     
     if (startDate || endDate) {

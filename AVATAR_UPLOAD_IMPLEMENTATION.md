@@ -127,9 +127,9 @@ Profile page refreshes with new avatar
 ```
 Lovable Cloud Storage (Supabase):
   avatars/
-    ├── {user_id}/
+    ├── {employee_id}/
     │   └── {timestamp}.jpg
-    └── {user_id}/
+    └── {employee_id}/
         └── {timestamp}.jpg
 ```
 

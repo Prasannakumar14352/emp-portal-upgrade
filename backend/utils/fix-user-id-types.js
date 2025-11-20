@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * Script to replace sql.Int with sql.NVarChar for user_id parameters
- * This is needed because we migrated from integer IDs to UUID-based user_ids from Supabase
+ * Script to replace sql.Int with sql.NVarChar for employee_id parameters
+ * This is needed because we migrated from integer IDs to UUID-based employee_ids from Supabase
  */
 
 const fs = require('fs');
@@ -21,8 +21,8 @@ const filesToUpdate = [
 
 const replacements = [
   {
-    from: /\.input\('user_id',\s*sql\.Int,/g,
-    to: ".input('user_id', sql.NVarChar,"
+    from: /\.input\('employee_id',\s*sql\.Int,/g,
+    to: ".input('employee_id', sql.NVarChar,"
   },
   {
     from: /\.input\('userId',\s*sql\.Int,/g,
@@ -30,7 +30,7 @@ const replacements = [
   }
 ];
 
-console.log('Starting user_id type migration from sql.Int to sql.NVarChar...\n');
+console.log('Starting employee_id type migration from sql.Int to sql.NVarChar...\n');
 
 filesToUpdate.forEach(file => {
   const filePath = path.join(__dirname, '..', file);

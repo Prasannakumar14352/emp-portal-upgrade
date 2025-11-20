@@ -2,7 +2,7 @@ import { apiClient } from './apiClient';
 
 export interface UserPreferences {
   id: number;
-  user_id: number;
+  employee_id: number;
   dark_mode: boolean;
   compact_view: boolean;
   email_notifications: boolean;
@@ -33,7 +33,7 @@ class SettingsService {
     }
   }
 
-  async createOrUpdatePreferences(userId: number, preferences: Partial<Omit<UserPreferences, 'id' | 'user_id' | 'created_at' | 'updated_at'>>): Promise<UserPreferences> {
+  async createOrUpdatePreferences(userId: number, preferences: Partial<Omit<UserPreferences, 'id' | 'employee_id' | 'created_at' | 'updated_at'>>): Promise<UserPreferences> {
     try {
       const response = await apiClient.put<UserPreferences>(`/users/${userId}/preferences`, preferences);
       return response;

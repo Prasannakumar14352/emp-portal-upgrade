@@ -39,7 +39,7 @@ CREATE POLICY "Users can insert own leaves" ON public.leaves
 FOR INSERT
 WITH CHECK (
   -- Allow if user is inserting their own leave
-  (auth.uid() IS NOT NULL AND auth.uid() = user_id)
+  (auth.uid() IS NOT NULL AND auth.uid() = employee_id)
   -- OR allow service role (for sync operations)
   OR auth.jwt()->>'role' = 'service_role'
 );

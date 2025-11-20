@@ -27,7 +27,7 @@ router.post('/request', [
     // Check if user exists
     const result = await pool.request()
       .input('email', sql.NVarChar, email)
-      .query('SELECT user_id, email, full_name FROM profiles WHERE email = @email');
+      .query('SELECT employee_id, email, full_name FROM profiles WHERE email = @email');
 
     if (result.recordset.length === 0) {
       // Don't reveal if email exists or not
@@ -121,12 +121,12 @@ router.post('/reset', [
 
     // Update password
     await pool.request()
-      .input('user_id', sql.Int, tokenData.userId)
+      .input('employee_id', sql.Int, tokenData.userId)
       .input('password_hash', sql.NVarChar, hashedPassword)
       .query(`
         UPDATE profiles
         SET password_hash = @password_hash, updated_at = GETDATE()
-        WHERE user_id = @user_id
+        WHERE employee_id = @employee_id
       `);
 
     // Remove used token

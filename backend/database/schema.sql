@@ -11,7 +11,7 @@
 -- Recent Changes:
 --   - Backend routes now parse userId parameters as integers for proper comparisons
 --   - Authorization checks updated to compare integer user IDs correctly
---   - Database queries use proper integer types for user_id parameters
+--   - Database queries use proper integer types for employee_id parameters
 --
 -- Note: If using Supabase for authentication, ensure data created in Supabase
 -- is synced to SQL Server using the backend API or sync procedures.
@@ -51,11 +51,11 @@ CREATE TABLE profiles (
 -- ============================================================================
 CREATE TABLE user_roles (
     id INT PRIMARY KEY IDENTITY(1,1),
-    user_id INT NOT NULL,
+    employee_id INT NOT NULL,
     role NVARCHAR(20) NOT NULL CHECK (role IN ('employee', 'hr', 'manager')),
     created_at DATETIME2 DEFAULT GETDATE(),
-    CONSTRAINT FK_user_roles_profiles FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE,
-    CONSTRAINT UQ_user_roles UNIQUE (user_id, role)
+    CONSTRAINT FK_user_roles_profiles FOREIGN KEY (employee_id) REFERENCES profiles(id) ON DELETE CASCADE,
+    CONSTRAINT UQ_user_roles UNIQUE (employee_id, role)
 );
 
 -- ============================================================================
@@ -63,7 +63,7 @@ CREATE TABLE user_roles (
 -- ============================================================================
 CREATE TABLE employees (
     id INT PRIMARY KEY IDENTITY(1,1),
-    user_id INT,
+    employee_id INT,
     full_name NVARCHAR(255) NOT NULL,
     email NVARCHAR(255) NOT NULL,
     phone NVARCHAR(50),
@@ -72,7 +72,7 @@ CREATE TABLE employees (
     status NVARCHAR(50) DEFAULT 'Active',
     created_at DATETIME2 DEFAULT GETDATE(),
     updated_at DATETIME2 DEFAULT GETDATE(),
-    CONSTRAINT FK_employees_profiles FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE SET NULL
+    CONSTRAINT FK_employees_profiles FOREIGN KEY (employee_id) REFERENCES profiles(id) ON DELETE SET NULL
 );
 
 -- ============================================================================
@@ -80,12 +80,12 @@ CREATE TABLE employees (
 -- ============================================================================
 CREATE TABLE user_sessions (
     id INT PRIMARY KEY IDENTITY(1,1),
-    user_id INT NOT NULL,
+    employee_id INT NOT NULL,
     login_time DATETIME2 NOT NULL DEFAULT GETDATE(),
     logout_time DATETIME2,
     session_duration INT, -- Duration in minutes
     created_at DATETIME2 NOT NULL DEFAULT GETDATE(),
-    CONSTRAINT FK_user_sessions_profiles FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE
+    CONSTRAINT FK_user_sessions_profiles FOREIGN KEY (employee_id) REFERENCES profiles(id) ON DELETE CASCADE
 );
 
 -- ============================================================================
@@ -120,7 +120,7 @@ CREATE TABLE leave_types (
 -- ============================================================================
 CREATE TABLE leaves (
     id INT PRIMARY KEY IDENTITY(1,1),
-    user_id INT NOT NULL,
+    employee_id INT NOT NULL,
     manager_id INT,  -- Manager who will approve first
     leave_type NVARCHAR(255) NOT NULL,
     start_date DATE NOT NULL,
@@ -139,7 +139,7 @@ CREATE TABLE leaves (
     approved_by INT,  -- Kept for backward compatibility
     created_at DATETIME2 DEFAULT GETDATE(),
     updated_at DATETIME2 DEFAULT GETDATE(),
-    CONSTRAINT FK_leaves_profiles FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE,
+    CONSTRAINT FK_leaves_profiles FOREIGN KEY (employee_id) REFERENCES profiles(id) ON DELETE CASCADE,
     CONSTRAINT FK_leaves_manager FOREIGN KEY (manager_id) REFERENCES profiles(id),
     CONSTRAINT FK_leaves_manager_approved_by FOREIGN KEY (manager_approved_by) REFERENCES profiles(id),
     CONSTRAINT FK_leaves_hr_approved_by FOREIGN KEY (hr_approved_by) REFERENCES profiles(id),
@@ -151,7 +151,7 @@ CREATE TABLE leaves (
 -- ============================================================================
 CREATE TABLE leave_balances (
     id INT PRIMARY KEY IDENTITY(1,1),
-    user_id INT NOT NULL,
+    employee_id INT NOT NULL,
     year INT NOT NULL,
     leave_type NVARCHAR(255) NOT NULL,
     total_days DECIMAL(10, 2) NOT NULL DEFAULT 0,
@@ -160,8 +160,8 @@ CREATE TABLE leave_balances (
     carry_forward_days DECIMAL(10, 2) DEFAULT 0,
     created_at DATETIME2 DEFAULT GETDATE(),
     updated_at DATETIME2 DEFAULT GETDATE(),
-    CONSTRAINT FK_leave_balances_profiles FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE,
-    CONSTRAINT UQ_leave_balances UNIQUE (user_id, year, leave_type)
+    CONSTRAINT FK_leave_balances_profiles FOREIGN KEY (employee_id) REFERENCES profiles(id) ON DELETE CASCADE,
+    CONSTRAINT UQ_leave_balances UNIQUE (employee_id, year, leave_type)
 );
 
 -- ============================================================================
@@ -170,11 +170,11 @@ CREATE TABLE leave_balances (
 CREATE TABLE leave_comments (
     id INT PRIMARY KEY IDENTITY(1,1),
     leave_id INT NOT NULL,
-    user_id INT NOT NULL,
+    employee_id INT NOT NULL,
     comment NVARCHAR(MAX) NOT NULL,
     created_at DATETIME2 DEFAULT GETDATE(),
     CONSTRAINT FK_leave_comments_leaves FOREIGN KEY (leave_id) REFERENCES leaves(id) ON DELETE CASCADE,
-    CONSTRAINT FK_leave_comments_profiles FOREIGN KEY (user_id) REFERENCES profiles(id)
+    CONSTRAINT FK_leave_comments_profiles FOREIGN KEY (employee_id) REFERENCES profiles(id)
 );
 
 -- ============================================================================
@@ -182,7 +182,7 @@ CREATE TABLE leave_comments (
 -- ============================================================================
 CREATE TABLE payslips (
     id INT PRIMARY KEY IDENTITY(1,1),
-    user_id INT NOT NULL,
+    employee_id INT NOT NULL,
     month NVARCHAR(50) NOT NULL,
     year INT NOT NULL,
     basic_salary DECIMAL(10, 2) NOT NULL,
@@ -191,29 +191,29 @@ CREATE TABLE payslips (
     net_salary DECIMAL(10, 2) NOT NULL,
     file_url NVARCHAR(500),
     created_at DATETIME2 DEFAULT GETDATE(),
-    CONSTRAINT FK_payslips_profiles FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE
+    CONSTRAINT FK_payslips_profiles FOREIGN KEY (employee_id) REFERENCES profiles(id) ON DELETE CASCADE
 );
 
 -- ============================================================================
 -- CREATE INDEXES FOR PERFORMANCE
 -- ============================================================================
 CREATE INDEX idx_profiles_email ON profiles(email);
-CREATE INDEX idx_user_roles_user_id ON user_roles(user_id);
+CREATE INDEX idx_user_roles_employee_id ON user_roles(employee_id);
 CREATE INDEX idx_user_roles_role ON user_roles(role);
-CREATE INDEX idx_employees_user_id ON employees(user_id);
+CREATE INDEX idx_employees_employee_id ON employees(employee_id);
 CREATE INDEX idx_employees_email ON employees(email);
 CREATE INDEX idx_employees_department ON employees(department);
-CREATE INDEX idx_user_sessions_user_id ON user_sessions(user_id);
+CREATE INDEX idx_user_sessions_employee_id ON user_sessions(employee_id);
 CREATE INDEX idx_user_sessions_login_time ON user_sessions(login_time);
 CREATE INDEX idx_holidays_date ON holidays(date);
 CREATE INDEX idx_leave_types_is_active ON leave_types(is_active);
-CREATE INDEX idx_leaves_user_id ON leaves(user_id);
+CREATE INDEX idx_leaves_employee_id ON leaves(employee_id);
 CREATE INDEX idx_leaves_status ON leaves(status);
 CREATE INDEX idx_leaves_start_date ON leaves(start_date);
-CREATE INDEX idx_leave_balances_user_id_year ON leave_balances(user_id, year);
+CREATE INDEX idx_leave_balances_employee_id_year ON leave_balances(employee_id, year);
 CREATE INDEX idx_leave_balances_leave_type ON leave_balances(leave_type);
 CREATE INDEX idx_leave_comments_leave_id ON leave_comments(leave_id);
-CREATE INDEX idx_payslips_user_id ON payslips(user_id);
+CREATE INDEX idx_payslips_employee_id ON payslips(employee_id);
 CREATE INDEX idx_payslips_year_month ON payslips(year, month);
 
 -- ============================================================================
@@ -287,7 +287,7 @@ BEGIN
         MERGE leave_balances AS target
         USING (
             SELECT 
-                i.user_id,
+                i.employee_id,
                 YEAR(i.start_date) as year,
                 i.leave_type,
                 i.days
@@ -295,7 +295,7 @@ BEGIN
             INNER JOIN deleted d ON i.id = d.id
             WHERE i.status = 'Approved' AND d.status != 'Approved'
         ) AS source
-        ON target.user_id = source.user_id 
+        ON target.employee_id = source.employee_id 
            AND target.year = source.year 
            AND target.leave_type = source.leave_type
         WHEN MATCHED THEN
@@ -304,8 +304,8 @@ BEGIN
                 remaining_days = target.total_days - (target.used_days + source.days),
                 updated_at = GETDATE()
         WHEN NOT MATCHED THEN
-            INSERT (user_id, year, leave_type, total_days, used_days, remaining_days)
-            VALUES (source.user_id, source.year, source.leave_type, 20, source.days, 20 - source.days);
+            INSERT (employee_id, year, leave_type, total_days, used_days, remaining_days)
+            VALUES (source.employee_id, source.year, source.leave_type, 20, source.days, 20 - source.days);
     END
 END;
 GO
@@ -345,33 +345,33 @@ AS
 BEGIN
     SET NOCOUNT ON;
     
-    DECLARE @user_id INT;
+    DECLARE @employee_id INT;
     
     BEGIN TRY
         BEGIN TRANSACTION;
         
         -- Check if profile exists by email, if not create it
-        SELECT @user_id = id FROM profiles WHERE email = @email;
+        SELECT @employee_id = id FROM profiles WHERE email = @email;
         
-        IF @user_id IS NULL
+        IF @employee_id IS NULL
         BEGIN
             INSERT INTO profiles (email, full_name, created_at, updated_at)
             VALUES (@email, @full_name, GETDATE(), GETDATE());
             
-            SET @user_id = SCOPE_IDENTITY();
+            SET @employee_id = SCOPE_IDENTITY();
             
-            PRINT 'Profile created for user: ' + @email + ' with ID: ' + CAST(@user_id AS NVARCHAR);
+            PRINT 'Profile created for user: ' + @email + ' with ID: ' + CAST(@employee_id AS NVARCHAR);
         END
         ELSE
         BEGIN
-            PRINT 'Profile already exists for: ' + @email + ' with ID: ' + CAST(@user_id AS NVARCHAR);
+            PRINT 'Profile already exists for: ' + @email + ' with ID: ' + CAST(@employee_id AS NVARCHAR);
         END
         
         -- Check if employee record exists, if not create it
-        IF NOT EXISTS (SELECT 1 FROM employees WHERE user_id = @user_id)
+        IF NOT EXISTS (SELECT 1 FROM employees WHERE employee_id = @employee_id)
         BEGIN
-            INSERT INTO employees (user_id, full_name, email, department, position, status, created_at, updated_at)
-            VALUES (@user_id, @full_name, @email, @department, @position, 'Active', GETDATE(), GETDATE());
+            INSERT INTO employees (employee_id, full_name, email, department, position, status, created_at, updated_at)
+            VALUES (@employee_id, @full_name, @email, @department, @position, 'Active', GETDATE(), GETDATE());
             
             PRINT 'Employee record created for: ' + @email;
         END
@@ -384,16 +384,16 @@ BEGIN
                 department = @department,
                 position = @position,
                 updated_at = GETDATE()
-            WHERE user_id = @user_id;
+            WHERE employee_id = @employee_id;
             
             PRINT 'Employee record updated for: ' + @email;
         END
         
         -- Assign default employee role if not exists
-        IF NOT EXISTS (SELECT 1 FROM user_roles WHERE user_id = @user_id AND role = 'employee')
+        IF NOT EXISTS (SELECT 1 FROM user_roles WHERE employee_id = @employee_id AND role = 'employee')
         BEGIN
-            INSERT INTO user_roles (user_id, role, created_at)
-            VALUES (@user_id, 'employee', GETDATE());
+            INSERT INTO user_roles (employee_id, role, created_at)
+            VALUES (@employee_id, 'employee', GETDATE());
             
             PRINT 'Employee role assigned to: ' + @email;
         END
@@ -403,7 +403,7 @@ BEGIN
         PRINT 'OAuth user sync completed successfully for: ' + @email;
         
         -- Return the user ID
-        SELECT @user_id AS user_id;
+        SELECT @employee_id AS employee_id;
         
     END TRY
     BEGIN CATCH
@@ -471,7 +471,7 @@ PRINT '';
 PRINT 'Backend API Changes (2025-11-17):';
 PRINT '  - Routes parse userId URL parameters as integers';
 PRINT '  - Authorization compares integer user IDs correctly';
-PRINT '  - Database queries use sql.Int for user_id parameters';
+PRINT '  - Database queries use sql.Int for employee_id parameters';
 PRINT '';
 PRINT 'To verify data is being written to SQL Server:';
 PRINT '  SELECT * FROM profiles ORDER BY created_at DESC;';

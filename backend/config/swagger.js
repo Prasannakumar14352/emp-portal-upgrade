@@ -146,7 +146,7 @@ The Swagger documentation shows endpoints without authentication requirements fo
               type: 'integer',
               description: 'Leave request ID'
             },
-            user_id: {
+            employee_id: {
               type: 'integer',
               description: 'User ID who requested the leave'
             },
@@ -238,7 +238,7 @@ The Swagger documentation shows endpoints without authentication requirements fo
             id: {
               type: 'integer'
             },
-            user_id: {
+            employee_id: {
               type: 'integer'
             },
             full_name: {
@@ -276,7 +276,7 @@ The Swagger documentation shows endpoints without authentication requirements fo
             id: {
               type: 'integer'
             },
-            user_id: {
+            employee_id: {
               type: 'integer'
             },
             date: {
@@ -332,7 +332,7 @@ The Swagger documentation shows endpoints without authentication requirements fo
             id: {
               type: 'integer'
             },
-            user_id: {
+            employee_id: {
               type: 'integer'
             },
             year: {
@@ -361,7 +361,7 @@ The Swagger documentation shows endpoints without authentication requirements fo
             id: {
               type: 'integer'
             },
-            user_id: {
+            employee_id: {
               type: 'integer'
             },
             title: {
@@ -389,7 +389,7 @@ The Swagger documentation shows endpoints without authentication requirements fo
             id: {
               type: 'integer'
             },
-            user_id: {
+            employee_id: {
               type: 'integer'
             },
             month: {

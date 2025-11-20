@@ -279,7 +279,7 @@ In SSMS, check if the user was created:
 ```sql
 SELECT u.id, u.email, u.full_name, ur.role
 FROM users u
-LEFT JOIN user_roles ur ON u.id = ur.user_id;
+LEFT JOIN user_roles ur ON u.id = ur.employee_id;
 ```
 
 ### Step 4: Upgrade User to HR Role
@@ -290,10 +290,10 @@ To access HR features, upgrade your user:
 -- Find your user ID first
 SELECT id, email FROM users WHERE email = 'admin@company.com';
 
--- Update role to HR (replace USER_ID with the actual ID)
+-- Update role to HR (replace employee_id with the actual ID)
 UPDATE user_roles
 SET role = 'hr'
-WHERE user_id = 'YOUR_USER_ID_HERE';
+WHERE employee_id = 'YOUR_employee_id_HERE';
 ```
 
 Refresh the page to see HR menu items.

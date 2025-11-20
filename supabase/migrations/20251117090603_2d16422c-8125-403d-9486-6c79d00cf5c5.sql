@@ -1,7 +1,7 @@
 -- Create leave_balances table
 CREATE TABLE public.leave_balances (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL,
+  employee_id UUID NOT NULL,
   year INTEGER NOT NULL,
   leave_type TEXT NOT NULL,
   total_days NUMERIC NOT NULL DEFAULT 0,
@@ -10,7 +10,7 @@ CREATE TABLE public.leave_balances (
   carry_forward_days NUMERIC DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-  UNIQUE(user_id, year, leave_type)
+  UNIQUE(employee_id, year, leave_type)
 );
 
 -- Enable RLS
@@ -20,7 +20,7 @@ ALTER TABLE public.leave_balances ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can view own leave balances"
 ON public.leave_balances
 FOR SELECT
-USING (auth.uid() = user_id);
+USING (auth.uid() = employee_id);
 
 CREATE POLICY "HR and managers can view all leave balances"
 ON public.leave_balances
@@ -41,7 +41,7 @@ USING (has_role(auth.uid(), 'hr'::app_role) OR has_role(auth.uid(), 'manager'::a
 CREATE TABLE public.leave_comments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   leave_id UUID NOT NULL REFERENCES public.leaves(id) ON DELETE CASCADE,
-  user_id UUID NOT NULL,
+  employee_id UUID NOT NULL,
   comment TEXT NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
@@ -57,7 +57,7 @@ USING (
   EXISTS (
     SELECT 1 FROM public.leaves 
     WHERE leaves.id = leave_comments.leave_id 
-    AND leaves.user_id = auth.uid()
+    AND leaves.employee_id = auth.uid()
   )
 );
 
@@ -77,16 +77,16 @@ RETURNS TRIGGER AS $$
 BEGIN
   IF (TG_OP = 'INSERT' OR TG_OP = 'UPDATE') AND NEW.status = 'Approved' THEN
     -- Update or create leave balance record
-    INSERT INTO public.leave_balances (user_id, year, leave_type, used_days, remaining_days, total_days)
+    INSERT INTO public.leave_balances (employee_id, year, leave_type, used_days, remaining_days, total_days)
     VALUES (
-      NEW.user_id,
+      NEW.employee_id,
       EXTRACT(YEAR FROM NEW.start_date)::INTEGER,
       NEW.leave_type,
       NEW.days,
       20 - NEW.days, -- Assuming 20 days default
       20
     )
-    ON CONFLICT (user_id, year, leave_type)
+    ON CONFLICT (employee_id, year, leave_type)
     DO UPDATE SET
       used_days = leave_balances.used_days + NEW.days,
       remaining_days = leave_balances.total_days - (leave_balances.used_days + NEW.days),

@@ -13,7 +13,7 @@ router.get('/reviews', authenticateToken, async (req, res) => {
     const request = pool.request();
     
     if (employeeId) {
-      query += ' WHERE user_id = @employeeId';
+      query += ' WHERE employee_id = @employeeId';
       request.input('employeeId', sql.Int, employeeId);
     }
     
@@ -31,7 +31,7 @@ router.get('/reviews', authenticateToken, async (req, res) => {
 router.post('/reviews', authenticateToken, async (req, res) => {
   try {
     const {
-      user_id,
+      employee_id,
       reviewer_id,
       review_period,
       overall_score,
@@ -48,18 +48,18 @@ router.post('/reviews', authenticateToken, async (req, res) => {
     
     // Get employee and reviewer names
     const employeeResult = await pool.request()
-      .input('employeeId', sql.Int, user_id)
-      .query('SELECT full_name FROM employees WHERE user_id = @employeeId');
+      .input('employeeId', sql.Int, employee_id)
+      .query('SELECT full_name FROM employees WHERE employee_id = @employeeId');
     
     const reviewerResult = await pool.request()
       .input('reviewerId', sql.Int, reviewer_id)
-      .query('SELECT full_name FROM employees WHERE user_id = @reviewerId');
+      .query('SELECT full_name FROM employees WHERE employee_id = @reviewerId');
     
     const employeeName = employeeResult.recordset[0]?.full_name || 'Unknown Employee';
     const reviewerName = reviewerResult.recordset[0]?.full_name || 'Unknown Reviewer';
     
     await pool.request()
-      .input('employeeId', sql.Int, user_id)
+      .input('employeeId', sql.Int, employee_id)
       .input('reviewerId', sql.Int, reviewer_id)
       .input('reviewPeriod', sql.NVarChar, review_period)
       .input('overallScore', sql.Decimal(3, 2), overall_score)
@@ -72,7 +72,7 @@ router.post('/reviews', authenticateToken, async (req, res) => {
       .input('status', sql.NVarChar, status || 'draft')
       .query(`
         INSERT INTO performance_reviews (
-          user_id, reviewer_id, review_period, overall_score,
+          employee_id, reviewer_id, review_period, overall_score,
           quality_of_work, communication, teamwork, time_management,
           problem_solving, feedback, status
         ) VALUES (
@@ -85,8 +85,8 @@ router.post('/reviews', authenticateToken, async (req, res) => {
     // Emit SignalR notification to employee
     const io = req.app.get('io');
     if (io) {
-      io.to(`user-${user_id}`).emit('performanceReview', {
-        employeeId: user_id,
+      io.to(`user-${employee_id}`).emit('performanceReview', {
+        employeeId: employee_id,
         employeeName,
         reviewerId: reviewer_id,
         reviewerName,
@@ -110,7 +110,7 @@ router.get('/goals', authenticateToken, async (req, res) => {
     const pool = await getConnection();
     const result = await pool.request()
       .input('userId', sql.Int, userId)
-      .query('SELECT * FROM performance_goals WHERE user_id = @userId ORDER BY created_at DESC');
+      .query('SELECT * FROM performance_goals WHERE employee_id = @userId ORDER BY created_at DESC');
 
     res.json(result.recordset);
   } catch (error) {

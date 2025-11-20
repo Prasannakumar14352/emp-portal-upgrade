@@ -39,7 +39,7 @@ Expected result:
 Images are stored in Lovable Cloud storage with this structure:
 ```
 avatars/
-  └── {user_id}/
+  └── {employee_id}/
       └── {timestamp}.jpg
 ```
 
@@ -68,7 +68,7 @@ PATCH /api/users/1/profile
 ## Security
 
 Storage bucket security is managed via Supabase RLS policies:
-- Users can only upload to their own folder (`{user_id}/`)
+- Users can only upload to their own folder (`{employee_id}/`)
 - Users can view all avatars (public bucket)
 - Users can update/delete only their own avatars
 

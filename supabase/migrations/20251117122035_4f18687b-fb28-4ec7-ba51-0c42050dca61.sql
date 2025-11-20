@@ -1,7 +1,7 @@
 -- Create user_sessions table for tracking login/logout times
 CREATE TABLE public.user_sessions (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID NOT NULL,
+  employee_id UUID NOT NULL,
   login_time TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
   logout_time TIMESTAMP WITH TIME ZONE,
   session_duration INTEGER, -- in minutes
@@ -15,17 +15,17 @@ ALTER TABLE public.user_sessions ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can view own sessions" 
 ON public.user_sessions 
 FOR SELECT 
-USING (auth.uid() = user_id);
+USING (auth.uid() = employee_id);
 
 CREATE POLICY "Users can insert own sessions" 
 ON public.user_sessions 
 FOR INSERT 
-WITH CHECK (auth.uid() = user_id);
+WITH CHECK (auth.uid() = employee_id);
 
 CREATE POLICY "Users can update own sessions" 
 ON public.user_sessions 
 FOR UPDATE 
-USING (auth.uid() = user_id);
+USING (auth.uid() = employee_id);
 
 CREATE POLICY "HR and managers can view all sessions" 
 ON public.user_sessions 
@@ -33,7 +33,7 @@ FOR SELECT
 USING (has_role(auth.uid(), 'hr'::app_role) OR has_role(auth.uid(), 'manager'::app_role));
 
 -- Create index for better performance
-CREATE INDEX idx_user_sessions_user_id ON public.user_sessions(user_id);
+CREATE INDEX idx_user_sessions_employee_id ON public.user_sessions(employee_id);
 CREATE INDEX idx_user_sessions_login_time ON public.user_sessions(login_time);
 
 -- Create function to calculate session duration

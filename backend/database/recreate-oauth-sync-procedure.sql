@@ -19,24 +19,24 @@ BEGIN
     SET NOCOUNT ON;
     
     DECLARE @employee_id INT;
-    DECLARE @user_id NVARCHAR(50);
+    DECLARE @employee_id NVARCHAR(50);
     
     BEGIN TRY
         BEGIN TRANSACTION;
         
         -- Check if profile exists with this email
-        SELECT @user_id = user_id, @employee_id = employee_id 
+        SELECT @employee_id = employee_id, @employee_id = employee_id 
         FROM profiles 
         WHERE email = @email;
         
-        IF @user_id IS NULL
+        IF @employee_id IS NULL
         BEGIN
-            -- Generate a new user_id (UUID format)
-            SET @user_id = LOWER(NEWID());
+            -- Generate a new employee_id (UUID format)
+            SET @employee_id = LOWER(NEWID());
             
             -- Insert into profiles table
-            INSERT INTO profiles (user_id, email, full_name, department, position, created_at, updated_at)
-            VALUES (@user_id, @email, @full_name, @department, @position, GETDATE(), GETDATE());
+            INSERT INTO profiles (employee_id, email, full_name, department, position, created_at, updated_at)
+            VALUES (@employee_id, @email, @full_name, @department, @position, GETDATE(), GETDATE());
             
             -- Get the auto-generated employee_id
             SET @employee_id = SCOPE_IDENTITY();
@@ -44,8 +44,8 @@ BEGIN
             -- Insert into employees table (if it exists and is separate)
             IF EXISTS (SELECT * FROM sys.tables WHERE name = 'employees')
             BEGIN
-                INSERT INTO employees (user_id, email, full_name, department, position, status, created_at, updated_at)
-                VALUES (@user_id, @email, @full_name, @department, @position, 'Active', GETDATE(), GETDATE());
+                INSERT INTO employees (employee_id, email, full_name, department, position, status, created_at, updated_at)
+                VALUES (@employee_id, @email, @full_name, @department, @position, 'Active', GETDATE(), GETDATE());
             END
         END
         ELSE
@@ -56,7 +56,7 @@ BEGIN
                 department = @department,
                 position = @position,
                 updated_at = GETDATE()
-            WHERE user_id = @user_id;
+            WHERE employee_id = @employee_id;
             
             -- Update employees table if it exists
             IF EXISTS (SELECT * FROM sys.tables WHERE name = 'employees')
@@ -66,7 +66,7 @@ BEGIN
                     department = @department,
                     position = @position,
                     updated_at = GETDATE()
-                WHERE user_id = @user_id;
+                WHERE employee_id = @employee_id;
             END
         END
         

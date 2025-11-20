@@ -210,7 +210,7 @@
  *           type: string
  *           format: date
  *       - in: query
- *         name: user_id
+ *         name: employee_id
  *         schema:
  *           type: integer
  *     responses:

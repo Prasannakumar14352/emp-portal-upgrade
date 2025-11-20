@@ -2,7 +2,7 @@ import { apiClient } from './apiClient';
 
 export interface Leave {
   id: string;
-  user_id: string;
+  employee_id: string;
   manager_id?: string;
   leave_type: string;
   start_date: string;
@@ -24,7 +24,7 @@ export interface Leave {
 
 export interface LeaveBalance {
   id: string;
-  user_id: string;
+  employee_id: string;
   year: number;
   leave_type: string;
   total_days: number;
@@ -45,7 +45,7 @@ export interface CreateLeaveRequest {
 
 export interface LeaveConflict {
   id: string;
-  user_id: string;
+  employee_id: string;
   full_name: string;
   department: string;
   leave_type: string;
@@ -118,7 +118,7 @@ class LeaveService {
       end_date: endDate,
     });
     if (userId) {
-      params.append('user_id', userId);
+      params.append('employee_id', userId);
     }
     return apiClient.get<LeaveConflict[]>(`/leaves/conflicts?${params.toString()}`);
   }

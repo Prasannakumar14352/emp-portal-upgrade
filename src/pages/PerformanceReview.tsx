@@ -35,7 +35,7 @@ interface PerformanceReview {
 
 interface PerformanceGoal {
   id: string;
-  user_id: string;
+  employee_id: string;
   title: string;
   description?: string;
   target_date?: string;
@@ -215,7 +215,7 @@ export default function PerformanceReview() {
                     </SelectTrigger>
                     <SelectContent>
                       {employees.map((emp) => (
-                        <SelectItem key={emp.user_id} value={emp.user_id}>
+                        <SelectItem key={emp.employee_id} value={emp.employee_id}>
                           {emp.full_name} - {emp.position}
                         </SelectItem>
                       ))}
@@ -439,7 +439,7 @@ export default function PerformanceReview() {
           </Card>
         ) : (
           reviews.map((review) => {
-            const employee = employees.find(e => e.user_id === review.employee_id);
+            const employee = employees.find(e => e.employee_id === review.employee_id);
             const categories = [
               { name: "Quality of Work", score: review.quality_of_work },
               { name: "Communication", score: review.communication },

@@ -19,7 +19,7 @@ BEGIN
   -- Insert into employees table automatically
   -- Use metadata from OAuth provider if available
   INSERT INTO public.employees (
-    user_id, 
+    employee_id, 
     full_name, 
     email, 
     department, 
@@ -36,7 +36,7 @@ BEGIN
   );
   
   -- Assign default employee role
-  INSERT INTO public.user_roles (user_id, role)
+  INSERT INTO public.user_roles (employee_id, role)
   VALUES (NEW.id, 'employee');
   
   RETURN NEW;

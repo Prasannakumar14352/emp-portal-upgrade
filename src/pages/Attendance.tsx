@@ -14,7 +14,7 @@ import { userService } from "@/services/userService";
 
 interface AttendanceRecord {
   id: string;
-  user_id: string;
+  employee_id: string;
   date: string;
   check_in_time?: string;
   check_out_time?: string;

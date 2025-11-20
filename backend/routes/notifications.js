@@ -21,11 +21,11 @@ router.get('/', authenticateToken, async (req, res) => {
   try {
     const pool = await getConnection();
     const result = await pool.request()
-      .input('user_id', req.user.user_id)
+      .input('employee_id', req.user.employee_id)
       .query(`
         SELECT 
           id,
-          user_id,
+          employee_id,
           type,
           title,
           message,
@@ -33,7 +33,7 @@ router.get('/', authenticateToken, async (req, res) => {
           created_at,
           metadata
         FROM notifications
-        WHERE user_id = @user_id
+        WHERE employee_id = @employee_id
         ORDER BY created_at DESC
       `);
 
@@ -49,11 +49,11 @@ router.get('/unread-count', authenticateToken, async (req, res) => {
   try {
     const pool = await getConnection();
     const result = await pool.request()
-      .input('user_id', req.user.user_id)
+      .input('employee_id', req.user.employee_id)
       .query(`
         SELECT COUNT(*) as count
         FROM notifications
-        WHERE user_id = @user_id AND [read] = 0
+        WHERE employee_id = @employee_id AND [read] = 0
       `);
 
     res.json({ count: result.recordset[0].count });
@@ -69,11 +69,11 @@ router.put('/:id/read', authenticateToken, async (req, res) => {
     const pool = await getConnection();
     await pool.request()
       .input('id', req.params.id)
-      .input('user_id', req.user.user_id)
+      .input('employee_id', req.user.employee_id)
       .query(`
         UPDATE notifications
         SET [read] = 1
-        WHERE id = @id AND user_id = @user_id
+        WHERE id = @id AND employee_id = @employee_id
       `);
 
     res.json({ success: true });
@@ -88,11 +88,11 @@ router.put('/mark-all-read', authenticateToken, async (req, res) => {
   try {
     const pool = await getConnection();
     await pool.request()
-      .input('user_id', req.user.user_id)
+      .input('employee_id', req.user.employee_id)
       .query(`
         UPDATE notifications
         SET [read] = 1
-        WHERE user_id = @user_id AND [read] = 0
+        WHERE employee_id = @employee_id AND [read] = 0
       `);
 
     res.json({ success: true });
@@ -108,10 +108,10 @@ router.delete('/:id', authenticateToken, async (req, res) => {
     const pool = await getConnection();
     await pool.request()
       .input('id', req.params.id)
-      .input('user_id', req.user.user_id)
+      .input('employee_id', req.user.employee_id)
       .query(`
         DELETE FROM notifications
-        WHERE id = @id AND user_id = @user_id
+        WHERE id = @id AND employee_id = @employee_id
       `);
 
     res.json({ success: true });
@@ -126,11 +126,11 @@ router.get('/preferences', authenticateToken, async (req, res) => {
   try {
     const pool = await getConnection();
     const result = await pool.request()
-      .input('user_id', req.user.user_id)
+      .input('employee_id', req.user.employee_id)
       .query(`
         SELECT 
           id,
-          user_id,
+          employee_id,
           email_notifications,
           push_notifications,
           leave_update_notifications,
@@ -139,20 +139,20 @@ router.get('/preferences', authenticateToken, async (req, res) => {
           created_at,
           updated_at
         FROM user_preferences
-        WHERE user_id = @user_id
+        WHERE employee_id = @employee_id
       `);
 
     if (result.recordset.length === 0) {
       // Create default preferences if not exists
       const insertResult = await pool.request()
-        .input('user_id', req.user.user_id)
+        .input('employee_id', req.user.employee_id)
         .query(`
-          INSERT INTO user_preferences (user_id, email_notifications, push_notifications, leave_update_notifications)
-          VALUES (@user_id, 1, 1, 1);
+          INSERT INTO user_preferences (employee_id, email_notifications, push_notifications, leave_update_notifications)
+          VALUES (@employee_id, 1, 1, 1);
           
           SELECT 
             id,
-            user_id,
+            employee_id,
             email_notifications,
             push_notifications,
             leave_update_notifications,
@@ -161,7 +161,7 @@ router.get('/preferences', authenticateToken, async (req, res) => {
             created_at,
             updated_at
           FROM user_preferences
-          WHERE user_id = @user_id
+          WHERE employee_id = @employee_id
         `);
       
       res.json(insertResult.recordset[0]);
@@ -183,24 +183,24 @@ router.put('/preferences', authenticateToken, async (req, res) => {
     
     // Check if preferences exist
     const checkResult = await pool.request()
-      .input('user_id', req.user.user_id)
-      .query(`SELECT id FROM user_preferences WHERE user_id = @user_id`);
+      .input('employee_id', req.user.employee_id)
+      .query(`SELECT id FROM user_preferences WHERE employee_id = @employee_id`);
 
     if (checkResult.recordset.length === 0) {
       // Insert new preferences
       await pool.request()
-        .input('user_id', req.user.user_id)
+        .input('employee_id', req.user.employee_id)
         .input('email_notifications', email_notifications ?? true)
         .input('push_notifications', push_notifications ?? true)
         .input('leave_update_notifications', leave_update_notifications ?? true)
         .query(`
-          INSERT INTO user_preferences (user_id, email_notifications, push_notifications, leave_update_notifications)
-          VALUES (@user_id, @email_notifications, @push_notifications, @leave_update_notifications)
+          INSERT INTO user_preferences (employee_id, email_notifications, push_notifications, leave_update_notifications)
+          VALUES (@employee_id, @email_notifications, @push_notifications, @leave_update_notifications)
         `);
     } else {
       // Update existing preferences
       const updates = [];
-      const request = pool.request().input('user_id', req.user.user_id);
+      const request = pool.request().input('employee_id', req.user.employee_id);
       
       if (email_notifications !== undefined) {
         updates.push('email_notifications = @email_notifications');
@@ -219,7 +219,7 @@ router.put('/preferences', authenticateToken, async (req, res) => {
         await request.query(`
           UPDATE user_preferences
           SET ${updates.join(', ')}
-          WHERE user_id = @user_id
+          WHERE employee_id = @employee_id
         `);
       }
     }

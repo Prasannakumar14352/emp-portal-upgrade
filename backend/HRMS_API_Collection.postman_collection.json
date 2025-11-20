@@ -512,7 +512,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"user_id\": 1,\n  \"month\": \"December\",\n  \"year\": 2024,\n  \"basic_salary\": 5000,\n  \"allowances\": 1000,\n  \"deductions\": 500,\n  \"net_salary\": 5500\n}"
+              "raw": "{\n  \"employee_id\": 1,\n  \"month\": \"December\",\n  \"year\": 2024,\n  \"basic_salary\": 5000,\n  \"allowances\": 1000,\n  \"deductions\": 500,\n  \"net_salary\": 5500\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/payslips",

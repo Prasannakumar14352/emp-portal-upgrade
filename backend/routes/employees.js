@@ -32,7 +32,7 @@ router.get('/', authenticateToken, async (req, res) => {
     const result = await pool.request()
       .query(`
         SELECT 
-          e.user_id, e.full_name, e.email, e.phone, 
+          e.employee_id, e.full_name, e.email, e.phone, 
           e.department, e.position, e.status, e.created_at, e.updated_at, e.role
         FROM profiles e
         ORDER BY e.full_name
@@ -55,12 +55,12 @@ router.get('/:id', authenticateToken, async (req, res) => {
       .input('id', sql.Int, id)
       .query(`
         SELECT 
-          e.user_id, e.full_name, e.email, e.phone,
+          e.employee_id, e.full_name, e.email, e.phone,
           e.department, e.position, e.status, e.created_at, e.updated_at,
           ur.role
         FROM profiles e
-        LEFT JOIN user_roles ur ON e.user_id = ur.user_id
-        WHERE e.user_id = @id
+        LEFT JOIN user_roles ur ON e.employee_id = ur.employee_id
+        WHERE e.employee_id = @id
       `);
 
     if (result.recordset.length === 0) {
@@ -77,11 +77,11 @@ router.get('/:id', authenticateToken, async (req, res) => {
 // POST /api/employees - Create new employee (HR/Manager only)
 router.post('/', authenticateToken, authorizeRole('hr', 'manager'), async (req, res) => {
   try {
-    const { full_name, email, phone, department, position, status, user_id, role } = req.body;
+    const { full_name, email, phone, department, position, status, employee_id, role } = req.body;
     const pool = await getConnection();
     
     const result = await pool.request()
-      .input('user_id', sql.Int, user_id || null)
+      .input('employee_id', sql.Int, employee_id || null)
       .input('full_name', sql.NVarChar, full_name)
       .input('email', sql.NVarChar, email)
       .input('phone', sql.NVarChar, phone)
@@ -90,9 +90,9 @@ router.post('/', authenticateToken, authorizeRole('hr', 'manager'), async (req, 
       .input('status', sql.NVarChar, status || 'Active')
       .input('role', sql.NVarChar, role || 'employee')
       .query(`
-        INSERT INTO profiles (user_id, full_name, email, phone, department, position, status, created_at, updated_at, role)
+        INSERT INTO profiles (employee_id, full_name, email, phone, department, position, status, created_at, updated_at, role)
         OUTPUT INSERTED.*
-        VALUES (@user_id, @full_name, @email, @phone, @department, @position, @status, GETDATE(), GETDATE(), @role)
+        VALUES (@employee_id, @full_name, @email, @phone, @department, @position, @status, GETDATE(), GETDATE(), @role)
       `);
 
     res.status(201).json(result.recordset[0]);
@@ -117,7 +117,7 @@ router.patch('/:id', authenticateToken, authorizeRole('hr', 'manager'), async (r
       .input('position', sql.NVarChar, position)
       .input('status', sql.NVarChar, status)
       .input('role', sql.NVarChar, role)
-      .input('user_id', sql.Int, id)
+      .input('employee_id', sql.Int, id)
       .query(`
         UPDATE profiles
         SET 
@@ -130,7 +130,7 @@ router.patch('/:id', authenticateToken, authorizeRole('hr', 'manager'), async (r
           updated_at = GETDATE(),
           role = COALESCE(@role, role)
         OUTPUT INSERTED.*
-        WHERE user_id = @user_id
+        WHERE employee_id = @employee_id
       `);
 
     if (result.recordset.length === 0) {
@@ -152,7 +152,7 @@ router.delete('/:id', authenticateToken, authorizeRole('hr'), async (req, res) =
     
     const result = await pool.request()
       .input('id', sql.Int, id)
-      .query('DELETE FROM employees WHERE user_id = @id');
+      .query('DELETE FROM employees WHERE employee_id = @id');
 
     if (result.rowsAffected[0] === 0) {
       return res.status(404).json({ error: 'Employee not found' });
@@ -175,7 +175,7 @@ router.get('/department/:department', authenticateToken, async (req, res) => {
       .input('department', sql.NVarChar, department)
       .query(`
         SELECT 
-          e.user_id, e.full_name, e.email, e.phone,
+          e.employee_id, e.full_name, e.email, e.phone,
           e.department, e.position, e.status, e.created_at, e.updated_at, e.role
         FROM profiles e
         WHERE e.department = @department

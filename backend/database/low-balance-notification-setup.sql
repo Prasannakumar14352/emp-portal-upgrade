@@ -12,7 +12,7 @@ DECLARE @current_year INT = YEAR(GETDATE());
 -- FIND USERS WITH LOW BALANCE
 -- ===========================================
 SELECT 
-    u.id as user_id,
+    u.id as employee_id,
     u.email,
     u.full_name,
     u.department,
@@ -28,7 +28,7 @@ SELECT
     END as alert_level
 INTO #low_balance_users
 FROM leave_balances lb
-INNER JOIN users u ON lb.user_id = u.id
+INNER JOIN users u ON lb.employee_id = u.id
 WHERE lb.year = @current_year
     AND lb.total_days > 0
     AND CAST(lb.remaining_days as FLOAT) / NULLIF(lb.total_days, 0) * 100 < @threshold_percentage

@@ -6,7 +6,7 @@ IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'notifications')
 BEGIN
     CREATE TABLE notifications (
         id INT IDENTITY(1,1) PRIMARY KEY,
-        user_id INT NOT NULL,
+        employee_id INT NOT NULL,
         type NVARCHAR(50) NOT NULL,
         title NVARCHAR(255) NOT NULL,
         message NVARCHAR(MAX) NOT NULL,
@@ -16,10 +16,10 @@ BEGIN
     );
 
     -- Create indexes for better query performance
-    CREATE INDEX idx_notifications_user_id ON notifications(user_id);
+    CREATE INDEX idx_notifications_employee_id ON notifications(employee_id);
     CREATE INDEX idx_notifications_created_at ON notifications(created_at DESC);
     CREATE INDEX idx_notifications_read ON notifications([read]);
-    CREATE INDEX idx_notifications_user_read ON notifications(user_id, [read]);
+    CREATE INDEX idx_notifications_user_read ON notifications(employee_id, [read]);
 
     PRINT 'Notifications table created successfully';
 END

@@ -49,13 +49,13 @@
  *           schema:
  *             type: object
  *             required:
- *               - user_id
+ *               - employee_id
  *               - month
  *               - year
  *               - basic_salary
  *               - net_salary
  *             properties:
- *               user_id:
+ *               employee_id:
  *                 type: integer
  *                 example: 1
  *               month:

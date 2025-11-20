@@ -162,19 +162,19 @@ INSERT INTO profiles (email, full_name, department, position, hire_date)
 VALUES ('john.doe@company.com', 'John Doe', 'Engineering', 'Developer', GETDATE());
 
 -- Get the user ID
-DECLARE @user_id UNIQUEIDENTIFIER = (SELECT id FROM profiles WHERE email = 'john.doe@company.com');
+DECLARE @employee_id UNIQUEIDENTIFIER = (SELECT id FROM profiles WHERE email = 'john.doe@company.com');
 
 -- Assign role (default is employee)
-INSERT INTO user_roles (user_id, role) VALUES (@user_id, 'employee');
+INSERT INTO user_roles (employee_id, role) VALUES (@employee_id, 'employee');
 
 -- Create employee record
-INSERT INTO employees (user_id, full_name, email, department, position, status)
-VALUES (@user_id, 'John Doe', 'john.doe@company.com', 'Engineering', 'Developer', 'Active');
+INSERT INTO employees (employee_id, full_name, email, department, position, status)
+VALUES (@employee_id, 'John Doe', 'john.doe@company.com', 'Engineering', 'Developer', 'Active');
 
 -- Initialize leave balances for current year
 DECLARE @current_year INT = YEAR(GETDATE());
-INSERT INTO leave_balances (user_id, year, leave_type, total_days, used_days, remaining_days)
-SELECT @user_id, @current_year, name, default_days, 0, default_days
+INSERT INTO leave_balances (employee_id, year, leave_type, total_days, used_days, remaining_days)
+SELECT @employee_id, @current_year, name, default_days, 0, default_days
 FROM leave_types WHERE is_active = 1;
 ```
 
@@ -191,7 +191,7 @@ SELECT
     lb.carry_forward_days,
     CAST(lb.remaining_days as FLOAT) / NULLIF(lb.total_days, 0) * 100 as percentage_remaining
 FROM leave_balances lb
-INNER JOIN profiles u ON lb.user_id = u.id
+INNER JOIN profiles u ON lb.employee_id = u.id
 WHERE lb.year = YEAR(GETDATE())
 ORDER BY u.full_name, lb.leave_type;
 ```
@@ -207,7 +207,7 @@ SELECT
     lb.total_days,
     CAST(lb.remaining_days as FLOAT) / NULLIF(lb.total_days, 0) * 100 as percentage_remaining
 FROM leave_balances lb
-INNER JOIN profiles u ON lb.user_id = u.id
+INNER JOIN profiles u ON lb.employee_id = u.id
 WHERE lb.year = YEAR(GETDATE())
     AND lb.total_days > 0
     AND CAST(lb.remaining_days as FLOAT) / lb.total_days < 0.25

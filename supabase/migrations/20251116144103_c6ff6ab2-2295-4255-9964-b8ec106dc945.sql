@@ -20,16 +20,16 @@ ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 -- Create user_roles table
 CREATE TABLE public.user_roles (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  employee_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
   role app_role NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  UNIQUE(user_id, role)
+  UNIQUE(employee_id, role)
 );
 
 ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
 
 -- Create security definer function to check roles
-CREATE OR REPLACE FUNCTION public.has_role(_user_id UUID, _role app_role)
+CREATE OR REPLACE FUNCTION public.has_role(_employee_id UUID, _role app_role)
 RETURNS BOOLEAN
 LANGUAGE SQL
 STABLE
@@ -39,14 +39,14 @@ AS $$
   SELECT EXISTS (
     SELECT 1
     FROM public.user_roles
-    WHERE user_id = _user_id AND role = _role
+    WHERE employee_id = _employee_id AND role = _role
   )
 $$;
 
 -- Create leaves table
 CREATE TABLE public.leaves (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  employee_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
   leave_type TEXT NOT NULL,
   start_date DATE NOT NULL,
   end_date DATE NOT NULL,
@@ -63,7 +63,7 @@ ALTER TABLE public.leaves ENABLE ROW LEVEL SECURITY;
 -- Create employees table (for employee directory)
 CREATE TABLE public.employees (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  employee_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   full_name TEXT NOT NULL,
   email TEXT NOT NULL UNIQUE,
   phone TEXT,
@@ -79,7 +79,7 @@ ALTER TABLE public.employees ENABLE ROW LEVEL SECURITY;
 -- Create payslips table
 CREATE TABLE public.payslips (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  employee_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
   month TEXT NOT NULL,
   year INTEGER NOT NULL,
   basic_salary DECIMAL(10, 2) NOT NULL,
@@ -88,7 +88,7 @@ CREATE TABLE public.payslips (
   net_salary DECIMAL(10, 2) NOT NULL,
   file_url TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  UNIQUE(user_id, month, year)
+  UNIQUE(employee_id, month, year)
 );
 
 ALTER TABLE public.payslips ENABLE ROW LEVEL SECURITY;
@@ -136,7 +136,7 @@ CREATE POLICY "HR and managers can insert profiles"
 CREATE POLICY "Users can view own roles"
   ON public.user_roles FOR SELECT
   TO authenticated
-  USING (auth.uid() = user_id);
+  USING (auth.uid() = employee_id);
 
 CREATE POLICY "HR and managers can view all roles"
   ON public.user_roles FOR SELECT
@@ -166,7 +166,7 @@ CREATE POLICY "HR and managers can delete roles"
 CREATE POLICY "Users can view own leaves"
   ON public.leaves FOR SELECT
   TO authenticated
-  USING (auth.uid() = user_id);
+  USING (auth.uid() = employee_id);
 
 CREATE POLICY "HR and managers can view all leaves"
   ON public.leaves FOR SELECT
@@ -179,7 +179,7 @@ CREATE POLICY "HR and managers can view all leaves"
 CREATE POLICY "Users can insert own leaves"
   ON public.leaves FOR INSERT
   TO authenticated
-  WITH CHECK (auth.uid() = user_id);
+  WITH CHECK (auth.uid() = employee_id);
 
 CREATE POLICY "HR and managers can update leaves"
   ON public.leaves FOR UPDATE
@@ -223,7 +223,7 @@ CREATE POLICY "HR and managers can delete employees"
 CREATE POLICY "Users can view own payslips"
   ON public.payslips FOR SELECT
   TO authenticated
-  USING (auth.uid() = user_id);
+  USING (auth.uid() = employee_id);
 
 CREATE POLICY "HR and managers can view all payslips"
   ON public.payslips FOR SELECT
@@ -317,7 +317,7 @@ BEGIN
   );
   
   -- Assign default employee role
-  INSERT INTO public.user_roles (user_id, role)
+  INSERT INTO public.user_roles (employee_id, role)
   VALUES (NEW.id, 'employee');
   
   RETURN NEW;

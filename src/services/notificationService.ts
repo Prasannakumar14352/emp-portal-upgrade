@@ -2,7 +2,7 @@ import { apiClient } from './apiClient';
 
 export interface Notification {
   id: string;
-  user_id: number;
+  employee_id: number;
   type: string;
   title: string;
   message: string;
@@ -13,7 +13,7 @@ export interface Notification {
 
 export interface NotificationPreferences {
   id?: string;
-  user_id: number;
+  employee_id: number;
   email_notifications: boolean;
   push_notifications: boolean;
   leave_update_notifications: boolean;

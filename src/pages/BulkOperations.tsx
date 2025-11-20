@@ -152,7 +152,7 @@ export default function BulkOperations() {
 
       if (response.failed > 0) {
         toast.warning(`Created ${response.created} payslips. ${response.failed} failed.`, {
-          description: response.failedPayslips?.map(f => `User ${f.user_id} (${f.month} ${f.year}): ${f.reason}`).join(', ')
+          description: response.failedPayslips?.map(f => `User ${f.employee_id} (${f.month} ${f.year}): ${f.reason}`).join(', ')
         });
       } else {
         toast.success(`Successfully created ${response.created} payslips`);
@@ -350,7 +350,7 @@ export default function BulkOperations() {
             <CardHeader>
               <CardTitle>Bulk Create Payslips</CardTitle>
               <CardDescription>
-                Paste JSON array of payslip objects. Each payslip should have: user_id (UUID), month, year, basic_salary, allowances (optional), deductions (optional), net_salary
+                Paste JSON array of payslip objects. Each payslip should have: employee_id (UUID), month, year, basic_salary, allowances (optional), deductions (optional), net_salary
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -359,7 +359,7 @@ export default function BulkOperations() {
                 <pre className="text-xs overflow-x-auto">
 {`[
   {
-    "user_id": "user-uuid-here",
+    "employee_id": "user-uuid-here",
     "month": "January",
     "year": 2025,
     "basic_salary": 5000,

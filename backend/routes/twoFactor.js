@@ -15,8 +15,8 @@ router.post('/setup', authenticateToken, async (req, res) => {
 
     // Get user email for QR code
     const userResult = await pool.request()
-      .input('user_id', sql.Int, userId)
-      .query('SELECT email, full_name FROM profiles WHERE user_id = @user_id');
+      .input('employee_id', sql.Int, userId)
+      .query('SELECT email, full_name FROM profiles WHERE employee_id = @employee_id');
 
     if (userResult.recordset.length === 0) {
       return res.status(404).json({ error: 'User not found' });
@@ -37,14 +37,14 @@ router.post('/setup', authenticateToken, async (req, res) => {
 
     // Store secret (temporarily, not enabled yet)
     await pool.request()
-      .input('user_id', sql.Int, userId)
+      .input('employee_id', sql.Int, userId)
       .input('secret', sql.NVarChar, secret.base32)
       .input('backup_codes', sql.NVarChar, JSON.stringify(backupCodes))
       .query(`
         UPDATE profiles 
         SET two_factor_secret = @secret,
             two_factor_backup_codes = @backup_codes
-        WHERE user_id = @user_id
+        WHERE employee_id = @employee_id
       `);
 
     // Generate QR code
@@ -75,8 +75,8 @@ router.post('/verify', authenticateToken, async (req, res) => {
 
     // Get user's secret
     const result = await pool.request()
-      .input('user_id', sql.Int, userId)
-      .query('SELECT two_factor_secret FROM profiles WHERE user_id = @user_id');
+      .input('employee_id', sql.Int, userId)
+      .query('SELECT two_factor_secret FROM profiles WHERE employee_id = @employee_id');
 
     if (result.recordset.length === 0 || !result.recordset[0].two_factor_secret) {
       return res.status(400).json({ error: '2FA not set up' });
@@ -98,8 +98,8 @@ router.post('/verify', authenticateToken, async (req, res) => {
 
     // Enable 2FA
     await pool.request()
-      .input('user_id', sql.Int, userId)
-      .query('UPDATE profiles SET two_factor_enabled = 1 WHERE user_id = @user_id');
+      .input('employee_id', sql.Int, userId)
+      .query('UPDATE profiles SET two_factor_enabled = 1 WHERE employee_id = @employee_id');
 
     res.json({ message: '2FA enabled successfully' });
   } catch (err) {
@@ -122,11 +122,11 @@ router.post('/disable', authenticateToken, async (req, res) => {
 
     // Get user data
     const result = await pool.request()
-      .input('user_id', sql.Int, userId)
+      .input('employee_id', sql.Int, userId)
       .query(`
         SELECT two_factor_secret, two_factor_backup_codes, password_hash 
         FROM profiles 
-        WHERE user_id = @user_id
+        WHERE employee_id = @employee_id
       `);
 
     if (result.recordset.length === 0) {
@@ -146,9 +146,9 @@ router.post('/disable', authenticateToken, async (req, res) => {
         // Remove used backup code
         const updatedCodes = backupCodes.filter(code => code !== token);
         await pool.request()
-          .input('user_id', sql.Int, userId)
+          .input('employee_id', sql.Int, userId)
           .input('backup_codes', sql.NVarChar, JSON.stringify(updatedCodes))
-          .query('UPDATE profiles SET two_factor_backup_codes = @backup_codes WHERE user_id = @user_id');
+          .query('UPDATE profiles SET two_factor_backup_codes = @backup_codes WHERE employee_id = @employee_id');
       } else {
         // Verify TOTP token
         verified = speakeasy.totp.verify({
@@ -166,13 +166,13 @@ router.post('/disable', authenticateToken, async (req, res) => {
 
     // Disable 2FA
     await pool.request()
-      .input('user_id', sql.Int, userId)
+      .input('employee_id', sql.Int, userId)
       .query(`
         UPDATE profiles 
         SET two_factor_enabled = 0,
             two_factor_secret = NULL,
             two_factor_backup_codes = NULL
-        WHERE user_id = @user_id
+        WHERE employee_id = @employee_id
       `);
 
     res.json({ message: '2FA disabled successfully' });
@@ -195,11 +195,11 @@ router.post('/verify-login', async (req, res) => {
 
     // Get user's secret
     const result = await pool.request()
-      .input('user_id', sql.Int, userId)
+      .input('employee_id', sql.Int, userId)
       .query(`
         SELECT two_factor_secret, two_factor_backup_codes 
         FROM profiles 
-        WHERE user_id = @user_id AND two_factor_enabled = 1
+        WHERE employee_id = @employee_id AND two_factor_enabled = 1
       `);
 
     if (result.recordset.length === 0 || !result.recordset[0].two_factor_secret) {
@@ -216,9 +216,9 @@ router.post('/verify-login', async (req, res) => {
       // Remove used backup code
       const updatedCodes = backupCodes.filter(code => code !== token);
       await pool.request()
-        .input('user_id', sql.Int, userId)
+        .input('employee_id', sql.Int, userId)
         .input('backup_codes', sql.NVarChar, JSON.stringify(updatedCodes))
-        .query('UPDATE profiles SET two_factor_backup_codes = @backup_codes WHERE user_id = @user_id');
+        .query('UPDATE profiles SET two_factor_backup_codes = @backup_codes WHERE employee_id = @employee_id');
     } else {
       // Verify TOTP token
       verified = speakeasy.totp.verify({
@@ -247,7 +247,7 @@ router.get('/status', authenticateToken, async (req, res) => {
     const pool = await getConnection();
 
     const result = await pool.request()
-      .input('user_id', sql.Int, userId)
+      .input('employee_id', sql.Int, userId)
       .query(`
         SELECT two_factor_enabled, 
                CASE WHEN two_factor_backup_codes IS NOT NULL 
@@ -255,7 +255,7 @@ router.get('/status', authenticateToken, async (req, res) => {
                     ELSE 0 
                END as backup_codes_remaining
         FROM profiles 
-        WHERE user_id = @user_id
+        WHERE employee_id = @employee_id
       `);
 
     if (result.recordset.length === 0) {

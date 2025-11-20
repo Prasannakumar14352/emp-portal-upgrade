@@ -9,21 +9,21 @@ const router = express.Router();
 // GET /api/leaves/conflicts - Check for leave conflicts
 router.get('/conflicts', authenticateToken, async (req, res) => {
   try {
-    const { start_date, end_date, user_id } = req.query;
+    const { start_date, end_date, employee_id } = req.query;
     const pool = await getConnection();
 
     const result = await pool.request()
       .input('start_date', sql.Date, start_date)
       .input('end_date', sql.Date, end_date)
-      .input('user_id', sql.Int, user_id ? parseInt(user_id) : null)
+      .input('employee_id', sql.Int, employee_id ? parseInt(employee_id) : null)
       .query(`
         SELECT 
-          l.id, l.user_id, l.leave_type, l.start_date, l.end_date, l.days,
+          l.id, l.employee_id, l.leave_type, l.start_date, l.end_date, l.days,
           u.full_name, u.department
         FROM leaves l
-        JOIN profiles u ON l.user_id = u.user_id
+        JOIN profiles u ON l.employee_id = u.employee_id
         WHERE l.status IN ('Pending', 'Approved')
-          AND (@user_id IS NULL OR l.user_id != @user_id)
+          AND (@employee_id IS NULL OR l.employee_id != @employee_id)
           AND (
             (l.start_date BETWEEN @start_date AND @end_date)
             OR (l.end_date BETWEEN @start_date AND @end_date)
@@ -53,13 +53,13 @@ router.get('/user/:userId', authenticateToken, async (req, res) => {
 
     const pool = await getConnection();
     const result = await pool.request()
-      .input('user_id', sql.Int, userIdInt)
+      .input('employee_id', sql.Int, userIdInt)
       .query(`
         SELECT 
-          l.id, l.user_id, l.leave_type, l.start_date, l.end_date,
+          l.id, l.employee_id, l.leave_type, l.start_date, l.end_date,
           l.days, l.reason, l.status, l.approved_by, l.created_at, l.updated_at
         FROM leaves l
-        WHERE l.user_id = @user_id
+        WHERE l.employee_id = @employee_id
         ORDER BY l.created_at DESC
       `);
 
@@ -78,11 +78,11 @@ router.get('/', authenticateToken, authorizeRole('hr', 'manager'), async (req, r
 
     let query = `
       SELECT 
-        l.id, l.user_id, l.leave_type, l.start_date, l.end_date,
+        l.id, l.employee_id, l.leave_type, l.start_date, l.end_date,
         l.days, l.reason, l.status, l.approved_by, l.created_at, l.updated_at,
         u.full_name as user_name, u.email as user_email
       FROM leaves l
-      JOIN profiles u ON l.user_id = u.user_id
+      JOIN profiles u ON l.employee_id = u.employee_id
     `;
 
     if (status) {
@@ -112,7 +112,7 @@ router.post('/', authenticateToken, async (req, res) => {
     const nodemailer = require('nodemailer');
 
     const result = await pool.request()
-      .input('user_id', sql.Int, req.user.id)
+      .input('employee_id', sql.Int, req.user.id)
       .input('manager_id', sql.Int, manager_id || null)
       .input('leave_type', sql.NVarChar, leave_type)
       .input('start_date', sql.Date, start_date)
@@ -121,16 +121,16 @@ router.post('/', authenticateToken, async (req, res) => {
       .input('reason', sql.NVarChar, reason)
       .input('cc_emails', sql.NVarChar, cc_emails ? JSON.stringify(cc_emails) : null)
       .query(`
-        INSERT INTO leaves (user_id, manager_id, leave_type, start_date, end_date, days, reason, cc_emails, status, manager_status, hr_status, created_at)
+        INSERT INTO leaves (employee_id, manager_id, leave_type, start_date, end_date, days, reason, cc_emails, status, manager_status, hr_status, created_at)
         OUTPUT INSERTED.*
-        VALUES (@user_id, @manager_id, @leave_type, @start_date, @end_date, @days, @reason, @cc_emails, 'Pending', 'Pending', 'Pending', GETDATE())
+        VALUES (@employee_id, @manager_id, @leave_type, @start_date, @end_date, @days, @reason, @cc_emails, 'Pending', 'Pending', 'Pending', GETDATE())
       `);
 
     // Send email notifications
     try {
       const userResult = await pool.request()
-        .input('user_id', sql.Int, req.user.id)
-        .query('SELECT email, full_name FROM profiles WHERE user_id = @user_id');
+        .input('employee_id', sql.Int, req.user.id)
+        .query('SELECT email, full_name FROM profiles WHERE employee_id = @employee_id');
 
       if (userResult.recordset.length > 0) {
         const employee = userResult.recordset[0];
@@ -155,18 +155,18 @@ router.post('/', authenticateToken, async (req, res) => {
           <p>Please log in to the system to review and approve/reject this request.</p>
         `;
 
-        // Collect all recipients with user_id for preference checking
+        // Collect all recipients with employee_id for preference checking
         const recipients = [];
 
         // Add manager email
         if (manager_id) {
           const managerResult = await pool.request()
             .input('manager_id', sql.Int, manager_id)
-            .query('SELECT user_id, email, full_name FROM profiles WHERE user_id = @manager_id');
+            .query('SELECT employee_id, email, full_name FROM profiles WHERE employee_id = @manager_id');
           
           if (managerResult.recordset.length > 0) {
             recipients.push({
-              user_id: managerResult.recordset[0].user_id,
+              employee_id: managerResult.recordset[0].employee_id,
               email: managerResult.recordset[0].email
             });
           }
@@ -175,16 +175,16 @@ router.post('/', authenticateToken, async (req, res) => {
         // Add all HR users
         const hrResult = await pool.request()
           .query(`
-            SELECT p.user_id, p.email 
+            SELECT p.employee_id, p.email 
             FROM profiles p
-            INNER JOIN user_roles ur ON p.user_id = ur.user_id
+            INNER JOIN user_roles ur ON p.employee_id = ur.employee_id
             WHERE ur.role = 'hr'
           `);
         
         hrResult.recordset.forEach(hr => {
           if (!recipients.find(r => r.email === hr.email)) {
             recipients.push({
-              user_id: hr.user_id,
+              employee_id: hr.employee_id,
               email: hr.email
             });
           }
@@ -296,8 +296,8 @@ router.patch('/:leaveId', authenticateToken, authorizeRole('hr', 'manager'), asy
 
     // Check user preferences and emit real-time notification if enabled
     const prefsResult = await pool.request()
-      .input('user_id', sql.Int, updatedLeave.user_id)
-      .query('SELECT leave_update_notifications FROM user_preferences WHERE user_id = @user_id');
+      .input('employee_id', sql.Int, updatedLeave.employee_id)
+      .query('SELECT leave_update_notifications FROM user_preferences WHERE employee_id = @employee_id');
     
     const shouldNotify = prefsResult.recordset.length === 0 || prefsResult.recordset[0].leave_update_notifications !== false;
 
@@ -305,7 +305,7 @@ router.patch('/:leaveId', authenticateToken, authorizeRole('hr', 'manager'), asy
       // Emit real-time notification to employee
       const io = req.app.get('io');
       if (io) {
-        io.to(`user-${updatedLeave.user_id}`).emit('leaveStatusUpdate', {
+        io.to(`user-${updatedLeave.employee_id}`).emit('leaveStatusUpdate', {
           leaveId: updatedLeave.id,
           status: updatedLeave.status,
           leaveType: updatedLeave.leave_type,
@@ -318,7 +318,7 @@ router.patch('/:leaveId', authenticateToken, authorizeRole('hr', 'manager'), asy
 
       // Insert notification into database
       await pool.request()
-        .input('user_id', sql.Int, updatedLeave.user_id)
+        .input('employee_id', sql.Int, updatedLeave.employee_id)
         .input('type', sql.NVarChar, status === 'Approved' ? 'leave_approved' : 'leave_rejected')
         .input('title', sql.NVarChar, `Leave Request ${status}`)
         .input('message', sql.NVarChar, `Your ${updatedLeave.leave_type} request has been ${status.toLowerCase()} by ${isManager ? 'your manager' : 'HR'}`)
@@ -329,8 +329,8 @@ router.patch('/:leaveId', authenticateToken, authorizeRole('hr', 'manager'), asy
           comments: comments || ''
         }))
         .query(`
-          INSERT INTO notifications (user_id, type, title, message, metadata, created_at)
-          VALUES (@user_id, @type, @title, @message, @metadata, GETDATE())
+          INSERT INTO notifications (employee_id, type, title, message, metadata, created_at)
+          VALUES (@employee_id, @type, @title, @message, @metadata, GETDATE())
         `);
     }
 
@@ -348,19 +348,19 @@ router.patch('/:leaveId', authenticateToken, authorizeRole('hr', 'manager'), asy
 
       // Get employee and approver details
       const employeeResult = await pool.request()
-        .input('user_id', sql.Int, updatedLeave.user_id)
-        .query('SELECT email, full_name FROM profiles WHERE user_id = @user_id');
+        .input('employee_id', sql.Int, updatedLeave.employee_id)
+        .query('SELECT email, full_name FROM profiles WHERE employee_id = @employee_id');
       
       const approverResult = await pool.request()
         .input('approver_id', sql.Int, req.user.id)
-        .query('SELECT email, full_name FROM profiles WHERE user_id = @approver_id');
+        .query('SELECT email, full_name FROM profiles WHERE employee_id = @approver_id');
 
       if (employeeResult.recordset.length > 0 && approverResult.recordset.length > 0) {
         const employee = employeeResult.recordset[0];
         const approver = approverResult.recordset[0];
         
         // Check if employee wants to receive leave notifications
-        const shouldNotifyEmployee = await shouldSendLeaveNotification(updatedLeave.user_id);
+        const shouldNotifyEmployee = await shouldSendLeaveNotification(updatedLeave.employee_id);
         
         // Notify employee if they have notifications enabled
         if (shouldNotifyEmployee) {
@@ -385,16 +385,16 @@ router.patch('/:leaveId', authenticateToken, authorizeRole('hr', 'manager'), asy
         if (isManager && status === 'Approved') {
           const hrResult = await pool.request()
             .query(`
-              SELECT p.email, p.full_name, p.user_id
+              SELECT p.email, p.full_name, p.employee_id
               FROM profiles p
-              JOIN user_roles ur ON p.user_id = ur.user_id
+              JOIN user_roles ur ON p.employee_id = ur.employee_id
               WHERE ur.role = 'hr'
             `);
           
           if (hrResult.recordset.length > 0) {
             // Filter HR emails based on their preferences
             const hrWithPrefs = hrResult.recordset.map(hr => ({
-              user_id: hr.user_id,
+              employee_id: hr.employee_id,
               email: hr.email
             }));
             const hrEmails = await filterEmailRecipients(hrWithPrefs);
@@ -426,22 +426,22 @@ router.patch('/:leaveId', authenticateToken, authorizeRole('hr', 'manager'), asy
       const year = new Date(updatedLeave.start_date).getFullYear();
 
       await pool.request()
-        .input('user_id', sql.Int, updatedLeave.user_id)
+        .input('employee_id', sql.Int, updatedLeave.employee_id)
         .input('year', sql.Int, year)
         .input('leave_type', sql.NVarChar, updatedLeave.leave_type)
         .input('days', sql.Int, updatedLeave.days)
         .query(`
           MERGE leave_balances AS target
-          USING (SELECT @user_id as user_id, @year as year, @leave_type as leave_type) AS source
-          ON target.user_id = source.user_id AND target.year = source.year AND target.leave_type = source.leave_type
+          USING (SELECT @employee_id as employee_id, @year as year, @leave_type as leave_type) AS source
+          ON target.employee_id = source.employee_id AND target.year = source.year AND target.leave_type = source.leave_type
           WHEN MATCHED THEN
             UPDATE SET 
               used_days = used_days + @days,
               remaining_days = total_days - (used_days + @days),
               updated_at = GETDATE()
           WHEN NOT MATCHED THEN
-            INSERT (user_id, year, leave_type, total_days, used_days, remaining_days, created_at)
-            VALUES (@user_id, @year, @leave_type, 20, @days, 20 - @days, GETDATE());
+            INSERT (employee_id, year, leave_type, total_days, used_days, remaining_days, created_at)
+            VALUES (@employee_id, @year, @leave_type, 20, @days, 20 - @days, GETDATE());
         `);
     }
 
@@ -467,14 +467,14 @@ router.get('/balances/:userId', authenticateToken, async (req, res) => {
     const currentYear = year || new Date().getFullYear();
 
     const result = await pool.request()
-      .input('user_id', sql.Int, userIdInt)
+      .input('employee_id', sql.Int, userIdInt)
       .input('year', sql.Int, currentYear)
       .query(`
         SELECT 
-          id, user_id, year, leave_type, total_days, 
+          id, employee_id, year, leave_type, total_days, 
           used_days, remaining_days, carry_forward_days
         FROM leave_balances
-        WHERE user_id = @user_id AND year = @year
+        WHERE employee_id = @employee_id AND year = @year
       `);
 
     res.json(result.recordset);
@@ -493,12 +493,12 @@ router.post('/:leaveId/comments', authenticateToken, authorizeRole('hr', 'manage
     const pool = await getConnection();
     const result = await pool.request()
       .input('leave_id', sql.Int, leaveId)
-      .input('user_id', sql.Int, req.user.id)
+      .input('employee_id', sql.Int, req.user.id)
       .input('comment', sql.NVarChar, comment)
       .query(`
-        INSERT INTO leave_comments (leave_id, user_id, comment, created_at)
+        INSERT INTO leave_comments (leave_id, employee_id, comment, created_at)
         OUTPUT INSERTED.*
-        VALUES (@leave_id, @user_id, @comment, GETDATE())
+        VALUES (@leave_id, @employee_id, @comment, GETDATE())
       `);
 
     res.status(201).json(result.recordset[0]);
@@ -518,10 +518,10 @@ router.get('/:leaveId/comments', authenticateToken, async (req, res) => {
       .input('leave_id', sql.Int, leaveId)
       .query(`
         SELECT 
-          lc.id, lc.leave_id, lc.user_id, lc.comment, lc.created_at,
+          lc.id, lc.leave_id, lc.employee_id, lc.comment, lc.created_at,
           u.full_name as author_name
         FROM leave_comments lc
-        JOIN profiles u ON lc.user_id = u.user_id
+        JOIN profiles u ON lc.employee_id = u.employee_id
         WHERE lc.leave_id = @leave_id
         ORDER BY lc.created_at DESC
       `);
@@ -553,7 +553,7 @@ router.put('/:leaveId', authenticateToken, async (req, res) => {
     const leave = leaveResult.recordset[0];
     
     // Only the employee who created the request can edit it
-    if (parseInt(req.user.id) !== leave.user_id) {
+    if (parseInt(req.user.id) !== leave.employee_id) {
       return res.status(403).json({ error: 'You can only edit your own leave requests' });
     }
 
@@ -601,8 +601,8 @@ router.put('/:leaveId', authenticateToken, async (req, res) => {
       });
 
       const employeeResult = await pool.request()
-        .input('user_id', sql.Int, leave.user_id)
-        .query('SELECT email, full_name FROM profiles WHERE user_id = @user_id');
+        .input('employee_id', sql.Int, leave.employee_id)
+        .query('SELECT email, full_name FROM profiles WHERE employee_id = @employee_id');
 
       if (employeeResult.recordset.length > 0) {
         const employee = employeeResult.recordset[0];
@@ -611,7 +611,7 @@ router.put('/:leaveId', authenticateToken, async (req, res) => {
         if (leave.manager_id) {
           const managerResult = await pool.request()
             .input('manager_id', sql.Int, leave.manager_id)
-            .query('SELECT email, full_name FROM profiles WHERE user_id = @manager_id');
+            .query('SELECT email, full_name FROM profiles WHERE employee_id = @manager_id');
           
           if (managerResult.recordset.length > 0) {
             const manager = managerResult.recordset[0];
@@ -637,7 +637,7 @@ router.put('/:leaveId', authenticateToken, async (req, res) => {
           .query(`
             SELECT p.email, p.full_name 
             FROM profiles p
-            JOIN user_roles ur ON p.user_id = ur.user_id
+            JOIN user_roles ur ON p.employee_id = ur.employee_id
             WHERE ur.role = 'hr'
           `);
         
@@ -689,7 +689,7 @@ router.delete('/:leaveId', authenticateToken, async (req, res) => {
     const leave = leaveResult.recordset[0];
     
     // Only the employee who created the request can cancel it
-    if (parseInt(req.user.id) !== leave.user_id) {
+    if (parseInt(req.user.id) !== leave.employee_id) {
       return res.status(403).json({ error: 'You can only cancel your own leave requests' });
     }
 
@@ -700,8 +700,8 @@ router.delete('/:leaveId', authenticateToken, async (req, res) => {
 
     // Get employee details
     const employeeResult = await pool.request()
-      .input('user_id', sql.Int, leave.user_id)
-      .query('SELECT email, full_name FROM profiles WHERE user_id = @user_id');
+      .input('employee_id', sql.Int, leave.employee_id)
+      .query('SELECT email, full_name FROM profiles WHERE employee_id = @employee_id');
 
     // Delete the leave request
     await pool.request()
@@ -727,7 +727,7 @@ router.delete('/:leaveId', authenticateToken, async (req, res) => {
         if (leave.manager_id) {
           const managerResult = await pool.request()
             .input('manager_id', sql.Int, leave.manager_id)
-            .query('SELECT email, full_name FROM profiles WHERE user_id = @manager_id');
+            .query('SELECT email, full_name FROM profiles WHERE employee_id = @manager_id');
           
           if (managerResult.recordset.length > 0) {
             const manager = managerResult.recordset[0];
@@ -751,7 +751,7 @@ router.delete('/:leaveId', authenticateToken, async (req, res) => {
           .query(`
             SELECT p.email, p.full_name 
             FROM profiles p
-            JOIN user_roles ur ON p.user_id = ur.user_id
+            JOIN user_roles ur ON p.employee_id = ur.employee_id
             WHERE ur.role = 'hr'
           `);
         

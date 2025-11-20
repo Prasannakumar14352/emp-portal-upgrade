@@ -610,7 +610,7 @@ router.get('/', (req, res) => {
               body: {
                 mode: 'raw',
                 raw: JSON.stringify({
-                  user_id: 1,
+                  employee_id: 1,
                   month: 'January',
                   year: 2024,
                   basic_salary: 5000,

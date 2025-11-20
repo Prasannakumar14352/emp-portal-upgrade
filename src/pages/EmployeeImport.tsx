@@ -35,7 +35,7 @@ interface ImportResult {
   success: boolean;
   created: number;
   failed: number;
-  createdUsers: Array<{ user_id: string; email: string; full_name: string; role: string }>;
+  createdUsers: Array<{ employee_id: string; email: string; full_name: string; role: string }>;
   failedUsers: Array<{ email: string; reason: string }>;
 }
 

@@ -46,7 +46,7 @@
  *               status:
  *                 type: string
  *                 enum: [Active, Inactive, On Leave]
- *               user_id:
+ *               employee_id:
  *                 type: integer
  *     responses:
  *       201:

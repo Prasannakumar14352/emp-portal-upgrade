@@ -15,7 +15,7 @@ IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'user_preferences')
 BEGIN
     CREATE TABLE user_preferences (
         id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-        user_id INT NOT NULL,
+        employee_id INT NOT NULL,
         dark_mode BIT DEFAULT 0,
         compact_view BIT DEFAULT 0,
         email_notifications BIT DEFAULT 1,
@@ -23,8 +23,8 @@ BEGIN
         leave_update_notifications BIT DEFAULT 1,
         created_at DATETIME2 DEFAULT GETDATE(),
         updated_at DATETIME2 DEFAULT GETDATE(),
-        CONSTRAINT FK_user_preferences_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-        CONSTRAINT UQ_user_preferences_user_id UNIQUE (user_id)
+        CONSTRAINT FK_user_preferences_user FOREIGN KEY (employee_id) REFERENCES users(id) ON DELETE CASCADE,
+        CONSTRAINT UQ_user_preferences_employee_id UNIQUE (employee_id)
     );
     
     PRINT 'Table user_preferences created successfully';
@@ -81,7 +81,7 @@ IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'performance_goals')
 BEGIN
     CREATE TABLE performance_goals (
         id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-        user_id INT NOT NULL,
+        employee_id INT NOT NULL,
         title NVARCHAR(255) NOT NULL,
         description NVARCHAR(MAX) NULL,
         progress INT DEFAULT 0 CHECK (progress >= 0 AND progress <= 100),
@@ -89,11 +89,11 @@ BEGIN
         target_date DATE NULL,
         created_at DATETIME2 DEFAULT GETDATE(),
         updated_at DATETIME2 DEFAULT GETDATE(),
-        CONSTRAINT FK_performance_goals_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        CONSTRAINT FK_performance_goals_user FOREIGN KEY (employee_id) REFERENCES users(id) ON DELETE CASCADE
     );
     
     -- Create indexes
-    CREATE INDEX IX_performance_goals_user ON performance_goals(user_id);
+    CREATE INDEX IX_performance_goals_user ON performance_goals(employee_id);
     CREATE INDEX IX_performance_goals_status ON performance_goals(status);
     
     PRINT 'Table performance_goals created successfully';
@@ -111,7 +111,7 @@ IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'attendance_records')
 BEGIN
     CREATE TABLE attendance_records (
         id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-        user_id INT NOT NULL,
+        employee_id INT NOT NULL,
         date DATE NOT NULL DEFAULT CAST(GETDATE() AS DATE),
         check_in_time DATETIME2 NULL,
         check_out_time DATETIME2 NULL,
@@ -120,12 +120,12 @@ BEGIN
         notes NVARCHAR(MAX) NULL,
         created_at DATETIME2 DEFAULT GETDATE(),
         updated_at DATETIME2 DEFAULT GETDATE(),
-        CONSTRAINT FK_attendance_records_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-        CONSTRAINT UQ_attendance_records_user_date UNIQUE (user_id, date)
+        CONSTRAINT FK_attendance_records_user FOREIGN KEY (employee_id) REFERENCES users(id) ON DELETE CASCADE,
+        CONSTRAINT UQ_attendance_records_user_date UNIQUE (employee_id, date)
     );
     
     -- Create indexes
-    CREATE INDEX IX_attendance_records_user ON attendance_records(user_id);
+    CREATE INDEX IX_attendance_records_user ON attendance_records(employee_id);
     CREATE INDEX IX_attendance_records_date ON attendance_records(date DESC);
     CREATE INDEX IX_attendance_records_status ON attendance_records(status);
     
@@ -307,7 +307,7 @@ PRINT '  - trg_attendance_records_updated_at';
 PRINT '  - trg_attendance_calculate_work_hours';
 PRINT '';
 PRINT 'Next steps:';
-PRINT '  1. Review and adjust foreign key references (user_id columns)';
+PRINT '  1. Review and adjust foreign key references (employee_id columns)';
 PRINT '  2. Grant appropriate permissions to application users';
 PRINT '  3. Test the triggers with sample data';
 PRINT '  4. Update your application connection strings if needed';

@@ -119,7 +119,7 @@ export default function Leaves() {
         ? balances 
         : types.map(type => ({
             id: String(type.id),
-            user_id: user!.id,
+            employee_id: user!.id,
             year: new Date().getFullYear(),
             leave_type: type.name,
             total_days: type.default_days,
@@ -421,7 +421,7 @@ export default function Leaves() {
                   </div> */}
                   <MultiSelect
                     items={employees
-                      .filter((emp) => emp.user_id !== user?.id)
+                      .filter((emp) => emp.employee_id !== user?.id)
                       .map((emp) => ({
                         label: `${emp.full_name} (${emp.email})`,
                         value: emp.email,
@@ -506,7 +506,7 @@ export default function Leaves() {
                         <p className="text-xs text-muted-foreground">
                           Manager: {(() => {
                             if (leave.manager_id) {
-                              const manager = employees.find(e => e.user_id === String(leave.manager_id));
+                              const manager = employees.find(e => e.employee_id === String(leave.manager_id));
                               return manager ? manager.full_name : 'N/A';
                             }
                             return 'Not Assigned';
@@ -515,7 +515,7 @@ export default function Leaves() {
                         <p className="text-xs text-muted-foreground">
                           HR: {(() => {
                             if (leave.hr_approved_by) {
-                              const hrPerson = employees.find(e => e.user_id === leave.hr_approved_by);
+                              const hrPerson = employees.find(e => e.employee_id === leave.hr_approved_by);
                               return hrPerson ? hrPerson.full_name : 'N/A';
                             }
                             return 'Not Yet Reviewed';

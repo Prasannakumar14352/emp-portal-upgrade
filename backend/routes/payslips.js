@@ -19,13 +19,13 @@ router.get('/user/:userId', authenticateToken, async (req, res) => {
     const pool = await getConnection();
     let query = `
       SELECT 
-        id, user_id, month, year, basic_salary, allowances, 
+        id, employee_id, month, year, basic_salary, allowances, 
         deductions, net_salary, file_url, created_at
       FROM payslips
-      WHERE user_id = @user_id
+      WHERE employee_id = @employee_id
     `;
     
-    const request = pool.request().input('user_id', sql.Int, userIdInt);
+    const request = pool.request().input('employee_id', sql.Int, userIdInt);
     
     if (year) {
       query += ' AND year = @year';
@@ -55,11 +55,11 @@ router.get('/', authenticateToken, authorizeRole('hr', 'manager'), async (req, r
     
     let query = `
       SELECT 
-        p.id, p.user_id, p.month, p.year, p.basic_salary, 
+        p.id, p.employee_id, p.month, p.year, p.basic_salary, 
         p.allowances, p.deductions, p.net_salary, p.file_url, p.created_at,
         u.full_name as user_name, u.email as user_email
       FROM payslips p
-      JOIN profiles u ON p.user_id = u.user_id
+      JOIN profiles u ON p.employee_id = u.employee_id
     `;
     
     const conditions = [];
@@ -99,11 +99,11 @@ router.get('/:id', authenticateToken, async (req, res) => {
       .input('id', sql.Int, id)
       .query(`
         SELECT 
-          p.id, p.user_id, p.month, p.year, p.basic_salary, 
+          p.id, p.employee_id, p.month, p.year, p.basic_salary, 
           p.allowances, p.deductions, p.net_salary, p.file_url, p.created_at,
           u.full_name as user_name, u.email as user_email
         FROM payslips p
-        JOIN profiles u ON p.user_id = u.user_id
+        JOIN profiles u ON p.employee_id = u.employee_id
         WHERE p.id = @id
       `);
 
@@ -114,7 +114,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
     const payslip = result.recordset[0];
     
     // Users can only view their own payslips unless HR/manager
-    if (req.user.id !== payslip.user_id && !['hr', 'manager'].includes(req.user.role)) {
+    if (req.user.id !== payslip.employee_id && !['hr', 'manager'].includes(req.user.role)) {
       return res.status(403).json({ error: 'Not authorized' });
     }
 
@@ -128,14 +128,14 @@ router.get('/:id', authenticateToken, async (req, res) => {
 // POST /api/payslips - Create new payslip (HR only)
 router.post('/', authenticateToken, authorizeRole('hr'), async (req, res) => {
   try {
-    const { user_id, month, year, basic_salary, allowances, deductions, file_url } = req.body;
+    const { employee_id, month, year, basic_salary, allowances, deductions, file_url } = req.body;
     
     // Calculate net salary
     const net_salary = parseFloat(basic_salary) + parseFloat(allowances || 0) - parseFloat(deductions || 0);
     
     const pool = await getConnection();
     const result = await pool.request()
-      .input('user_id', sql.Int, user_id)
+      .input('employee_id', sql.Int, employee_id)
       .input('month', sql.NVarChar, month)
       .input('year', sql.Int, year)
       .input('basic_salary', sql.Decimal(10, 2), basic_salary)
@@ -144,9 +144,9 @@ router.post('/', authenticateToken, authorizeRole('hr'), async (req, res) => {
       .input('net_salary', sql.Decimal(10, 2), net_salary)
       .input('file_url', sql.NVarChar, file_url)
       .query(`
-        INSERT INTO payslips (user_id, month, year, basic_salary, allowances, deductions, net_salary, file_url, created_at)
+        INSERT INTO payslips (employee_id, month, year, basic_salary, allowances, deductions, net_salary, file_url, created_at)
         OUTPUT INSERTED.*
-        VALUES (@user_id, @month, @year, @basic_salary, @allowances, @deductions, @net_salary, @file_url, GETDATE())
+        VALUES (@employee_id, @month, @year, @basic_salary, @allowances, @deductions, @net_salary, @file_url, GETDATE())
       `);
 
     res.status(201).json(result.recordset[0]);

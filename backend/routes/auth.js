@@ -16,22 +16,22 @@ const createDefaultPreferences = async (userId, pool) => {
   try {
     // Check if preferences already exist
     const existing = await pool.request()
-      .input('user_id', sql.NVarChar, userId)
-      .query('SELECT id FROM user_preferences WHERE user_id = @user_id');
+      .input('employee_id', sql.NVarChar, userId)
+      .query('SELECT id FROM user_preferences WHERE employee_id = @employee_id');
     
     if (existing.recordset.length === 0) {
       // Create default preferences
       await pool.request()
-        .input('user_id', sql.NVarChar, userId)
+        .input('employee_id', sql.NVarChar, userId)
         .query(`
           INSERT INTO user_preferences (
-            user_id, dark_mode, compact_view, 
+            employee_id, dark_mode, compact_view, 
             email_notifications, push_notifications, leave_update_notifications,
             notification_sound, notification_volume,
             created_at, updated_at
           )
           VALUES (
-            @user_id, 0, 0, 
+            @employee_id, 0, 0, 
             1, 1, 1,
             'default', 50,
             GETDATE(), GETDATE()
@@ -85,7 +85,7 @@ router.post('/signup', [
 
     const existingUser = await pool.request()
       .input('email', sql.NVarChar, email)
-      .query('SELECT user_id FROM profiles WHERE email = @email');
+      .query('SELECT employee_id FROM profiles WHERE email = @email');
 
     if (existingUser.recordset.length > 0) {
       return res.status(400).json({ error: 'User already registered' });
@@ -98,23 +98,23 @@ router.post('/signup', [
       .input('full_name', sql.NVarChar, full_name)
       .query(`
         INSERT INTO profiles (email, full_name, created_at)
-        OUTPUT INSERTED.user_id, INSERTED.email, INSERTED.full_name
+        OUTPUT INSERTED.employee_id, INSERTED.email, INSERTED.full_name
         VALUES (@email, @full_name, GETDATE())
       `);
 
     const newUser = result.recordset[0];
 
     await pool.request()
-      .input('user_id', sql.NVarChar, newUser.user_id)
+      .input('employee_id', sql.NVarChar, newUser.employee_id)
       .input('role', sql.NVarChar, 'employee')
-      .query(`IF NOT EXISTS (SELECT 1 FROM user_roles WHERE user_id = @user_id AND role = @role)
-        INSERT INTO user_roles (user_id, role, created_at) VALUES (@user_id, @role, GETDATE())`);
+      .query(`IF NOT EXISTS (SELECT 1 FROM user_roles WHERE employee_id = @employee_id AND role = @role)
+        INSERT INTO user_roles (employee_id, role, created_at) VALUES (@employee_id, @role, GETDATE())`);
 
     // Create default preferences for new user
-    await createDefaultPreferences(newUser.user_id, pool);
+    await createDefaultPreferences(newUser.employee_id, pool);
 
     const tokens = generateTokens({
-      id: newUser.user_id,
+      id: newUser.employee_id,
       email: newUser.email,
       roles: ['employee']
     });
@@ -124,7 +124,7 @@ router.post('/signup', [
         access_token: tokens.accessToken,
         refresh_token: tokens.refreshToken,
         user: {
-          id: newUser.user_id,
+          id: newUser.employee_id,
           email: newUser.email,
           full_name: newUser.full_name
         }
@@ -155,7 +155,7 @@ router.post('/login', [
     const userResult = await pool.request()
       .input('email', sql.NVarChar, email)
       .query(`
-        SELECT user_id, email, full_name
+        SELECT employee_id, email, full_name
         FROM profiles
         WHERE email = @email
       `);
@@ -167,11 +167,11 @@ router.post('/login', [
 
     // Get all roles for this user
     const rolesResult = await pool.request()
-      .input('user_id', sql.NVarChar, user.user_id)
+      .input('employee_id', sql.NVarChar, user.employee_id)
       .query(`
         SELECT role
         FROM user_roles
-        WHERE user_id = @user_id
+        WHERE employee_id = @employee_id
       `);
 
     const roles = rolesResult.recordset.length > 0 
@@ -182,10 +182,10 @@ router.post('/login', [
     // OAuth-only authentication - skip password check
 
     // Create default preferences if they don't exist
-    await createDefaultPreferences(user.user_id, pool);
+    await createDefaultPreferences(user.employee_id, pool);
 
     const tokens = generateTokens({
-      id: user.user_id,
+      id: user.employee_id,
       email: user.email,
       roles: roles
     });
@@ -195,7 +195,7 @@ router.post('/login', [
         access_token: tokens.accessToken,
         refresh_token: tokens.refreshToken,
         user: {
-          id: user.user_id,
+          id: user.employee_id,
           email: user.email,
           full_name: user.full_name
         }
@@ -233,7 +233,7 @@ router.get('/session', authenticateToken, async (req, res) => {
     const userResult = await pool.request()
       .input('id', sql.Int, req.user.id)
       .query(`
-        SELECT user_id, email, full_name, department, position
+        SELECT employee_id, email, full_name, department, position
         FROM profiles
         WHERE employee_id = @id
       `);
@@ -247,20 +247,20 @@ router.get('/session', authenticateToken, async (req, res) => {
 
     // Get all roles for this user
     const rolesResult = await pool.request()
-      .input('user_id', sql.NVarChar, user.user_id)
+      .input('employee_id', sql.NVarChar, user.employee_id)
       .query(`
         SELECT role
         FROM user_roles
-        WHERE user_id = @user_id
+        WHERE employee_id = @employee_id
       `);
 
     const roles = rolesResult.recordset.length > 0 
       ? rolesResult.recordset.map(r => r.role)
       : ['employee'];
 
-    // Map user_id to id for frontend compatibility
+    // Map employee_id to id for frontend compatibility
     const sessionUser = {
-      id: user.user_id,
+      id: user.employee_id,
       email: user.email,
       full_name: user.full_name,
       department: user.department,
@@ -297,11 +297,11 @@ router.post('/refresh', async (req, res) => {
     
     // Get user basic info
     const userResult = await pool.request()
-      .input('user_id', sql.NVarChar, decoded.id)
+      .input('employee_id', sql.NVarChar, decoded.id)
       .query(`
-        SELECT user_id, email, full_name
+        SELECT employee_id, email, full_name
         FROM profiles
-        WHERE user_id = @user_id
+        WHERE employee_id = @employee_id
       `);
 
     if (userResult.recordset.length === 0)
@@ -311,11 +311,11 @@ router.post('/refresh', async (req, res) => {
 
     // Get all roles for this user
     const rolesResult = await pool.request()
-      .input('user_id', sql.NVarChar, decoded.id)
+      .input('employee_id', sql.NVarChar, decoded.id)
       .query(`
         SELECT role
         FROM user_roles
-        WHERE user_id = @user_id
+        WHERE employee_id = @employee_id
       `);
 
     const roles = rolesResult.recordset.length > 0 
@@ -323,7 +323,7 @@ router.post('/refresh', async (req, res) => {
       : ['employee'];
 
     const tokens = generateTokens({
-      id: user.user_id,
+      id: user.employee_id,
       email: user.email,
       roles: roles
     });
@@ -333,7 +333,7 @@ router.post('/refresh', async (req, res) => {
         access_token: tokens.accessToken,
         refresh_token: tokens.refreshToken,
         user: {
-          id: user.user_id,
+          id: user.employee_id,
           email: user.email,
           full_name: user.full_name
         }
@@ -482,30 +482,30 @@ router.get('/oauth/callback/azure', async (req, res) => {
 
     /* 3.5) Sync user roles based on Azure AD groups */
     try {
-      logInfo(`Fetching user_id for employee_id: ${employee_id}`);
+      logInfo(`Fetching employee_id for employee_id: ${employee_id}`);
       const userIdResult = await pool.request()
         .input('employee_id', sql.Int, employee_id)
-        .query('SELECT user_id FROM profiles WHERE employee_id = @employee_id');
+        .query('SELECT employee_id FROM profiles WHERE employee_id = @employee_id');
       
       if (userIdResult.recordset.length === 0) {
-        logWarning(`No user_id found for employee_id: ${employee_id}`, { email });
+        logWarning(`No employee_id found for employee_id: ${employee_id}`, { email });
       } else {
-        const userId = userIdResult.recordset[0].user_id;
-        logInfo(`Found user_id: ${userId} for employee_id: ${employee_id}`);
+        const userId = userIdResult.recordset[0].employee_id;
+        logInfo(`Found employee_id: ${userId} for employee_id: ${employee_id}`);
         
         // Assign roles from Azure AD groups
         for (const role of userRoles) {
           try {
-            logInfo(`Attempting to assign role '${role}' to user ${email} (user_id: ${userId})`);
+            logInfo(`Attempting to assign role '${role}' to user ${email} (employee_id: ${userId})`);
             
             await pool.request()
-              .input('user_id', sql.NVarChar, userId)
+              .input('employee_id', sql.NVarChar, userId)
               .input('role', sql.NVarChar, role)
               .query(`
-                IF NOT EXISTS (SELECT 1 FROM user_roles WHERE user_id = @user_id AND role = @role)
+                IF NOT EXISTS (SELECT 1 FROM user_roles WHERE employee_id = @employee_id AND role = @role)
                 BEGIN
-                  INSERT INTO user_roles (user_id, role, created_at)
-                  VALUES (@user_id, @role, GETDATE())
+                  INSERT INTO user_roles (employee_id, role, created_at)
+                  VALUES (@employee_id, @role, GETDATE())
                 END
               `);
             logInfo(`Successfully assigned role '${role}' to user ${email}`);
@@ -524,7 +524,7 @@ router.get('/oauth/callback/azure', async (req, res) => {
       }
     } catch (userIdErr) {
       logError(userIdErr, req, { 
-        context: 'Failed to fetch user_id from profiles table',
+        context: 'Failed to fetch employee_id from profiles table',
         email,
         employee_id,
         sqlErrorNumber: userIdErr.number,

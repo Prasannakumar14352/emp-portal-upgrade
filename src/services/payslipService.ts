@@ -2,7 +2,7 @@ import { apiClient } from './apiClient';
 
 export interface Payslip {
   id: string;
-  user_id: string;
+  employee_id: string;
   month: string;
   year: number;
   basic_salary: number;
@@ -14,7 +14,7 @@ export interface Payslip {
 }
 
 export interface CreatePayslipRequest {
-  user_id: string;
+  employee_id: string;
   month: string;
   year: number;
   basic_salary: number;

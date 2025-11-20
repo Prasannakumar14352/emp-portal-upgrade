@@ -205,7 +205,7 @@
  *                   properties:
  *                     id:
  *                       type: integer
- *                     user_id:
+ *                     employee_id:
  *                       type: integer
  *                     role:
  *                       type: string

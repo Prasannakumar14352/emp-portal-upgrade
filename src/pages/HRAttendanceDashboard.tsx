@@ -10,7 +10,7 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { useNavigate } from "react-router-dom";
 
 interface EmployeeAttendance {
-  user_id: string;
+  employee_id: string;
   full_name: string;
   department: string;
   attendance: {
@@ -196,7 +196,7 @@ export default function HRAttendanceDashboard() {
                     </tr>
                   ) : (
                     attendanceData.map((employee) => (
-                      <tr key={employee.user_id} className="border-b hover:bg-muted/50">
+                      <tr key={employee.employee_id} className="border-b hover:bg-muted/50">
                         <td className="sticky left-0 bg-background border-r px-4 py-3 font-medium">
                           {employee.full_name}
                         </td>

@@ -18,7 +18,7 @@ export interface BulkHolidayData {
 }
 
 export interface BulkPayslipData {
-  user_id: number;
+  employee_id: number;
   month: string;
   year: number;
   basic_salary: number;
@@ -37,7 +37,7 @@ export interface BulkResponse<T> {
   createdPayslips?: T[];
   failedUsers?: Array<{ email: string; reason: string }>;
   failedHolidays?: Array<{ name: string; date: string; reason: string }>;
-  failedPayslips?: Array<{ user_id: number; month: string; year: number; reason: string }>;
+  failedPayslips?: Array<{ employee_id: number; month: string; year: number; reason: string }>;
 }
 
 class BulkService {

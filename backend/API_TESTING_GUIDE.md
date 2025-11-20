@@ -348,7 +348,7 @@ curl -X GET http://localhost:3000/api/employees \
 [
   {
     "id": "550e8400-e29b-41d4-a716-446655440000",
-    "user_id": 1,
+    "employee_id": 1,
     "full_name": "John Doe",
     "email": "john.doe@company.com",
     "phone": "+1234567890",
@@ -381,7 +381,7 @@ curl -X GET http://localhost:3000/api/employees/550e8400-e29b-41d4-a716-44665544
 ```json
 {
   "id": "550e8400-e29b-41d4-a716-446655440000",
-  "user_id": 1,
+  "employee_id": 1,
   "full_name": "John Doe",
   "email": "john.doe@company.com",
   "phone": "+1234567890",
@@ -422,7 +422,7 @@ Create a new employee record (HR/Manager only).
   "department": "Marketing",
   "position": "Marketing Manager",
   "status": "Active",
-  "user_id": 5
+  "employee_id": 5
 }
 ```
 
@@ -445,7 +445,7 @@ curl -X POST http://localhost:3000/api/employees \
 ```json
 {
   "id": "650e8400-e29b-41d4-a716-446655440001",
-  "user_id": 5,
+  "employee_id": 5,
   "full_name": "Jane Smith",
   "email": "jane.smith@company.com",
   "phone": "+1234567891",
@@ -493,7 +493,7 @@ curl -X PATCH http://localhost:3000/api/employees/650e8400-e29b-41d4-a716-446655
 ```json
 {
   "id": "650e8400-e29b-41d4-a716-446655440001",
-  "user_id": 5,
+  "employee_id": 5,
   "full_name": "Jane Smith-Johnson",
   "email": "jane.smith@company.com",
   "phone": "+1234567899",
@@ -554,7 +554,7 @@ curl -X GET http://localhost:3000/api/leaves/user/1 \
 [
   {
     "id": "750e8400-e29b-41d4-a716-446655440000",
-    "user_id": 1,
+    "employee_id": 1,
     "leave_type": "Annual Leave",
     "start_date": "2024-03-15",
     "end_date": "2024-03-20",
@@ -594,7 +594,7 @@ curl -X GET "http://localhost:3000/api/leaves?status=Pending" \
 [
   {
     "id": "750e8400-e29b-41d4-a716-446655440000",
-    "user_id": 1,
+    "employee_id": 1,
     "leave_type": "Sick Leave",
     "start_date": "2024-03-10",
     "end_date": "2024-03-11",
@@ -649,7 +649,7 @@ curl -X POST http://localhost:3000/api/leaves \
 ```json
 {
   "id": "850e8400-e29b-41d4-a716-446655440000",
-  "user_id": 1,
+  "employee_id": 1,
   "leave_type": "Annual Leave",
   "start_date": "2024-04-15",
   "end_date": "2024-04-20",
@@ -694,7 +694,7 @@ curl -X PATCH http://localhost:3000/api/leaves/850e8400-e29b-41d4-a716-446655440
 ```json
 {
   "id": "850e8400-e29b-41d4-a716-446655440000",
-  "user_id": 1,
+  "employee_id": 1,
   "leave_type": "Annual Leave",
   "start_date": "2024-04-15",
   "end_date": "2024-04-20",
@@ -732,7 +732,7 @@ curl -X GET "http://localhost:3000/api/leaves/balance/1?year=2024" \
 [
   {
     "id": "950e8400-e29b-41d4-a716-446655440000",
-    "user_id": 1,
+    "employee_id": 1,
     "year": 2024,
     "leave_type": "Annual Leave",
     "total_days": 20,
@@ -742,7 +742,7 @@ curl -X GET "http://localhost:3000/api/leaves/balance/1?year=2024" \
   },
   {
     "id": "960e8400-e29b-41d4-a716-446655440000",
-    "user_id": 1,
+    "employee_id": 1,
     "year": 2024,
     "leave_type": "Sick Leave",
     "total_days": 10,
@@ -782,7 +782,7 @@ curl -X GET "http://localhost:3000/api/payslips/user/1?year=2024&month=January" 
 [
   {
     "id": "a50e8400-e29b-41d4-a716-446655440000",
-    "user_id": 1,
+    "employee_id": 1,
     "month": "January",
     "year": 2024,
     "basic_salary": 5000.00,
@@ -822,7 +822,7 @@ curl -X GET "http://localhost:3000/api/payslips?year=2024" \
 [
   {
     "id": "a50e8400-e29b-41d4-a716-446655440000",
-    "user_id": 1,
+    "employee_id": 1,
     "month": "January",
     "year": 2024,
     "basic_salary": 5000.00,
@@ -859,7 +859,7 @@ curl -X GET http://localhost:3000/api/payslips/a50e8400-e29b-41d4-a716-446655440
 ```json
 {
   "id": "a50e8400-e29b-41d4-a716-446655440000",
-  "user_id": 1,
+  "employee_id": 1,
   "month": "January",
   "year": 2024,
   "basic_salary": 5000.00,
@@ -888,7 +888,7 @@ Create a new payslip (HR/Manager only).
 **Request Body:**
 ```json
 {
-  "user_id": 1,
+  "employee_id": 1,
   "month": "February",
   "year": 2024,
   "basic_salary": 5000.00,
@@ -905,7 +905,7 @@ curl -X POST http://localhost:3000/api/payslips \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "user_id": 1,
+    "employee_id": 1,
     "month": "February",
     "year": 2024,
     "basic_salary": 5000.00,
@@ -920,7 +920,7 @@ curl -X POST http://localhost:3000/api/payslips \
 ```json
 {
   "id": "b50e8400-e29b-41d4-a716-446655440000",
-  "user_id": 1,
+  "employee_id": 1,
   "month": "February",
   "year": 2024,
   "basic_salary": 5000.00,
@@ -967,7 +967,7 @@ curl -X PATCH http://localhost:3000/api/payslips/b50e8400-e29b-41d4-a716-4466554
 ```json
 {
   "id": "b50e8400-e29b-41d4-a716-446655440000",
-  "user_id": 1,
+  "employee_id": 1,
   "month": "February",
   "year": 2024,
   "basic_salary": 5200.00,
@@ -1652,7 +1652,7 @@ curl -X GET http://localhost:3000/api/users \
 2. Add the following variables:
    - `base_url`: `http://localhost:3000/api`
    - `access_token`: (will be set after login)
-   - `user_id`: (will be set after login)
+   - `employee_id`: (will be set after login)
 
 ### Authentication Flow
 
@@ -1665,7 +1665,7 @@ curl -X GET http://localhost:3000/api/users \
    ```javascript
    const response = pm.response.json();
    pm.environment.set("access_token", response.accessToken);
-   pm.environment.set("user_id", response.user.id);
+   pm.environment.set("employee_id", response.user.id);
    ```
 
 3. **Use in subsequent requests**: Add to Headers:

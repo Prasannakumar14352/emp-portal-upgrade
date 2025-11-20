@@ -12,8 +12,8 @@ router.get('/:userId/role', authenticateToken, async (req, res) => {
     const pool = await getConnection();
 
     const result = await pool.request()
-      .input('user_id', sql.NVarChar, userId)
-      .query('SELECT role FROM user_roles WHERE user_id = @user_id');
+      .input('employee_id', sql.NVarChar, userId)
+      .query('SELECT role FROM user_roles WHERE employee_id = @employee_id');
 
     if (result.recordset.length === 0) {
       return res.json({ role: 'employee' });
@@ -33,13 +33,13 @@ router.get('/:userId/profile', authenticateToken, async (req, res) => {
     const pool = await getConnection();
 
     const result = await pool.request()
-      .input('user_id', sql.NVarChar, userId)
+      .input('employee_id', sql.NVarChar, userId)
       .query(`
         SELECT 
-          p.user_id, p.email, p.full_name, p.phone, 
+          p.employee_id, p.email, p.full_name, p.phone, 
           p.department, p.position, p.avatar_url, p.hire_date, p.created_at, p.updated_at
         FROM profiles p
-        WHERE p.user_id = @user_id
+        WHERE p.employee_id = @employee_id
       `);
 
     if (result.recordset.length === 0) {
@@ -68,7 +68,7 @@ router.patch('/:userId/profile', authenticateToken, async (req, res) => {
     const pool = await getConnection();
 
     const result = await pool.request()
-      .input('user_id', sql.NVarChar, userId)
+      .input('employee_id', sql.NVarChar, userId)
       .input('full_name', sql.NVarChar, full_name)
       .input('phone', sql.NVarChar, phone)
       .input('department', sql.NVarChar, department)
@@ -86,10 +86,10 @@ router.patch('/:userId/profile', authenticateToken, async (req, res) => {
           hire_date = COALESCE(@hire_date, hire_date),
           updated_at = GETDATE()
         OUTPUT 
-          INSERTED.user_id, INSERTED.email, INSERTED.full_name, 
+          INSERTED.employee_id, INSERTED.email, INSERTED.full_name, 
           INSERTED.phone, INSERTED.department, INSERTED.position,
           INSERTED.avatar_url, INSERTED.hire_date
-        WHERE user_id = @user_id
+        WHERE employee_id = @employee_id
       `);
 
     res.json(result.recordset[0]);
@@ -107,7 +107,7 @@ router.get('/', authenticateToken, authorizeRole('hr', 'manager'), async (req, r
     const result = await pool.request()
       .query(`
         SELECT 
-          p.user_id, p.email, p.full_name, p.phone, 
+          p.employee_id, p.email, p.full_name, p.phone, 
           p.department, p.position, p.avatar_url, p.hire_date, p.created_at, p.updated_at
         FROM profiles p
         ORDER BY p.full_name
@@ -128,19 +128,19 @@ router.get('/with-roles', authenticateToken, authorizeRole('hr', 'manager'), asy
     const result = await pool.request()
       .query(`
         SELECT 
-          p.user_id, p.email, p.full_name, p.department, p.position,
+          p.employee_id, p.email, p.full_name, p.department, p.position,
           ur.role, ur.id as role_id, ur.created_at as role_assigned_at
         FROM profiles p
-        LEFT JOIN user_roles ur ON p.user_id = ur.user_id
+        LEFT JOIN user_roles ur ON p.employee_id = ur.employee_id
         ORDER BY p.full_name, ur.role
       `);
 
     // Group roles by user
     const usersMap = new Map();
     result.recordset.forEach(row => {
-      if (!usersMap.has(row.user_id)) {
-        usersMap.set(row.user_id, {
-          user_id: row.user_id,
+      if (!usersMap.has(row.employee_id)) {
+        usersMap.set(row.employee_id, {
+          employee_id: row.employee_id,
           email: row.email,
           full_name: row.full_name,
           department: row.department,
@@ -149,7 +149,7 @@ router.get('/with-roles', authenticateToken, authorizeRole('hr', 'manager'), asy
         });
       }
       if (row.role) {
-        usersMap.get(row.user_id).roles.push({
+        usersMap.get(row.employee_id).roles.push({
           role: row.role,
           role_id: row.role_id,
           role_assigned_at: row.role_assigned_at
@@ -178,9 +178,9 @@ router.post('/:userId/roles', authenticateToken, authorizeRole('hr', 'manager'),
 
     // Check if user exists
     const userCheck = await pool.request()
-      .input('user_id', sql.NVarChar, userId)
+      .input('employee_id', sql.NVarChar, userId)
       .input('role', sql.NVarChar, role)
-      .query('SELECT user_id FROM profiles WHERE user_id = @user_id AND role = @role');
+      .query('SELECT employee_id FROM profiles WHERE employee_id = @employee_id AND role = @role');
 
     if (userCheck.recordset.length === 0) {
       return res.status(404).json({ error: 'User not found' });
@@ -188,9 +188,9 @@ router.post('/:userId/roles', authenticateToken, authorizeRole('hr', 'manager'),
 
     // Check if role already assigned
     const roleCheck = await pool.request()
-      .input('user_id', sql.NVarChar, userId)
+      .input('employee_id', sql.NVarChar, userId)
       .input('role', sql.NVarChar, role)
-      .query('SELECT id FROM user_roles WHERE user_id = @user_id AND role = @role');
+      .query('SELECT id FROM user_roles WHERE employee_id = @employee_id AND role = @role');
 
     if (roleCheck.recordset.length > 0) {
       return res.status(400).json({ error: 'Role already assigned to this user' });
@@ -198,12 +198,12 @@ router.post('/:userId/roles', authenticateToken, authorizeRole('hr', 'manager'),
 
     // Assign role
     const result = await pool.request()
-      .input('user_id', sql.NVarChar, userId)
+      .input('employee_id', sql.NVarChar, userId)
       .input('role', sql.NVarChar, role)
       .query(`
-        INSERT INTO user_roles (user_id, role, created_at)
-        OUTPUT INSERTED.id, INSERTED.user_id, INSERTED.role, INSERTED.created_at
-        VALUES (@user_id, @role, GETDATE())
+        INSERT INTO user_roles (employee_id, role, created_at)
+        OUTPUT INSERTED.id, INSERTED.employee_id, INSERTED.role, INSERTED.created_at
+        VALUES (@employee_id, @role, GETDATE())
       `);
 
     res.status(201).json({
@@ -225,7 +225,7 @@ router.delete('/roles/:roleId', authenticateToken, authorizeRole('hr', 'manager'
     // Get role info before deletion
     const roleInfo = await pool.request()
       .input('role_id', sql.Int, roleId)
-      .query('SELECT user_id, role FROM user_roles WHERE id = @role_id');
+      .query('SELECT employee_id, role FROM user_roles WHERE id = @role_id');
 
     if (roleInfo.recordset.length === 0) {
       return res.status(404).json({ error: 'Role assignment not found' });
@@ -233,8 +233,8 @@ router.delete('/roles/:roleId', authenticateToken, authorizeRole('hr', 'manager'
 
     // Prevent removing the last role from a user
     const userRolesCount = await pool.request()
-      .input('user_id', sql.NVarChar, roleInfo.recordset[0].user_id)
-      .query('SELECT COUNT(*) as count FROM user_roles WHERE user_id = @user_id');
+      .input('employee_id', sql.NVarChar, roleInfo.recordset[0].employee_id)
+      .query('SELECT COUNT(*) as count FROM user_roles WHERE employee_id = @employee_id');
 
     if (userRolesCount.recordset[0].count <= 1) {
       return res.status(400).json({ 
@@ -267,35 +267,35 @@ router.get('/:userId/preferences', authenticateToken, async (req, res) => {
     const pool = await getConnection();
     
     const result = await pool.request()
-      .input('user_id', sql.NVarChar, userId)
+      .input('employee_id', sql.NVarChar, userId)
       .query(`
         SELECT 
-          id, user_id, dark_mode, compact_view,
+          id, employee_id, dark_mode, compact_view,
           email_notifications, push_notifications, leave_update_notifications,
           notification_sound, notification_volume,
           created_at, updated_at
         FROM user_preferences
-        WHERE user_id = @user_id
+        WHERE employee_id = @employee_id
       `);
 
     if (result.recordset.length === 0) {
       // Create default preferences if they don't exist
       const createResult = await pool.request()
-        .input('user_id', sql.NVarChar, userId)
+        .input('employee_id', sql.NVarChar, userId)
         .query(`
           INSERT INTO user_preferences (
-            user_id, dark_mode, compact_view, 
+            employee_id, dark_mode, compact_view, 
             email_notifications, push_notifications, leave_update_notifications,
             notification_sound, notification_volume,
             created_at, updated_at
           )
           OUTPUT 
-            INSERTED.id, INSERTED.user_id, INSERTED.dark_mode, INSERTED.compact_view,
+            INSERTED.id, INSERTED.employee_id, INSERTED.dark_mode, INSERTED.compact_view,
             INSERTED.email_notifications, INSERTED.push_notifications, 
             INSERTED.leave_update_notifications, INSERTED.notification_sound, 
             INSERTED.notification_volume, INSERTED.created_at, INSERTED.updated_at
           VALUES (
-            @user_id, 0, 0, 
+            @employee_id, 0, 0, 
             1, 1, 1,
             'default', 50,
             GETDATE(), GETDATE()
@@ -327,13 +327,13 @@ router.put('/:userId/preferences', authenticateToken, async (req, res) => {
 
     // Check if preferences exist
     const existing = await pool.request()
-      .input('user_id', sql.NVarChar, userId)
-      .query('SELECT id FROM user_preferences WHERE user_id = @user_id');
+      .input('employee_id', sql.NVarChar, userId)
+      .query('SELECT id FROM user_preferences WHERE employee_id = @employee_id');
 
     if (existing.recordset.length === 0) {
       // Create new preferences
       const result = await pool.request()
-        .input('user_id', sql.NVarChar, userId)
+        .input('employee_id', sql.NVarChar, userId)
         .input('dark_mode', sql.Bit, dark_mode ?? false)
         .input('compact_view', sql.Bit, compact_view ?? false)
         .input('email_notifications', sql.Bit, email_notifications ?? true)
@@ -343,14 +343,14 @@ router.put('/:userId/preferences', authenticateToken, async (req, res) => {
         .input('notification_volume', sql.Int, notification_volume ?? 50)
         .query(`
           INSERT INTO user_preferences (
-            user_id, dark_mode, compact_view, 
+            employee_id, dark_mode, compact_view, 
             email_notifications, push_notifications, leave_update_notifications,
             notification_sound, notification_volume,
             created_at, updated_at
           )
           OUTPUT INSERTED.*
           VALUES (
-            @user_id, @dark_mode, @compact_view,
+            @employee_id, @dark_mode, @compact_view,
             @email_notifications, @push_notifications, @leave_update_notifications,
             @notification_sound, @notification_volume,
             GETDATE(), GETDATE()
@@ -361,7 +361,7 @@ router.put('/:userId/preferences', authenticateToken, async (req, res) => {
     } else {
       // Update existing preferences
       const updates = [];
-      const request = pool.request().input('user_id', sql.NVarChar, userId);
+      const request = pool.request().input('employee_id', sql.NVarChar, userId);
       
       if (dark_mode !== undefined) {
         updates.push('dark_mode = @dark_mode');
@@ -398,7 +398,7 @@ router.put('/:userId/preferences', authenticateToken, async (req, res) => {
           UPDATE user_preferences
           SET ${updates.join(', ')}
           OUTPUT INSERTED.*
-          WHERE user_id = @user_id
+          WHERE employee_id = @employee_id
         `);
         
         return res.json(result.recordset[0]);
@@ -421,7 +421,7 @@ router.put('/:userId/notification-sound', authenticateToken, async (req, res) =>
     const pool = await getConnection();
 
     await pool.request()
-      .input('user_id', sql.NVarChar, userId)
+      .input('employee_id', sql.NVarChar, userId)
       .input('notification_sound', sql.NVarChar, notification_sound)
       .input('notification_volume', sql.Int, notification_volume)
       .query(`
@@ -429,7 +429,7 @@ router.put('/:userId/notification-sound', authenticateToken, async (req, res) =>
         SET notification_sound = @notification_sound,
             notification_volume = @notification_volume,
             updated_at = GETDATE()
-        WHERE user_id = @user_id
+        WHERE employee_id = @employee_id
       `);
 
     res.json({ message: 'Sound preferences updated successfully' });
@@ -462,8 +462,8 @@ router.post('/:userId/change-password', authenticateToken, async (req, res) => {
 
     // Get current password hash
     const userResult = await pool.request()
-      .input('user_id', sql.NVarChar, userId)
-      .query('SELECT password_hash FROM profiles WHERE user_id = @user_id');
+      .input('employee_id', sql.NVarChar, userId)
+      .query('SELECT password_hash FROM profiles WHERE employee_id = @employee_id');
 
     if (userResult.recordset.length === 0) {
       return res.status(404).json({ error: 'User not found' });
@@ -480,12 +480,12 @@ router.post('/:userId/change-password', authenticateToken, async (req, res) => {
 
     // Update password
     await pool.request()
-      .input('user_id', sql.NVarChar, userId)
+      .input('employee_id', sql.NVarChar, userId)
       .input('password_hash', sql.NVarChar, newPasswordHash)
       .query(`
         UPDATE profiles
         SET password_hash = @password_hash, updated_at = GETDATE()
-        WHERE user_id = @user_id
+        WHERE employee_id = @employee_id
       `);
 
     res.json({ message: 'Password changed successfully' });

@@ -270,7 +270,7 @@ export default function TeamTimeTracking() {
                 </TableRow>
               ) : (
                 employeeStats.map((emp) => (
-                  <TableRow key={emp.user_id}>
+                  <TableRow key={emp.employee_id}>
                     <TableCell className="font-medium">
                       <div>{emp.full_name}</div>
                       <div className="text-sm text-muted-foreground">{emp.email}</div>

@@ -14,7 +14,7 @@ PRINT '';
 
 -- Insert default preferences for all users who don't have preferences yet
 INSERT INTO user_preferences (
-    user_id, 
+    employee_id, 
     dark_mode, 
     compact_view, 
     email_notifications, 
@@ -26,7 +26,7 @@ INSERT INTO user_preferences (
     updated_at
 )
 SELECT 
-    p.user_id,
+    p.employee_id,
     0 AS dark_mode,
     0 AS compact_view,
     1 AS email_notifications,
@@ -40,7 +40,7 @@ FROM profiles p
 WHERE NOT EXISTS (
     SELECT 1 
     FROM user_preferences up 
-    WHERE up.user_id = p.user_id
+    WHERE up.employee_id = p.employee_id
 );
 
 -- Get count of rows inserted

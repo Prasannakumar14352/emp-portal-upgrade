@@ -18,7 +18,7 @@ router.get('/employee/:userId', authenticateToken, async (req, res) => {
     
     // Get leave statistics
     const leaveStats = await pool.request()
-      .input('user_id', sql.Int, userId)
+      .input('employee_id', sql.Int, userId)
       .input('year', sql.Int, new Date().getFullYear())
       .query(`
         SELECT 
@@ -28,12 +28,12 @@ router.get('/employee/:userId', authenticateToken, async (req, res) => {
           SUM(CASE WHEN status = 'Rejected' THEN 1 ELSE 0 END) as rejected_leaves,
           SUM(CASE WHEN status = 'Approved' THEN days ELSE 0 END) as total_days_taken
         FROM leaves
-        WHERE user_id = @user_id AND YEAR(created_at) = @year
+        WHERE employee_id = @employee_id AND YEAR(created_at) = @year
       `);
 
     // Get leave balance summary
     const balanceStats = await pool.request()
-      .input('user_id', sql.Int, userId)
+      .input('employee_id', sql.Int, userId)
       .input('year', sql.Int, new Date().getFullYear())
       .query(`
         SELECT 
@@ -42,12 +42,12 @@ router.get('/employee/:userId', authenticateToken, async (req, res) => {
           SUM(remaining_days) as total_remaining,
           SUM(carry_forward_days) as total_carry_forward
         FROM leave_balances
-        WHERE user_id = @user_id AND year = @year
+        WHERE employee_id = @employee_id AND year = @year
       `);
 
     // Get leave type breakdown
     const leaveTypeBreakdown = await pool.request()
-      .input('user_id', sql.Int, userId)
+      .input('employee_id', sql.Int, userId)
       .input('year', sql.Int, new Date().getFullYear())
       .query(`
         SELECT 
@@ -55,13 +55,13 @@ router.get('/employee/:userId', authenticateToken, async (req, res) => {
           COUNT(*) as count,
           SUM(days) as total_days
         FROM leaves
-        WHERE user_id = @user_id AND YEAR(created_at) = @year AND status = 'Approved'
+        WHERE employee_id = @employee_id AND YEAR(created_at) = @year AND status = 'Approved'
         GROUP BY leave_type
       `);
 
     // Get monthly leave trends
     const monthlyTrends = await pool.request()
-      .input('user_id', sql.Int, userId)
+      .input('employee_id', sql.Int, userId)
       .input('year', sql.Int, new Date().getFullYear())
       .query(`
         SELECT 
@@ -70,7 +70,7 @@ router.get('/employee/:userId', authenticateToken, async (req, res) => {
           COUNT(*) as leave_count,
           SUM(days) as days_taken
         FROM leaves
-        WHERE user_id = @user_id AND YEAR(start_date) = @year AND status = 'Approved'
+        WHERE employee_id = @employee_id AND YEAR(start_date) = @year AND status = 'Approved'
         GROUP BY MONTH(start_date), DATENAME(MONTH, start_date)
         ORDER BY MONTH(start_date)
       `);
@@ -123,7 +123,7 @@ router.get('/attendance/:userId', authenticateToken, async (req, res) => {
 
     // Get leave days taken
     const leaveDaysResult = await pool.request()
-      .input('user_id', sql.Int, userId)
+      .input('employee_id', sql.Int, userId)
       .input('start_date', sql.Date, startDate || new Date(new Date().getFullYear(), 0, 1))
       .input('end_date', sql.Date, endDate || new Date())
       .query(`
@@ -131,7 +131,7 @@ router.get('/attendance/:userId', authenticateToken, async (req, res) => {
           SUM(days) as leave_days,
           COUNT(*) as leave_count
         FROM leaves
-        WHERE user_id = @user_id 
+        WHERE employee_id = @employee_id 
           AND status = 'Approved'
           AND start_date >= @start_date 
           AND end_date <= @end_date
@@ -182,7 +182,7 @@ router.get('/team', authenticateToken, authorizeRole('hr', 'manager'), async (re
           SUM(CASE WHEN l.status = 'Pending' THEN 1 ELSE 0 END) as pending_requests,
           AVG(CASE WHEN l.status = 'Approved' THEN l.days ELSE NULL END) as avg_leave_days
         FROM employees e
-        LEFT JOIN leaves l ON e.user_id = l.user_id AND YEAR(l.created_at) = @year
+        LEFT JOIN leaves l ON e.employee_id = l.employee_id AND YEAR(l.created_at) = @year
         ${departmentFilter}
       `);
 
@@ -196,7 +196,7 @@ router.get('/team', authenticateToken, authorizeRole('hr', 'manager'), async (re
           COUNT(l.id) as leave_count,
           SUM(CASE WHEN l.status = 'Approved' THEN l.days ELSE 0 END) as total_leave_days
         FROM employees e
-        LEFT JOIN leaves l ON e.user_id = l.user_id AND YEAR(l.created_at) = @year
+        LEFT JOIN leaves l ON e.employee_id = l.employee_id AND YEAR(l.created_at) = @year
         GROUP BY e.department
         ORDER BY employee_count DESC
       `);
@@ -213,7 +213,7 @@ router.get('/team', authenticateToken, authorizeRole('hr', 'manager'), async (re
           COUNT(l.id) as leave_count,
           SUM(l.days) as total_days
         FROM employees e
-        INNER JOIN leaves l ON e.user_id = l.user_id
+        INNER JOIN leaves l ON e.employee_id = l.employee_id
         WHERE l.status = 'Approved' 
           AND YEAR(l.created_at) = @year
           ${department ? 'AND e.department = @department' : ''}
@@ -267,7 +267,7 @@ router.get('/utilization', authenticateToken, authorizeRole('hr', 'manager'), as
         SELECT 
           MONTH(l.start_date) as month,
           DATENAME(MONTH, l.start_date) as month_name,
-          COUNT(DISTINCT l.user_id) as employees_on_leave,
+          COUNT(DISTINCT l.employee_id) as employees_on_leave,
           SUM(l.days) as total_days_used
         FROM leaves l
         WHERE YEAR(l.start_date) = @year AND l.status = 'Approved'

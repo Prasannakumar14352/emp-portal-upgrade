@@ -58,16 +58,16 @@ CREATE TABLE users (
 -- User roles table
 CREATE TABLE user_roles (
     id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-    user_id UNIQUEIDENTIFIER NOT NULL,
+    employee_id UNIQUEIDENTIFIER NOT NULL,
     role NVARCHAR(20) NOT NULL CHECK (role IN ('employee', 'hr', 'manager')),
     created_at DATETIME2 DEFAULT GETDATE(),
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    FOREIGN KEY (employee_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 -- Leaves table
 CREATE TABLE leaves (
     id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-    user_id UNIQUEIDENTIFIER NOT NULL,
+    employee_id UNIQUEIDENTIFIER NOT NULL,
     leave_type NVARCHAR(50) NOT NULL,
     start_date DATE NOT NULL,
     end_date DATE NOT NULL,
@@ -77,14 +77,14 @@ CREATE TABLE leaves (
     approved_by UNIQUEIDENTIFIER,
     created_at DATETIME2 DEFAULT GETDATE(),
     updated_at DATETIME2 DEFAULT GETDATE(),
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (employee_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (approved_by) REFERENCES users(id)
 );
 
 -- Leave balances table
 CREATE TABLE leave_balances (
     id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-    user_id UNIQUEIDENTIFIER NOT NULL,
+    employee_id UNIQUEIDENTIFIER NOT NULL,
     year INT NOT NULL,
     leave_type NVARCHAR(50) NOT NULL,
     total_days INT DEFAULT 0,
@@ -93,19 +93,19 @@ CREATE TABLE leave_balances (
     carry_forward_days INT DEFAULT 0,
     created_at DATETIME2 DEFAULT GETDATE(),
     updated_at DATETIME2 DEFAULT GETDATE(),
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    UNIQUE (user_id, year, leave_type)
+    FOREIGN KEY (employee_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE (employee_id, year, leave_type)
 );
 
 -- Leave comments table
 CREATE TABLE leave_comments (
     id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
     leave_id UNIQUEIDENTIFIER NOT NULL,
-    user_id UNIQUEIDENTIFIER NOT NULL,
+    employee_id UNIQUEIDENTIFIER NOT NULL,
     comment NVARCHAR(1000) NOT NULL,
     created_at DATETIME2 DEFAULT GETDATE(),
     FOREIGN KEY (leave_id) REFERENCES leaves(id) ON DELETE CASCADE,
-    FOREIGN KEY (user_id) REFERENCES users(id)
+    FOREIGN KEY (employee_id) REFERENCES users(id)
 );
 ```
 

@@ -2,7 +2,7 @@
 -- UPDATE OAUTH USER SYNC PROCEDURE
 -- ============================================================================
 -- Run this to update the sp_sync_oauth_user procedure to the new version
--- that doesn't require @user_id as an input parameter
+-- that doesn't require @employee_id as an input parameter
 
 -- Drop the old procedure first
 IF EXISTS (SELECT * FROM sys.objects WHERE type = 'P' AND name = 'sp_sync_oauth_user')
@@ -22,21 +22,21 @@ AS
 BEGIN
     SET NOCOUNT ON;
     
-    DECLARE @user_id UNIQUEIDENTIFIER;
+    DECLARE @employee_id UNIQUEIDENTIFIER;
     DECLARE @employee_id INT;
     
     BEGIN TRY
         BEGIN TRANSACTION;
         
         -- Check if profile exists by email, if not create it
-        SELECT @user_id = id, @employee_id = employee_id FROM profiles WHERE email = @email;
+        SELECT @employee_id = id, @employee_id = employee_id FROM profiles WHERE email = @email;
         
-        IF @user_id IS NULL
+        IF @employee_id IS NULL
         BEGIN
             INSERT INTO profiles (id, email, full_name, created_at, updated_at)
             VALUES (NEWID(), @email, @full_name, GETDATE(), GETDATE());
             
-            SET @user_id = (SELECT id FROM profiles WHERE email = @email);
+            SET @employee_id = (SELECT id FROM profiles WHERE email = @email);
             SET @employee_id = (SELECT employee_id FROM profiles WHERE email = @email);
             
             PRINT 'Profile created for user: ' + @email + ' with employee_id: ' + CAST(@employee_id AS NVARCHAR);
@@ -47,10 +47,10 @@ BEGIN
         END
         
         -- Check if employee record exists, if not create it
-        IF NOT EXISTS (SELECT 1 FROM employees WHERE user_id = @user_id)
+        IF NOT EXISTS (SELECT 1 FROM employees WHERE employee_id = @employee_id)
         BEGIN
-            INSERT INTO employees (user_id, full_name, email, department, position, status, created_at, updated_at)
-            VALUES (@user_id, @full_name, @email, @department, @position, 'Active', GETDATE(), GETDATE());
+            INSERT INTO employees (employee_id, full_name, email, department, position, status, created_at, updated_at)
+            VALUES (@employee_id, @full_name, @email, @department, @position, 'Active', GETDATE(), GETDATE());
             
             PRINT 'Employee record created for: ' + @email;
         END
@@ -63,16 +63,16 @@ BEGIN
                 department = @department,
                 position = @position,
                 updated_at = GETDATE()
-            WHERE user_id = @user_id;
+            WHERE employee_id = @employee_id;
             
             PRINT 'Employee record updated for: ' + @email;
         END
         
         -- Assign default employee role if not exists
-        IF NOT EXISTS (SELECT 1 FROM user_roles WHERE user_id = @user_id AND role = 'employee')
+        IF NOT EXISTS (SELECT 1 FROM user_roles WHERE employee_id = @employee_id AND role = 'employee')
         BEGIN
-            INSERT INTO user_roles (user_id, role, created_at)
-            VALUES (@user_id, 'employee', GETDATE());
+            INSERT INTO user_roles (employee_id, role, created_at)
+            VALUES (@employee_id, 'employee', GETDATE());
             
             PRINT 'Employee role assigned to: ' + @email;
         END

@@ -17,15 +17,15 @@ Your application uses **SQL Server** as the primary database (not Supabase). The
 -- First, find your user ID
 SELECT id, email, full_name FROM profiles WHERE email = 'YOUR_EMAIL@example.com';
 
--- Then insert the HR role (replace YOUR_USER_ID with the ID from above)
+-- Then insert the HR role (replace YOUR_employee_id with the ID from above)
 -- For example, if your ID is 1:
-INSERT INTO user_roles (user_id, role, created_at)
+INSERT INTO user_roles (employee_id, role, created_at)
 VALUES (1, 'hr', GETDATE());
 
 -- Verify the role was added
-SELECT ur.id, ur.user_id, ur.role, p.email, p.full_name
+SELECT ur.id, ur.employee_id, ur.role, p.email, p.full_name
 FROM user_roles ur
-JOIN profiles p ON ur.user_id = p.id
+JOIN profiles p ON ur.employee_id = p.id
 WHERE p.email = 'YOUR_EMAIL@example.com';
 ```
 

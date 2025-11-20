@@ -3,7 +3,7 @@ import { apiClient } from './apiClient';
 export type UserRole = 'employee' | 'hr' | 'manager';
 
 export interface UserProfile {
-  user_id: string;
+  employee_id: string;
   email: string;
   full_name: string;
   phone?: string;

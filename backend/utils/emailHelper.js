@@ -10,8 +10,8 @@ async function shouldSendEmail(userId) {
     const pool = await getConnection();
     
     const result = await pool.request()
-      .input('user_id', sql.Int, userId)
-      .query('SELECT email_notifications FROM user_preferences WHERE user_id = @user_id');
+      .input('employee_id', sql.Int, userId)
+      .query('SELECT email_notifications FROM user_preferences WHERE employee_id = @employee_id');
     
     // If no preferences found, default to true (send email)
     if (result.recordset.length === 0) {
@@ -36,8 +36,8 @@ async function shouldSendLeaveNotification(userId) {
     const pool = await getConnection();
     
     const result = await pool.request()
-      .input('user_id', sql.Int, userId)
-      .query('SELECT leave_update_notifications, email_notifications FROM user_preferences WHERE user_id = @user_id');
+      .input('employee_id', sql.Int, userId)
+      .query('SELECT leave_update_notifications, email_notifications FROM user_preferences WHERE employee_id = @employee_id');
     
     // If no preferences found, default to true
     if (result.recordset.length === 0) {
@@ -57,18 +57,18 @@ async function shouldSendLeaveNotification(userId) {
 
 /**
  * Filter email recipients based on their preferences
- * @param {Array<{user_id: number, email: string}>} recipients - Array of recipient objects
+ * @param {Array<{employee_id: number, email: string}>} recipients - Array of recipient objects
  * @returns {Promise<Array<string>>} - Array of email addresses that should receive emails
  */
 async function filterEmailRecipients(recipients) {
   const filteredEmails = [];
   
   for (const recipient of recipients) {
-    const shouldSend = await shouldSendEmail(recipient.user_id);
+    const shouldSend = await shouldSendEmail(recipient.employee_id);
     if (shouldSend) {
       filteredEmails.push(recipient.email);
     } else {
-      console.log(`Skipping email to ${recipient.email} (user_id: ${recipient.user_id}) - email notifications disabled`);
+      console.log(`Skipping email to ${recipient.email} (employee_id: ${recipient.employee_id}) - email notifications disabled`);
     }
   }
   

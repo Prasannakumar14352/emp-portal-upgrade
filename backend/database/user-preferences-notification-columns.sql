@@ -6,7 +6,7 @@ IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'user_preferences')
 BEGIN
     CREATE TABLE user_preferences (
         id INT IDENTITY(1,1) PRIMARY KEY,
-        user_id INT NOT NULL UNIQUE,
+        employee_id INT NOT NULL UNIQUE,
         email_notifications BIT NOT NULL DEFAULT 1,
         push_notifications BIT NOT NULL DEFAULT 1,
         leave_update_notifications BIT NOT NULL DEFAULT 1,
@@ -14,10 +14,10 @@ BEGIN
         dark_mode BIT NOT NULL DEFAULT 0,
         created_at DATETIME2 NOT NULL DEFAULT GETDATE(),
         updated_at DATETIME2 NOT NULL DEFAULT GETDATE(),
-        CONSTRAINT FK_user_preferences_user_id FOREIGN KEY (user_id) REFERENCES profiles(user_id)
+        CONSTRAINT FK_user_preferences_employee_id FOREIGN KEY (employee_id) REFERENCES profiles(employee_id)
     );
 
-    CREATE INDEX idx_user_preferences_user_id ON user_preferences(user_id);
+    CREATE INDEX idx_user_preferences_employee_id ON user_preferences(employee_id);
 
     PRINT 'User preferences table created successfully';
 END

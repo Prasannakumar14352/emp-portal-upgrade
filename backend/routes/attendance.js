@@ -16,7 +16,7 @@ router.get('/today', authenticateToken, async (req, res) => {
       .input('date', sql.Date, today)
       .query(`
         SELECT * FROM attendance_records 
-        WHERE user_id = @userId AND date = @date
+        WHERE employee_id = @userId AND date = @date
       `);
 
     res.json(result.recordset[0] || null);
@@ -46,7 +46,7 @@ router.get('/stats', authenticateToken, async (req, res) => {
           SUM(CASE WHEN status = 'absent' THEN 1 ELSE 0 END) as absent,
           SUM(CASE WHEN status = 'late' THEN 1 ELSE 0 END) as late
         FROM attendance_records 
-        WHERE user_id = @userId 
+        WHERE employee_id = @userId 
           AND date >= @startDate 
           AND date <= @endDate
       `);
@@ -77,7 +77,7 @@ router.get('/', authenticateToken, async (req, res) => {
     const pool = await getConnection();
     let query = `
       SELECT * FROM attendance_records 
-      WHERE user_id = @userId
+      WHERE employee_id = @userId
     `;
     
     const request = pool.request().input('userId', sql.Int, userId);
@@ -115,7 +115,7 @@ router.post('/checkin', authenticateToken, async (req, res) => {
       .input('date', sql.Date, today)
       .query(`
         SELECT * FROM attendance_records 
-        WHERE user_id = @userId AND date = @date
+        WHERE employee_id = @userId AND date = @date
       `);
 
     if (existing.recordset[0]?.check_in_time) {
@@ -125,7 +125,7 @@ router.post('/checkin', authenticateToken, async (req, res) => {
     // Get user name for notification
     const userResult = await pool.request()
       .input('userId', sql.Int, userId)
-      .query('SELECT full_name FROM employees WHERE user_id = @userId');
+      .query('SELECT full_name FROM employees WHERE employee_id = @userId');
     
     const userName = userResult.recordset[0]?.full_name || 'Unknown User';
 
@@ -148,7 +148,7 @@ router.post('/checkin', authenticateToken, async (req, res) => {
         .input('checkInTime', sql.DateTime2, now)
         .input('notes', sql.NVarChar, notes)
         .query(`
-          INSERT INTO attendance_records (user_id, date, check_in_time, notes)
+          INSERT INTO attendance_records (employee_id, date, check_in_time, notes)
           VALUES (@userId, @date, @checkInTime, @notes)
         `);
     }
@@ -186,7 +186,7 @@ router.post('/checkout', authenticateToken, async (req, res) => {
       .input('date', sql.Date, today)
       .query(`
         SELECT * FROM attendance_records 
-        WHERE user_id = @userId AND date = @date
+        WHERE employee_id = @userId AND date = @date
       `);
 
     if (!existing.recordset[0]) {
@@ -200,7 +200,7 @@ router.post('/checkout', authenticateToken, async (req, res) => {
     // Get user name for notification
     const userResult = await pool.request()
       .input('userId', sql.Int, userId)
-      .query('SELECT full_name FROM employees WHERE user_id = @userId');
+      .query('SELECT full_name FROM employees WHERE employee_id = @userId');
     
     const userName = userResult.recordset[0]?.full_name || 'Unknown User';
 
@@ -244,7 +244,7 @@ router.get('/analytics/stats', authenticateToken, async (req, res) => {
       .input('date', sql.Date, today)
       .query(`
         SELECT 
-          COUNT(DISTINCT user_id) as totalEmployees,
+          COUNT(DISTINCT employee_id) as totalEmployees,
           SUM(CASE WHEN status = 'present' OR check_in_time IS NOT NULL THEN 1 ELSE 0 END) as presentToday,
           SUM(CASE WHEN status = 'absent' THEN 1 ELSE 0 END) as absentToday,
           SUM(CASE WHEN status = 'late' THEN 1 ELSE 0 END) as lateToday
@@ -304,7 +304,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
       .input('userId', sql.Int, userId)
       .query(`
         SELECT role FROM user_roles 
-        WHERE user_id = (SELECT user_id FROM profiles WHERE user_id = @userId)
+        WHERE employee_id = (SELECT employee_id FROM profiles WHERE employee_id = @userId)
       `);
     
     const isHR = roleResult.recordset.some(r => r.role === 'hr');
@@ -319,7 +319,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
     
     // Business logic: Employee can update only if it's the next day (daysDifference === 1)
     // HR can update anytime
-    if (!isHR && record.user_id !== userId) {
+    if (!isHR && record.employee_id !== userId) {
       return res.status(403).json({ error: 'You can only update your own attendance' });
     }
     
@@ -362,7 +362,7 @@ router.get('/analytics/departments', authenticateToken, async (req, res) => {
       .query(`
         SELECT 
           e.department,
-          COUNT(DISTINCT e.user_id) as total,
+          COUNT(DISTINCT e.employee_id) as total,
           SUM(CASE WHEN ar.status = 'present' OR ar.check_in_time IS NOT NULL THEN 1 ELSE 0 END) as present,
           SUM(CASE WHEN ar.status = 'absent' THEN 1 ELSE 0 END) as absent,
           SUM(CASE WHEN ar.status = 'late' THEN 1 ELSE 0 END) as late,
@@ -372,7 +372,7 @@ router.get('/analytics/departments', authenticateToken, async (req, res) => {
             ELSE 0 
           END) as INT) as attendanceRate
         FROM employees e
-        LEFT JOIN attendance_records ar ON e.user_id = ar.user_id AND ar.date = @date
+        LEFT JOIN attendance_records ar ON e.employee_id = ar.employee_id AND ar.date = @date
         GROUP BY e.department
         ORDER BY e.department
       `);
@@ -424,7 +424,7 @@ router.get('/calendar', authenticateToken, async (req, res) => {
     const pool = await getConnection();
     
     // Get all employees with optional department filter
-    let employeeQuery = 'SELECT user_id, full_name, department FROM employees WHERE status = \'Active\'';
+    let employeeQuery = 'SELECT employee_id, full_name, department FROM employees WHERE status = \'Active\'';
     const request = pool.request();
     
     if (department && department !== 'all') {
@@ -444,7 +444,7 @@ router.get('/calendar', authenticateToken, async (req, res) => {
       .input('endDate', sql.Date, endDate)
       .query(`
         SELECT 
-          user_id,
+          employee_id,
           CONVERT(VARCHAR, date, 23) as date,
           status,
           check_in_time,
@@ -457,10 +457,10 @@ router.get('/calendar', authenticateToken, async (req, res) => {
     // Organize attendance by user and date
     const attendanceMap = {};
     attendanceResult.recordset.forEach(record => {
-      if (!attendanceMap[record.user_id]) {
-        attendanceMap[record.user_id] = {};
+      if (!attendanceMap[record.employee_id]) {
+        attendanceMap[record.employee_id] = {};
       }
-      attendanceMap[record.user_id][record.date] = {
+      attendanceMap[record.employee_id][record.date] = {
         status: record.status,
         check_in_time: record.check_in_time,
         check_out_time: record.check_out_time,
@@ -470,10 +470,10 @@ router.get('/calendar', authenticateToken, async (req, res) => {
     
     // Combine employee and attendance data
     const result = employees.map(emp => ({
-      user_id: emp.user_id,
+      employee_id: emp.employee_id,
       full_name: emp.full_name,
       department: emp.department,
-      attendance: attendanceMap[emp.user_id] || {}
+      attendance: attendanceMap[emp.employee_id] || {}
     }));
     
     res.json(result);
@@ -494,7 +494,7 @@ router.get('/reports', authenticateToken, async (req, res) => {
       .input('endDate', sql.Date, endDate)
       .query(`
         SELECT 
-          e.user_id,
+          e.employee_id,
           e.full_name as employee_name,
           e.department,
           CONVERT(VARCHAR, ar.date, 23) as date,
@@ -503,7 +503,7 @@ router.get('/reports', authenticateToken, async (req, res) => {
           ar.work_hours,
           ar.status
         FROM attendance_records ar
-        JOIN employees e ON ar.user_id = e.user_id
+        JOIN employees e ON ar.employee_id = e.employee_id
         WHERE ar.date >= @startDate AND ar.date <= @endDate
         ORDER BY ar.date DESC, e.full_name
       `);
@@ -533,7 +533,7 @@ router.get('/analytics/late-patterns', authenticateToken, async (req, res) => {
           COUNT(*) as late_count,
           CAST(AVG(DATEDIFF(MINUTE, '09:00:00', CAST(ar.check_in_time AS TIME))) as INT) as avg_late_minutes
         FROM attendance_records ar
-        JOIN employees e ON ar.user_id = e.user_id
+        JOIN employees e ON ar.employee_id = e.employee_id
         WHERE ar.status = 'late' 
           AND ar.date >= DATEADD(day, -@days, GETDATE())
         GROUP BY e.full_name, e.department
@@ -563,7 +563,7 @@ router.get('/analytics/late-patterns', authenticateToken, async (req, res) => {
           DATENAME(WEEKDAY, date) as day_name,
           DATEPART(WEEKDAY, date) as day_number,
           COUNT(*) as late_count,
-          COUNT(DISTINCT user_id) as unique_employees
+          COUNT(DISTINCT employee_id) as unique_employees
         FROM attendance_records
         WHERE status = 'late'
           AND date >= DATEADD(day, -@days, GETDATE())
@@ -578,10 +578,10 @@ router.get('/analytics/late-patterns', authenticateToken, async (req, res) => {
         SELECT 
           e.department,
           COUNT(*) as late_count,
-          COUNT(DISTINCT ar.user_id) as employees_with_late,
+          COUNT(DISTINCT ar.employee_id) as employees_with_late,
           CAST(AVG(DATEDIFF(MINUTE, '09:00:00', CAST(ar.check_in_time AS TIME))) as INT) as avg_delay_minutes
         FROM attendance_records ar
-        JOIN employees e ON ar.user_id = e.user_id
+        JOIN employees e ON ar.employee_id = e.employee_id
         WHERE ar.status = 'late'
           AND ar.date >= DATEADD(day, -@days, GETDATE())
         GROUP BY e.department
@@ -612,14 +612,14 @@ router.get('/analytics/department-comparison', authenticateToken, async (req, re
       .query(`
         SELECT 
           e.department,
-          COUNT(DISTINCT e.user_id) as total_employees,
-          COUNT(DISTINCT CASE WHEN ar.status IN ('present', 'late') THEN ar.user_id END) as avg_present,
+          COUNT(DISTINCT e.employee_id) as total_employees,
+          COUNT(DISTINCT CASE WHEN ar.status IN ('present', 'late') THEN ar.employee_id END) as avg_present,
           COUNT(CASE WHEN ar.status = 'late' THEN 1 END) as total_late,
           COUNT(CASE WHEN ar.status = 'absent' THEN 1 END) as total_absent,
           CAST(AVG(CASE WHEN ar.status IN ('present', 'late') THEN 100.0 ELSE 0 END) as DECIMAL(5,2)) as attendance_rate,
           CAST(AVG(ar.work_hours) as DECIMAL(5,2)) as avg_work_hours
         FROM employees e
-        LEFT JOIN attendance_records ar ON e.user_id = ar.user_id 
+        LEFT JOIN attendance_records ar ON e.employee_id = ar.employee_id 
           AND ar.date >= DATEADD(day, -@days, GETDATE())
         WHERE e.status = 'Active'
         GROUP BY e.department
