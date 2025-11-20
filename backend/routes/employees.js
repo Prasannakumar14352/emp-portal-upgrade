@@ -29,19 +29,21 @@ router.get('/', authenticateToken, async (req, res) => {
   try {
     const pool = await getConnection();
     
+    console.log('[Employees] Fetching all employees');
     const result = await pool.request()
       .query(`
         SELECT 
           e.employee_id, e.full_name, e.email, e.phone, 
-          e.department, e.position, e.status, e.created_at, e.updated_at, e.role
+          e.department, e.position, e.status, e.created_at, e.updated_at
         FROM profiles e
         ORDER BY e.full_name
       `);
 
     res.json(result.recordset);
   } catch (err) {
+    console.error('[Employees] Get employees error:', err);
     logError(err, req, { context: 'Get employees error' });
-    res.status(500).json({ error: 'Failed to get employees' });
+    res.status(500).json({ error: 'Failed to get employees', details: err.message });
   }
 });
 
@@ -88,11 +90,10 @@ router.post('/', authenticateToken, authorizeRole('hr', 'manager'), async (req, 
       .input('department', sql.NVarChar, department)
       .input('position', sql.NVarChar, position)
       .input('status', sql.NVarChar, status || 'Active')
-      .input('role', sql.NVarChar, role || 'employee')
       .query(`
-        INSERT INTO profiles (employee_id, full_name, email, phone, department, position, status, created_at, updated_at, role)
+        INSERT INTO profiles (employee_id, full_name, email, phone, department, position, status, created_at, updated_at)
         OUTPUT INSERTED.*
-        VALUES (@employee_id, @full_name, @email, @phone, @department, @position, @status, GETDATE(), GETDATE(), @role)
+        VALUES (@employee_id, @full_name, @email, @phone, @department, @position, @status, GETDATE(), GETDATE())
       `);
 
     res.status(201).json(result.recordset[0]);
@@ -106,7 +107,7 @@ router.post('/', authenticateToken, authorizeRole('hr', 'manager'), async (req, 
 router.patch('/:id', authenticateToken, authorizeRole('hr', 'manager'), async (req, res) => {
   try {
     const { id } = req.params;
-    const { full_name, email, phone, department, position, status, role } = req.body;
+    const { full_name, email, phone, department, position, status } = req.body;
     const pool = await getConnection();
     
     const result = await pool.request()
@@ -116,7 +117,6 @@ router.patch('/:id', authenticateToken, authorizeRole('hr', 'manager'), async (r
       .input('department', sql.NVarChar, department)
       .input('position', sql.NVarChar, position)
       .input('status', sql.NVarChar, status)
-      .input('role', sql.NVarChar, role)
       .input('employee_id', sql.Int, id)
       .query(`
         UPDATE profiles
@@ -127,8 +127,7 @@ router.patch('/:id', authenticateToken, authorizeRole('hr', 'manager'), async (r
           department = COALESCE(@department, department),
           position = COALESCE(@position, position),
           status = COALESCE(@status, status),
-          updated_at = GETDATE(),
-          role = COALESCE(@role, role)
+          updated_at = GETDATE()
         OUTPUT INSERTED.*
         WHERE employee_id = @employee_id
       `);
