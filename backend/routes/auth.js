@@ -228,13 +228,16 @@ router.get('/session', authenticateToken, async (req, res) => {
 
     const pool = await getConnection();
 
+    // Determine if the ID is numeric (employee_id) or UUID (user_id)
+    const isNumericId = typeof req.user.id === 'number' || !isNaN(Number(req.user.id));
+    
     // Get user basic info
     const userResult = await pool.request()
-      .input('user_id', sql.NVarChar, req.user.id)
+      .input('id_value', isNumericId ? sql.Int : sql.NVarChar, req.user.id)
       .query(`
         SELECT user_id, email, full_name, department, position
         FROM profiles
-        WHERE user_id = @user_id
+        WHERE ${isNumericId ? 'employee_id' : 'user_id'} = @id_value
       `);
 
     if (userResult.recordset.length === 0) {
@@ -244,9 +247,9 @@ router.get('/session', authenticateToken, async (req, res) => {
 
     const user = userResult.recordset[0];
 
-    // Get all roles for this user
+    // Get all roles for this user using the actual user_id (UUID)
     const rolesResult = await pool.request()
-      .input('user_id', sql.NVarChar, req.user.id)
+      .input('user_id', sql.NVarChar, user.user_id)
       .query(`
         SELECT role
         FROM user_roles
