@@ -15,6 +15,21 @@ export default function OAuthCallback() {
 
                 const accessToken = url.searchParams.get("access_token");
                 const refreshToken = url.searchParams.get("refresh_token");
+                const error = url.searchParams.get("error");
+                const errorDetails = url.searchParams.get("error_details");
+
+                // Check for OAuth errors
+                if (error) {
+                    if (mounted) {
+                        toast.error(error, {
+                            description: errorDetails || "Please try again or contact support.",
+                            duration: 6000,
+                        });
+                        console.error("OAuth Error:", { error, errorDetails });
+                        navigate("/auth");
+                    }
+                    return;
+                }
 
                 if (!accessToken || !refreshToken) {
                     if (mounted) {
