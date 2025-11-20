@@ -289,6 +289,8 @@ router.put('/:id', authenticateToken, async (req, res) => {
     
     const pool = await getConnection();
     
+    console.log('[Attendance Update] Request received:', { id, userId, checkInTime, checkOutTime });
+    
     // Get the attendance record
     const recordResult = await pool.request()
       .input('id', sql.UniqueIdentifier, id)
@@ -299,15 +301,23 @@ router.put('/:id', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Attendance record not found' });
     }
     
+    console.log('[Attendance Update] Record found:', { 
+      recordEmployeeId: record.employee_id, 
+      requestUserId: userId,
+      typesMatch: typeof record.employee_id === typeof parseInt(userId)
+    });
+    
     // Check if user has HR role
     const roleResult = await pool.request()
-      .input('userId', sql.Int, userId)
+      .input('userId', sql.Int, parseInt(userId))
       .query(`
         SELECT role FROM user_roles 
-        WHERE employee_id = (SELECT employee_id FROM profiles WHERE employee_id = @userId)
+        WHERE employee_id = @userId
       `);
     
     const isHR = roleResult.recordset.some(r => r.role === 'hr');
+    
+    console.log('[Attendance Update] Role check:', { isHR, roles: roleResult.recordset });
     
     // Get the date difference
     const recordDate = new Date(record.date);
@@ -319,7 +329,12 @@ router.put('/:id', authenticateToken, async (req, res) => {
     
     // Business logic: Employee can update only if it's the next day (daysDifference === 1)
     // HR can update anytime
-    if (!isHR && record.employee_id !== userId) {
+    // Convert both to integers for proper comparison
+    const recordEmployeeId = parseInt(record.employee_id);
+    const requestUserId = parseInt(userId);
+    
+    if (!isHR && recordEmployeeId !== requestUserId) {
+      console.log('[Attendance Update] Permission denied:', { recordEmployeeId, requestUserId, isHR });
       return res.status(403).json({ error: 'You can only update your own attendance' });
     }
     
