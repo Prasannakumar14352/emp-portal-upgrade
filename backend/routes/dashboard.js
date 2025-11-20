@@ -10,6 +10,8 @@ router.get('/employee/:userId', authenticateToken, async (req, res) => {
     const { userId } = req.params;
     const userIdInt = parseInt(userId);
     
+    console.log(`[Dashboard] Getting employee dashboard for user ${userId}`);
+    
     // Users can only view their own dashboard unless HR/manager
     if (parseInt(req.user.id) !== userIdInt && !['hr', 'manager'].includes(req.user.role)) {
       return res.status(403).json({ error: 'Not authorized' });
@@ -18,6 +20,7 @@ router.get('/employee/:userId', authenticateToken, async (req, res) => {
     const pool = await getConnection();
     
     // Get leave balance
+    console.log('[Dashboard] Querying leave_balances table');
     const leaveBalanceResult = await pool.request()
       .input('employee_id', sql.Int, userIdInt)
       .input('year', sql.Int, new Date().getFullYear())
@@ -28,6 +31,7 @@ router.get('/employee/:userId', authenticateToken, async (req, res) => {
       `);
     
     // Get pending approvals count
+    console.log('[Dashboard] Querying leaves table for pending count');
     const pendingResult = await pool.request()
       .input('employee_id', sql.Int, userIdInt)
       .query(`
@@ -37,6 +41,7 @@ router.get('/employee/:userId', authenticateToken, async (req, res) => {
       `);
     
     // Get payslips count
+    console.log('[Dashboard] Querying payslips table');
     const payslipsResult = await pool.request()
       .input('employee_id', sql.Int, userIdInt)
       .query(`
@@ -54,8 +59,17 @@ router.get('/employee/:userId', authenticateToken, async (req, res) => {
 
     res.json(stats);
   } catch (err) {
-    console.error('Get employee dashboard stats error:', err);
-    res.status(500).json({ error: 'Failed to get dashboard stats' });
+    console.error('[Dashboard] Get employee dashboard stats error:', err);
+    console.error('[Dashboard] Error details:', {
+      message: err.message,
+      number: err.number,
+      lineNumber: err.lineNumber,
+      state: err.state
+    });
+    res.status(500).json({ 
+      error: 'Failed to get dashboard stats',
+      details: err.message
+    });
   }
 });
 

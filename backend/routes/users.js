@@ -41,15 +41,18 @@ router.get('/:userId/profile', authenticateToken, async (req, res) => {
     const { userId } = req.params;
     const pool = await getConnection();
 
+    const query = `
+      SELECT 
+        p.employee_id, p.email, p.full_name, p.phone, 
+        p.department, p.position, p.avatar_url, p.hire_date, p.created_at, p.updated_at
+      FROM profiles p
+      WHERE p.employee_id = @employee_id
+    `;
+    console.log(`Executing profile query for user ${userId}`);
+
     const result = await pool.request()
       .input('employee_id', sql.Int, userId)
-      .query(`
-        SELECT 
-          p.employee_id, p.email, p.full_name, p.phone, 
-          p.department, p.position, p.avatar_url, p.hire_date, p.created_at, p.updated_at
-        FROM profiles p
-        WHERE p.employee_id = @employee_id
-      `);
+      .query(query);
 
     if (result.recordset.length === 0) {
       return res.status(404).json({ error: 'User not found' });
@@ -57,8 +60,14 @@ router.get('/:userId/profile', authenticateToken, async (req, res) => {
 
     res.json(result.recordset[0]);
   } catch (err) {
-    logError(err, req, { context: 'Get profile error', userId: req.params.userId });
-    res.status(500).json({ error: 'Failed to get user profile' });
+    console.error('Get profile error:', err);
+    console.error('Query:', query);
+    console.error('Table: profiles');
+    logError(err, req, { context: 'Get profile error', userId: req.params.userId, table: 'profiles' });
+    res.status(500).json({ 
+      error: 'Failed to get user profile',
+      details: err.message 
+    });
   }
 });
 
