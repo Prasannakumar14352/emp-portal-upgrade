@@ -19,30 +19,30 @@ router.get('/employee/:userId', authenticateToken, async (req, res) => {
     
     // Get leave balance
     const leaveBalanceResult = await pool.request()
-      .input('user_id', sql.Int, userIdInt)
+      .input('employee_id', sql.Int, userIdInt)
       .input('year', sql.Int, new Date().getFullYear())
       .query(`
         SELECT SUM(remaining_days) as leave_balance
         FROM leave_balances
-        WHERE user_id = @user_id AND year = @year
+        WHERE employee_id = @employee_id AND year = @year
       `);
     
     // Get pending approvals count
     const pendingResult = await pool.request()
-      .input('user_id', sql.Int, userIdInt)
+      .input('employee_id', sql.Int, userIdInt)
       .query(`
         SELECT COUNT(*) as pending_count
         FROM leaves
-        WHERE user_id = @user_id AND status = 'Pending'
+        WHERE employee_id = @employee_id AND status = 'Pending'
       `);
     
     // Get payslips count
     const payslipsResult = await pool.request()
-      .input('user_id', sql.Int, userIdInt)
+      .input('employee_id', sql.Int, userIdInt)
       .query(`
         SELECT COUNT(*) as payslips_count
         FROM payslips
-        WHERE user_id = @user_id
+        WHERE employee_id = @employee_id
       `);
 
     const stats = {
