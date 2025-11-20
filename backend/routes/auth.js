@@ -415,11 +415,11 @@ router.get('/oauth/callback/azure', async (req, res) => {
       .input("position", sql.NVarChar, userInfo.jobTitle || "Employee")
       .execute("sp_sync_oauth_user");
 
-    const user_id = syncResult.recordset[0].user_id;
+    const employee_id = syncResult.recordset[0].employee_id;
 
     /* 4) Generate Tokens */
     const tokens = generateTokens({
-      id: user_id,
+      id: employee_id,
       email,
       role: "employee"
     });
