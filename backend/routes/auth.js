@@ -219,6 +219,13 @@ router.post('/logout', authenticateToken, async (req, res) => {
 --------------------------------------------------------- */
 router.get('/session', authenticateToken, async (req, res) => {
   try {
+    console.log('Session request - req.user:', req.user);
+    
+    if (!req.user || !req.user.id) {
+      console.error('Session error: No user ID in request', req.user);
+      return res.status(401).json({ error: 'Invalid authentication token' });
+    }
+
     const pool = await getConnection();
 
     // Get user basic info
@@ -230,8 +237,10 @@ router.get('/session', authenticateToken, async (req, res) => {
         WHERE user_id = @user_id
       `);
 
-    if (userResult.recordset.length === 0)
+    if (userResult.recordset.length === 0) {
+      console.error('Session error: User not found for ID:', req.user.id);
       return res.status(404).json({ error: 'User not found' });
+    }
 
     const user = userResult.recordset[0];
 
@@ -244,7 +253,7 @@ router.get('/session', authenticateToken, async (req, res) => {
         WHERE user_id = @user_id
       `);
 
-    user.roles = rolesResult.recordset.length > 0 
+    const roles = rolesResult.recordset.length > 0 
       ? rolesResult.recordset.map(r => r.role)
       : ['employee'];
 
@@ -255,7 +264,7 @@ router.get('/session', authenticateToken, async (req, res) => {
       full_name: user.full_name,
       department: user.department,
       position: user.position,
-      roles: user.roles
+      roles: roles
     };
 
     res.json({
@@ -267,7 +276,7 @@ router.get('/session', authenticateToken, async (req, res) => {
 
   } catch (err) {
     console.error('Session error:', err);
-    return res.status(500).json({ error: 'Failed to get session' });
+    return res.status(500).json({ error: 'Failed to get session', details: err.message });
   }
 });
 
