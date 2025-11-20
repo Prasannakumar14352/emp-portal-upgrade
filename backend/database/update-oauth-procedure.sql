@@ -22,26 +22,28 @@ AS
 BEGIN
     SET NOCOUNT ON;
     
-    DECLARE @user_id INT;
+    DECLARE @user_id UNIQUEIDENTIFIER;
+    DECLARE @employee_id INT;
     
     BEGIN TRY
         BEGIN TRANSACTION;
         
         -- Check if profile exists by email, if not create it
-        SELECT @user_id = user_id FROM profiles WHERE email = @email;
+        SELECT @user_id = id, @employee_id = employee_id FROM profiles WHERE email = @email;
         
         IF @user_id IS NULL
         BEGIN
-            INSERT INTO profiles (email, full_name, created_at, updated_at)
-            VALUES (@email, @full_name, GETDATE(), GETDATE());
+            INSERT INTO profiles (id, email, full_name, created_at, updated_at)
+            VALUES (NEWID(), @email, @full_name, GETDATE(), GETDATE());
             
-            SET @user_id = SCOPE_IDENTITY();
+            SET @user_id = (SELECT id FROM profiles WHERE email = @email);
+            SET @employee_id = (SELECT employee_id FROM profiles WHERE email = @email);
             
-            PRINT 'Profile created for user: ' + @email + ' with ID: ' + CAST(@user_id AS NVARCHAR);
+            PRINT 'Profile created for user: ' + @email + ' with employee_id: ' + CAST(@employee_id AS NVARCHAR);
         END
         ELSE
         BEGIN
-            PRINT 'Profile already exists for: ' + @email + ' with ID: ' + CAST(@user_id AS NVARCHAR);
+            PRINT 'Profile already exists for: ' + @email + ' with employee_id: ' + CAST(@employee_id AS NVARCHAR);
         END
         
         -- Check if employee record exists, if not create it
@@ -79,8 +81,8 @@ BEGIN
         
         PRINT 'OAuth user sync completed successfully for: ' + @email;
         
-        -- Return the user ID
-        SELECT @user_id AS user_id;
+        -- Return the employee_id (numeric) for JWT token
+        SELECT @employee_id AS employee_id;
         
     END TRY
     BEGIN CATCH
