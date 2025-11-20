@@ -531,9 +531,19 @@ router.get('/oauth/callback/azure', async (req, res) => {
           }
         }
         
-        // Clean up: Remove 'employee' role if user has 'hr' or 'manager' roles
-        if (userRoles.includes('hr') || userRoles.includes('manager')) {
-          try {
+        // Clean up: Check database for elevated roles and remove redundant 'employee' role
+        try {
+          const existingRolesResult = await pool.request()
+            .input('employee_id', sql.Int, userId)
+            .query(`
+              SELECT role FROM user_roles WHERE employee_id = @employee_id
+            `);
+          
+          const dbRoles = existingRolesResult.recordset.map(r => r.role);
+          const hasElevatedRole = dbRoles.includes('hr') || dbRoles.includes('manager');
+          const hasEmployeeRole = dbRoles.includes('employee');
+          
+          if (hasElevatedRole && hasEmployeeRole) {
             await pool.request()
               .input('employee_id', sql.Int, userId)
               .query(`
@@ -541,9 +551,10 @@ router.get('/oauth/callback/azure', async (req, res) => {
                 WHERE employee_id = @employee_id 
                 AND role = 'employee'
               `);
-            logInfo(`Removed redundant 'employee' role for user ${email} with elevated roles`);
-          } catch (cleanupErr) {
-            logError(cleanupErr, req, { 
+            logInfo(`Removed redundant 'employee' role for user ${email} with elevated roles: ${dbRoles.join(', ')}`);
+          }
+        } catch (cleanupErr) {
+          logError(cleanupErr, req, {
               context: 'Failed to cleanup employee role',
               email,
               userId
