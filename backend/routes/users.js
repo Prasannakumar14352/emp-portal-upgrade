@@ -12,7 +12,7 @@ router.get('/:userId/role', authenticateToken, async (req, res) => {
     const pool = await getConnection();
 
     const result = await pool.request()
-      .input('employee_id', sql.NVarChar, userId)
+      .input('employee_id', sql.Int, userId)
       .query('SELECT role FROM user_roles WHERE employee_id = @employee_id');
 
     if (result.recordset.length === 0) {
@@ -33,7 +33,7 @@ router.get('/:userId/profile', authenticateToken, async (req, res) => {
     const pool = await getConnection();
 
     const result = await pool.request()
-      .input('employee_id', sql.NVarChar, userId)
+      .input('employee_id', sql.Int, userId)
       .query(`
         SELECT 
           p.employee_id, p.email, p.full_name, p.phone, 
@@ -68,7 +68,7 @@ router.patch('/:userId/profile', authenticateToken, async (req, res) => {
     const pool = await getConnection();
 
     const result = await pool.request()
-      .input('employee_id', sql.NVarChar, userId)
+      .input('employee_id', sql.Int, userId)
       .input('full_name', sql.NVarChar, full_name)
       .input('phone', sql.NVarChar, phone)
       .input('department', sql.NVarChar, department)
@@ -178,7 +178,7 @@ router.post('/:userId/roles', authenticateToken, authorizeRole('hr', 'manager'),
 
     // Check if user exists
     const userCheck = await pool.request()
-      .input('employee_id', sql.NVarChar, userId)
+      .input('employee_id', sql.Int, userId)
       .input('role', sql.NVarChar, role)
       .query('SELECT employee_id FROM profiles WHERE employee_id = @employee_id AND role = @role');
 
@@ -188,7 +188,7 @@ router.post('/:userId/roles', authenticateToken, authorizeRole('hr', 'manager'),
 
     // Check if role already assigned
     const roleCheck = await pool.request()
-      .input('employee_id', sql.NVarChar, userId)
+      .input('employee_id', sql.Int, userId)
       .input('role', sql.NVarChar, role)
       .query('SELECT id FROM user_roles WHERE employee_id = @employee_id AND role = @role');
 
@@ -198,7 +198,7 @@ router.post('/:userId/roles', authenticateToken, authorizeRole('hr', 'manager'),
 
     // Assign role
     const result = await pool.request()
-      .input('employee_id', sql.NVarChar, userId)
+      .input('employee_id', sql.Int, userId)
       .input('role', sql.NVarChar, role)
       .query(`
         INSERT INTO user_roles (employee_id, role, created_at)
@@ -233,7 +233,7 @@ router.delete('/roles/:roleId', authenticateToken, authorizeRole('hr', 'manager'
 
     // Prevent removing the last role from a user
     const userRolesCount = await pool.request()
-      .input('employee_id', sql.NVarChar, roleInfo.recordset[0].employee_id)
+      .input('employee_id', sql.Int, roleInfo.recordset[0].employee_id)
       .query('SELECT COUNT(*) as count FROM user_roles WHERE employee_id = @employee_id');
 
     if (userRolesCount.recordset[0].count <= 1) {
@@ -267,7 +267,7 @@ router.get('/:userId/preferences', authenticateToken, async (req, res) => {
     const pool = await getConnection();
     
     const result = await pool.request()
-      .input('employee_id', sql.NVarChar, userId)
+      .input('employee_id', sql.Int, userId)
       .query(`
         SELECT 
           id, employee_id, dark_mode, compact_view,
@@ -281,7 +281,7 @@ router.get('/:userId/preferences', authenticateToken, async (req, res) => {
     if (result.recordset.length === 0) {
       // Create default preferences if they don't exist
       const createResult = await pool.request()
-        .input('employee_id', sql.NVarChar, userId)
+        .input('employee_id', sql.Int, userId)
         .query(`
           INSERT INTO user_preferences (
             employee_id, dark_mode, compact_view, 
@@ -327,13 +327,13 @@ router.put('/:userId/preferences', authenticateToken, async (req, res) => {
 
     // Check if preferences exist
     const existing = await pool.request()
-      .input('employee_id', sql.NVarChar, userId)
+      .input('employee_id', sql.Int, userId)
       .query('SELECT id FROM user_preferences WHERE employee_id = @employee_id');
 
     if (existing.recordset.length === 0) {
       // Create new preferences
       const result = await pool.request()
-        .input('employee_id', sql.NVarChar, userId)
+        .input('employee_id', sql.Int, userId)
         .input('dark_mode', sql.Bit, dark_mode ?? false)
         .input('compact_view', sql.Bit, compact_view ?? false)
         .input('email_notifications', sql.Bit, email_notifications ?? true)
@@ -361,7 +361,7 @@ router.put('/:userId/preferences', authenticateToken, async (req, res) => {
     } else {
       // Update existing preferences
       const updates = [];
-      const request = pool.request().input('employee_id', sql.NVarChar, userId);
+      const request = pool.request().input('employee_id', sql.Int, userId);
       
       if (dark_mode !== undefined) {
         updates.push('dark_mode = @dark_mode');
@@ -421,7 +421,7 @@ router.put('/:userId/notification-sound', authenticateToken, async (req, res) =>
     const pool = await getConnection();
 
     await pool.request()
-      .input('employee_id', sql.NVarChar, userId)
+      .input('employee_id', sql.Int, userId)
       .input('notification_sound', sql.NVarChar, notification_sound)
       .input('notification_volume', sql.Int, notification_volume)
       .query(`
@@ -462,7 +462,7 @@ router.post('/:userId/change-password', authenticateToken, async (req, res) => {
 
     // Get current password hash
     const userResult = await pool.request()
-      .input('employee_id', sql.NVarChar, userId)
+      .input('employee_id', sql.Int, userId)
       .query('SELECT password_hash FROM profiles WHERE employee_id = @employee_id');
 
     if (userResult.recordset.length === 0) {
@@ -480,7 +480,7 @@ router.post('/:userId/change-password', authenticateToken, async (req, res) => {
 
     // Update password
     await pool.request()
-      .input('employee_id', sql.NVarChar, userId)
+      .input('employee_id', sql.Int, userId)
       .input('password_hash', sql.NVarChar, newPasswordHash)
       .query(`
         UPDATE profiles
