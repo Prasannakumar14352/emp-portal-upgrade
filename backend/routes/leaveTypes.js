@@ -90,15 +90,19 @@ router.post('/',
         return res.status(400).json({ error: 'Leave type with this name already exists' });
       }
 
-      const result = await pool.request()
+      await pool.request()
         .input('name', sql.NVarChar, name)
         .input('default_days', sql.Int, default_days)
         .input('description', sql.NVarChar, description || null)
         .query(`
           INSERT INTO leave_types (name, default_days, description, is_active, created_at)
-          OUTPUT INSERTED.*
           VALUES (@name, @default_days, @description, 1, GETDATE())
         `);
+
+      // Fetch the newly created record
+      const result = await pool.request()
+        .input('name', sql.NVarChar, name)
+        .query('SELECT * FROM leave_types WHERE name = @name');
 
       res.status(201).json(result.recordset[0]);
     } catch (err) {
@@ -140,7 +144,7 @@ router.patch('/:id',
         return res.status(404).json({ error: 'Leave type not found' });
       }
 
-      const result = await pool.request()
+      await pool.request()
         .input('id', sql.Int, parseInt(id))
         .input('name', sql.NVarChar, name)
         .input('default_days', sql.Int, default_days)
@@ -154,10 +158,14 @@ router.patch('/:id',
             description = COALESCE(@description, description),
             is_active = COALESCE(@is_active, is_active),
             updated_at = GETDATE()
-          OUTPUT INSERTED.*
           WHERE id = @id
         `);
-      console.log('Update leave type result:', result);
+
+      // Fetch the updated record
+      const result = await pool.request()
+        .input('id', sql.Int, parseInt(id))
+        .query('SELECT * FROM leave_types WHERE id = @id');
+
       res.json(result.recordset[0]);
     } catch (err) {
       console.error('Update leave type error:', err);
