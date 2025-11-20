@@ -230,11 +230,11 @@ router.get('/session', authenticateToken, async (req, res) => {
 
     // Get user basic info using id column
     const userResult = await pool.request()
-      .input('id', sql.NVarChar, req.user.id)
+      .input('id', sql.Int, req.user.id)
       .query(`
         SELECT user_id, email, full_name, department, position
         FROM profiles
-        WHERE id = @id
+        WHERE employee_id = @id
       `);
 
     if (userResult.recordset.length === 0) {
