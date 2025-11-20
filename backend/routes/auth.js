@@ -404,6 +404,46 @@ router.get('/oauth/callback/azure', async (req, res) => {
     const email = userInfo.mail || userInfo.userPrincipalName;
     const fullName = userInfo.displayName;
 
+    /* 2.5) Fetch User's Azure AD Group Memberships */
+    let userRoles = ['employee']; // Default role
+    
+    try {
+      const groupsRes = await axios.get(
+        "https://graph.microsoft.com/v1.0/me/memberOf",
+        { headers: { Authorization: `Bearer ${azureTokens.access_token}` } }
+      );
+
+      const groups = groupsRes.data.value || [];
+      
+      // Map Azure AD group names/IDs to app roles
+      // Configure these group IDs/names in your environment variables
+      const HR_GROUP_ID = process.env.AZURE_HR_GROUP_ID || 'HR';
+      const MANAGER_GROUP_ID = process.env.AZURE_MANAGER_GROUP_ID || 'Manager';
+      
+      const isHR = groups.some(g => 
+        g.id === HR_GROUP_ID || 
+        g.displayName?.toLowerCase().includes('hr') ||
+        g.displayName?.toLowerCase().includes('human resources')
+      );
+      
+      const isManager = groups.some(g => 
+        g.id === MANAGER_GROUP_ID || 
+        g.displayName?.toLowerCase().includes('manager') ||
+        g.displayName?.toLowerCase().includes('lead')
+      );
+
+      // Assign roles based on group membership
+      if (isHR) userRoles.push('hr');
+      if (isManager) userRoles.push('manager');
+      
+      logInfo(`Detected roles for ${email}: ${userRoles.join(', ')}`);
+    } catch (groupErr) {
+      logError(groupErr, req, { 
+        context: 'Failed to fetch Azure AD groups, using default employee role',
+        email 
+      });
+    }
+
     /* 3) Sync OAuth user using stored procedure */
     const pool = await getConnection();
 
@@ -417,11 +457,39 @@ router.get('/oauth/callback/azure', async (req, res) => {
 
     const employee_id = syncResult.recordset[0].employee_id;
 
+    /* 3.5) Sync user roles based on Azure AD groups */
+    const userIdResult = await pool.request()
+      .input('employee_id', sql.Int, employee_id)
+      .query('SELECT id FROM profiles WHERE employee_id = @employee_id');
+    
+    if (userIdResult.recordset.length > 0) {
+      const userId = userIdResult.recordset[0].id;
+      
+      // Assign roles from Azure AD groups
+      for (const role of userRoles) {
+        try {
+          await pool.request()
+            .input('user_id', sql.UniqueIdentifier, userId)
+            .input('role', sql.NVarChar, role)
+            .query(`
+              IF NOT EXISTS (SELECT 1 FROM user_roles WHERE user_id = @user_id AND role = @role)
+              BEGIN
+                INSERT INTO user_roles (user_id, role, created_at)
+                VALUES (@user_id, @role, GETDATE())
+              END
+            `);
+          logInfo(`Assigned role '${role}' to user ${email}`);
+        } catch (roleErr) {
+          logError(roleErr, req, { context: `Failed to assign role: ${role}`, email });
+        }
+      }
+    }
+
     /* 4) Generate Tokens */
     const tokens = generateTokens({
       id: employee_id,
       email,
-      role: "employee"
+      roles: userRoles
     });
 
     /* 5) Redirect to Frontend */
@@ -434,14 +502,29 @@ router.get('/oauth/callback/azure', async (req, res) => {
     return res.redirect(redirectURL);
 
   } catch (err) {
-    console.log("----- OAUTH CALLBACK ERROR START -----");
-    console.log("ERR.MESSAGE:", err.message);
-    console.log("ERR.RESPONSE.DATA:", err.response?.data);
-    console.log("ERR.RESPONSE.STATUS:", err.response?.status);
-    console.log("ERR.REQUEST:", err.request);
-    console.log("----- OAUTH CALLBACK ERROR END -----");
+    logError(err, req, { context: 'OAuth callback failed', provider: 'azure' });
+    
+    let errorMessage = "Authentication failed. Please try again.";
+    let errorDetails = err.message;
 
-    return res.status(500).json({ error: "OAuth callback failed" });
+    // Provide user-friendly error messages
+    if (err.response?.status === 401 || err.response?.status === 403) {
+      errorMessage = "Authentication denied. Please check your Microsoft account permissions.";
+      errorDetails = "Access token may be invalid or expired";
+    } else if (err.response?.status === 400) {
+      errorMessage = "Invalid authentication request. Please try signing in again.";
+      errorDetails = err.response?.data?.error_description || "Bad request to OAuth provider";
+    } else if (err.code === 'ECONNREFUSED' || err.code === 'ETIMEDOUT') {
+      errorMessage = "Unable to connect to Microsoft authentication service. Please check your connection.";
+      errorDetails = "Network connection issue";
+    } else if (err.message?.includes('procedure') || err.message?.includes('database')) {
+      errorMessage = "Account setup failed. Please contact your administrator.";
+      errorDetails = "Database synchronization error";
+    }
+
+    // Redirect to frontend with error
+    const errorRedirect = `${req.query.state || process.env.FRONTEND_URL}?error=${encodeURIComponent(errorMessage)}&error_details=${encodeURIComponent(errorDetails)}`;
+    return res.redirect(errorRedirect);
   }
 });
 
