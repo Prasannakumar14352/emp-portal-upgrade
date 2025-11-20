@@ -21,7 +21,7 @@ router.get('/', authenticateToken, async (req, res) => {
   try {
     const pool = await getConnection();
     const result = await pool.request()
-      .input('user_id', req.user.employee_id)
+      .input('user_id', req.user.user_id)
       .query(`
         SELECT 
           id,
@@ -49,7 +49,7 @@ router.get('/unread-count', authenticateToken, async (req, res) => {
   try {
     const pool = await getConnection();
     const result = await pool.request()
-      .input('user_id', req.user.employee_id)
+      .input('user_id', req.user.user_id)
       .query(`
         SELECT COUNT(*) as count
         FROM notifications
@@ -69,7 +69,7 @@ router.put('/:id/read', authenticateToken, async (req, res) => {
     const pool = await getConnection();
     await pool.request()
       .input('id', req.params.id)
-      .input('user_id', req.user.employee_id)
+      .input('user_id', req.user.user_id)
       .query(`
         UPDATE notifications
         SET [read] = 1
@@ -88,7 +88,7 @@ router.put('/mark-all-read', authenticateToken, async (req, res) => {
   try {
     const pool = await getConnection();
     await pool.request()
-      .input('user_id', req.user.employee_id)
+      .input('user_id', req.user.user_id)
       .query(`
         UPDATE notifications
         SET [read] = 1
@@ -108,7 +108,7 @@ router.delete('/:id', authenticateToken, async (req, res) => {
     const pool = await getConnection();
     await pool.request()
       .input('id', req.params.id)
-      .input('user_id', req.user.employee_id)
+      .input('user_id', req.user.user_id)
       .query(`
         DELETE FROM notifications
         WHERE id = @id AND user_id = @user_id
@@ -126,7 +126,7 @@ router.get('/preferences', authenticateToken, async (req, res) => {
   try {
     const pool = await getConnection();
     const result = await pool.request()
-      .input('user_id', req.user.employee_id)
+      .input('user_id', req.user.user_id)
       .query(`
         SELECT 
           id,
@@ -145,7 +145,7 @@ router.get('/preferences', authenticateToken, async (req, res) => {
     if (result.recordset.length === 0) {
       // Create default preferences if not exists
       const insertResult = await pool.request()
-        .input('user_id', req.user.employee_id)
+        .input('user_id', req.user.user_id)
         .query(`
           INSERT INTO user_preferences (user_id, email_notifications, push_notifications, leave_update_notifications)
           VALUES (@user_id, 1, 1, 1);
@@ -183,13 +183,13 @@ router.put('/preferences', authenticateToken, async (req, res) => {
     
     // Check if preferences exist
     const checkResult = await pool.request()
-      .input('user_id', req.user.employee_id)
+      .input('user_id', req.user.user_id)
       .query(`SELECT id FROM user_preferences WHERE user_id = @user_id`);
 
     if (checkResult.recordset.length === 0) {
       // Insert new preferences
       await pool.request()
-        .input('user_id', req.user.employee_id)
+        .input('user_id', req.user.user_id)
         .input('email_notifications', email_notifications ?? true)
         .input('push_notifications', push_notifications ?? true)
         .input('leave_update_notifications', leave_update_notifications ?? true)
@@ -200,7 +200,7 @@ router.put('/preferences', authenticateToken, async (req, res) => {
     } else {
       // Update existing preferences
       const updates = [];
-      const request = pool.request().input('user_id', req.user.employee_id);
+      const request = pool.request().input('user_id', req.user.user_id);
       
       if (email_notifications !== undefined) {
         updates.push('email_notifications = @email_notifications');

@@ -12,7 +12,7 @@ router.get('/today', authenticateToken, async (req, res) => {
     
     const pool = await getConnection();
     const result = await pool.request()
-      .input('userId', sql.NVarChar, userId)
+      .input('userId', sql.Int, userId)
       .input('date', sql.Date, today)
       .query(`
         SELECT * FROM attendance_records 
@@ -21,7 +21,7 @@ router.get('/today', authenticateToken, async (req, res) => {
 
     res.json(result.recordset[0] || null);
   } catch (error) {
-    logError(error, req, { context: 'Error fetching today attendance', userId: req.query.userId });
+    logError(error, req, { context: 'Error fetching today attendance', userId });
     res.status(500).json({ error: error.message });
   }
 });
@@ -36,7 +36,7 @@ router.get('/stats', authenticateToken, async (req, res) => {
     
     const pool = await getConnection();
     const result = await pool.request()
-      .input('userId', sql.NVarChar, userId)
+      .input('userId', sql.Int, userId)
       .input('startDate', sql.Date, startDate)
       .input('endDate', sql.Date, endDate)
       .query(`
@@ -64,7 +64,7 @@ router.get('/stats', authenticateToken, async (req, res) => {
       attendanceRate,
     });
   } catch (error) {
-    logError(error, req, { context: 'Error fetching attendance stats', userId: req.query.userId, month: req.query.month, year: req.query.year });
+    logError(error, req, { context: 'Error fetching attendance stats', userId, month, year });
     res.status(500).json({ error: error.message });
   }
 });
@@ -80,7 +80,7 @@ router.get('/', authenticateToken, async (req, res) => {
       WHERE user_id = @userId
     `;
     
-    const request = pool.request().input('userId', sql.NVarChar, userId);
+    const request = pool.request().input('userId', sql.Int, userId);
     
     if (month && year) {
       const startDate = new Date(year, month - 1, 1);
@@ -95,7 +95,7 @@ router.get('/', authenticateToken, async (req, res) => {
     const result = await request.query(query);
     res.json(result.recordset);
   } catch (error) {
-    logError(error, req, { context: 'Error fetching attendance records', userId: req.query.userId });
+    logError(error, req, { context: 'Error fetching attendance records', userId });
     res.status(500).json({ error: error.message });
   }
 });
@@ -111,7 +111,7 @@ router.post('/checkin', authenticateToken, async (req, res) => {
     
     // Check if already checked in
     const existing = await pool.request()
-      .input('userId', sql.NVarChar, userId)
+      .input('userId', sql.Int, userId)
       .input('date', sql.Date, today)
       .query(`
         SELECT * FROM attendance_records 
@@ -124,7 +124,7 @@ router.post('/checkin', authenticateToken, async (req, res) => {
 
     // Get user name for notification
     const userResult = await pool.request()
-      .input('userId', sql.NVarChar, userId)
+      .input('userId', sql.Int, userId)
       .query('SELECT full_name FROM employees WHERE user_id = @userId');
     
     const userName = userResult.recordset[0]?.full_name || 'Unknown User';
@@ -143,7 +143,7 @@ router.post('/checkin', authenticateToken, async (req, res) => {
     } else {
       // Create new record
       await pool.request()
-        .input('userId', sql.NVarChar, userId)
+        .input('userId', sql.Int, userId)
         .input('date', sql.Date, today)
         .input('checkInTime', sql.DateTime2, now)
         .input('notes', sql.NVarChar, notes)
@@ -182,7 +182,7 @@ router.post('/checkout', authenticateToken, async (req, res) => {
     const pool = await getConnection();
     
     const existing = await pool.request()
-      .input('userId', sql.NVarChar, userId)
+      .input('userId', sql.Int, userId)
       .input('date', sql.Date, today)
       .query(`
         SELECT * FROM attendance_records 
@@ -199,7 +199,7 @@ router.post('/checkout', authenticateToken, async (req, res) => {
 
     // Get user name for notification
     const userResult = await pool.request()
-      .input('userId', sql.NVarChar, userId)
+      .input('userId', sql.Int, userId)
       .query('SELECT full_name FROM employees WHERE user_id = @userId');
     
     const userName = userResult.recordset[0]?.full_name || 'Unknown User';
@@ -301,10 +301,10 @@ router.put('/:id', authenticateToken, async (req, res) => {
     
     // Check if user has HR role
     const roleResult = await pool.request()
-      .input('userId', sql.NVarChar, userId)
+      .input('userId', sql.Int, userId)
       .query(`
         SELECT role FROM user_roles 
-        WHERE user_id = @userId
+        WHERE user_id = (SELECT user_id FROM profiles WHERE user_id = @userId)
       `);
     
     const isHR = roleResult.recordset.some(r => r.role === 'hr');
@@ -494,7 +494,7 @@ router.get('/reports', authenticateToken, async (req, res) => {
       .input('endDate', sql.Date, endDate)
       .query(`
         SELECT 
-          e.employee_id,
+          e.user_id,
           e.full_name as employee_name,
           e.department,
           CONVERT(VARCHAR, ar.date, 23) as date,
