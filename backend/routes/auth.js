@@ -15,13 +15,13 @@ const createDefaultPreferences = async (userId, pool) => {
   try {
     // Check if preferences already exist
     const existing = await pool.request()
-      .input('user_id', sql.Int, userId)
+      .input('user_id', sql.NVarChar, userId)
       .query('SELECT id FROM user_preferences WHERE user_id = @user_id');
     
     if (existing.recordset.length === 0) {
       // Create default preferences
       await pool.request()
-        .input('user_id', sql.Int, userId)
+        .input('user_id', sql.NVarChar, userId)
         .query(`
           INSERT INTO user_preferences (
             user_id, dark_mode, compact_view, 
@@ -104,7 +104,7 @@ router.post('/signup', [
     const newUser = result.recordset[0];
 
     await pool.request()
-      .input('user_id', sql.Int, newUser.user_id)
+      .input('user_id', sql.NVarChar, newUser.user_id)
       .input('role', sql.NVarChar, 'employee')
       .query(`IF NOT EXISTS (SELECT 1 FROM user_roles WHERE user_id = @user_id AND role = @role)
         INSERT INTO user_roles (user_id, role, created_at) VALUES (@user_id, @role, GETDATE())`);
@@ -166,7 +166,7 @@ router.post('/login', [
 
     // Get all roles for this user
     const rolesResult = await pool.request()
-      .input('user_id', sql.Int, user.user_id)
+      .input('user_id', sql.NVarChar, user.user_id)
       .query(`
         SELECT role
         FROM user_roles
@@ -223,7 +223,7 @@ router.get('/session', authenticateToken, async (req, res) => {
 
     // Get user basic info
     const userResult = await pool.request()
-      .input('user_id', sql.Int, req.user.id)
+      .input('user_id', sql.NVarChar, req.user.id)
       .query(`
         SELECT user_id, email, full_name, department, position
         FROM profiles
@@ -237,7 +237,7 @@ router.get('/session', authenticateToken, async (req, res) => {
 
     // Get all roles for this user
     const rolesResult = await pool.request()
-      .input('user_id', sql.Int, req.user.id)
+      .input('user_id', sql.NVarChar, req.user.id)
       .query(`
         SELECT role
         FROM user_roles
@@ -277,7 +277,7 @@ router.post('/refresh', async (req, res) => {
     
     // Get user basic info
     const userResult = await pool.request()
-      .input('user_id', sql.Int, decoded.id)
+      .input('user_id', sql.NVarChar, decoded.id)
       .query(`
         SELECT user_id, email, full_name
         FROM profiles
@@ -291,7 +291,7 @@ router.post('/refresh', async (req, res) => {
 
     // Get all roles for this user
     const rolesResult = await pool.request()
-      .input('user_id', sql.Int, decoded.id)
+      .input('user_id', sql.NVarChar, decoded.id)
       .query(`
         SELECT role
         FROM user_roles
