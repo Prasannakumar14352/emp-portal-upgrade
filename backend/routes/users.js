@@ -11,9 +11,12 @@ router.get('/:userId/role', authenticateToken, async (req, res) => {
     const { userId } = req.params;
     const pool = await getConnection();
 
+    const query = 'SELECT role FROM user_roles WHERE employee_id = @employee_id';
+    console.log(`Executing query: ${query} with employee_id=${userId}`);
+
     const result = await pool.request()
       .input('employee_id', sql.Int, userId)
-      .query('SELECT role FROM user_roles WHERE employee_id = @employee_id');
+      .query(query);
 
     if (result.recordset.length === 0) {
       return res.json({ role: 'employee' });
@@ -21,8 +24,14 @@ router.get('/:userId/role', authenticateToken, async (req, res) => {
 
     res.json({ role: result.recordset[0].role });
   } catch (err) {
-    logError(err, req, { context: 'Get role error', userId: req.params.userId });
-    res.status(500).json({ error: 'Failed to get user role' });
+    console.error('Get user role error:', err);
+    console.error('Failed query: SELECT role FROM user_roles WHERE employee_id = @employee_id');
+    console.error('Table: user_roles, Column: role');
+    logError(err, req, { context: 'Get role error', userId: req.params.userId, table: 'user_roles', column: 'role' });
+    res.status(500).json({ 
+      error: 'Failed to get user role',
+      details: 'Check if user_roles table has role column in SQL Server database'
+    });
   }
 });
 
