@@ -188,8 +188,7 @@ router.post('/:userId/roles', authenticateToken, authorizeRole('hr', 'manager'),
     // Check if user exists
     const userCheck = await pool.request()
       .input('employee_id', sql.Int, userId)
-      .input('role', sql.NVarChar, role)
-      .query('SELECT employee_id FROM profiles WHERE employee_id = @employee_id AND role = @role');
+      .query('SELECT employee_id FROM profiles WHERE employee_id = @employee_id');
 
     if (userCheck.recordset.length === 0) {
       return res.status(404).json({ error: 'User not found' });
