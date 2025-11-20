@@ -24,7 +24,7 @@ export type Database = {
           notes: string | null
           status: string | null
           updated_at: string | null
-          employee_id: string
+          user_id: string
           work_hours: number | null
         }
         Insert: {
@@ -36,7 +36,7 @@ export type Database = {
           notes?: string | null
           status?: string | null
           updated_at?: string | null
-          employee_id: string
+          user_id: string
           work_hours?: number | null
         }
         Update: {
@@ -48,7 +48,7 @@ export type Database = {
           notes?: string | null
           status?: string | null
           updated_at?: string | null
-          employee_id?: string
+          user_id?: string
           work_hours?: number | null
         }
         Relationships: []
@@ -65,7 +65,7 @@ export type Database = {
           position: string
           status: string | null
           updated_at: string | null
-          employee_id: string | null
+          user_id: string | null
         }
         Insert: {
           created_at?: string | null
@@ -78,7 +78,7 @@ export type Database = {
           position: string
           status?: string | null
           updated_at?: string | null
-          employee_id?: string | null
+          user_id?: string | null
         }
         Update: {
           created_at?: string | null
@@ -91,7 +91,7 @@ export type Database = {
           position?: string
           status?: string | null
           updated_at?: string | null
-          employee_id?: string | null
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -132,7 +132,7 @@ export type Database = {
           total_days: number
           updated_at: string | null
           used_days: number
-          employee_id: string
+          user_id: string
           year: number
         }
         Insert: {
@@ -144,7 +144,7 @@ export type Database = {
           total_days?: number
           updated_at?: string | null
           used_days?: number
-          employee_id: string
+          user_id: string
           year: number
         }
         Update: {
@@ -156,7 +156,7 @@ export type Database = {
           total_days?: number
           updated_at?: string | null
           used_days?: number
-          employee_id?: string
+          user_id?: string
           year?: number
         }
         Relationships: []
@@ -167,21 +167,21 @@ export type Database = {
           created_at: string | null
           id: string
           leave_id: string
-          employee_id: string
+          user_id: string
         }
         Insert: {
           comment: string
           created_at?: string | null
           id?: string
           leave_id: string
-          employee_id: string
+          user_id: string
         }
         Update: {
           comment?: string
           created_at?: string | null
           id?: string
           leave_id?: string
-          employee_id?: string
+          user_id?: string
         }
         Relationships: [
           {
@@ -235,7 +235,7 @@ export type Database = {
           start_date: string
           status: string | null
           updated_at: string | null
-          employee_id: string
+          user_id: string
         }
         Insert: {
           approved_by?: string | null
@@ -248,7 +248,7 @@ export type Database = {
           start_date: string
           status?: string | null
           updated_at?: string | null
-          employee_id: string
+          user_id: string
         }
         Update: {
           approved_by?: string | null
@@ -261,7 +261,7 @@ export type Database = {
           start_date?: string
           status?: string | null
           updated_at?: string | null
-          employee_id?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -274,7 +274,7 @@ export type Database = {
           read: boolean | null
           title: string
           type: string
-          employee_id: number
+          user_id: number
         }
         Insert: {
           created_at?: string | null
@@ -284,7 +284,7 @@ export type Database = {
           read?: boolean | null
           title: string
           type: string
-          employee_id: number
+          user_id: number
         }
         Update: {
           created_at?: string | null
@@ -294,7 +294,7 @@ export type Database = {
           read?: boolean | null
           title?: string
           type?: string
-          employee_id?: number
+          user_id?: number
         }
         Relationships: []
       }
@@ -308,7 +308,7 @@ export type Database = {
           id: string
           month: string
           net_salary: number
-          employee_id: string
+          user_id: string
           year: number
         }
         Insert: {
@@ -320,7 +320,7 @@ export type Database = {
           id?: string
           month: string
           net_salary: number
-          employee_id: string
+          user_id: string
           year: number
         }
         Update: {
@@ -332,7 +332,7 @@ export type Database = {
           id?: string
           month?: string
           net_salary?: number
-          employee_id?: string
+          user_id?: string
           year?: number
         }
         Relationships: []
@@ -347,7 +347,7 @@ export type Database = {
           target_date: string | null
           title: string
           updated_at: string | null
-          employee_id: string
+          user_id: string
         }
         Insert: {
           created_at?: string | null
@@ -358,7 +358,7 @@ export type Database = {
           target_date?: string | null
           title: string
           updated_at?: string | null
-          employee_id: string
+          user_id: string
         }
         Update: {
           created_at?: string | null
@@ -369,7 +369,7 @@ export type Database = {
           target_date?: string | null
           title?: string
           updated_at?: string | null
-          employee_id?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -490,7 +490,7 @@ export type Database = {
           notification_volume: number | null
           push_notifications: boolean | null
           updated_at: string | null
-          employee_id: number
+          user_id: number
         }
         Insert: {
           compact_view?: boolean | null
@@ -503,7 +503,7 @@ export type Database = {
           notification_volume?: number | null
           push_notifications?: boolean | null
           updated_at?: string | null
-          employee_id: number
+          user_id: number
         }
         Update: {
           compact_view?: boolean | null
@@ -516,7 +516,7 @@ export type Database = {
           notification_volume?: number | null
           push_notifications?: boolean | null
           updated_at?: string | null
-          employee_id?: number
+          user_id?: number
         }
         Relationships: []
       }
@@ -525,19 +525,19 @@ export type Database = {
           created_at: string | null
           id: string
           role: Database["public"]["Enums"]["app_role"]
-          employee_id: string
+          user_id: string
         }
         Insert: {
           created_at?: string | null
           id?: string
           role: Database["public"]["Enums"]["app_role"]
-          employee_id: string
+          user_id: string
         }
         Update: {
           created_at?: string | null
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
-          employee_id?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -548,7 +548,7 @@ export type Database = {
           login_time: string
           logout_time: string | null
           session_duration: number | null
-          employee_id: string
+          user_id: string
         }
         Insert: {
           created_at?: string
@@ -556,7 +556,7 @@ export type Database = {
           login_time?: string
           logout_time?: string | null
           session_duration?: number | null
-          employee_id: string
+          user_id: string
         }
         Update: {
           created_at?: string
@@ -564,7 +564,7 @@ export type Database = {
           login_time?: string
           logout_time?: string | null
           session_duration?: number | null
-          employee_id?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -576,7 +576,7 @@ export type Database = {
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
-          _employee_id: string
+          _user_id: string
         }
         Returns: boolean
       }

@@ -22,21 +22,21 @@ AS
 BEGIN
     SET NOCOUNT ON;
     
-    DECLARE @employee_id UNIQUEIDENTIFIER;
+    DECLARE @profile_id UNIQUEIDENTIFIER;
     DECLARE @employee_id INT;
     
     BEGIN TRY
         BEGIN TRANSACTION;
         
         -- Check if profile exists by email, if not create it
-        SELECT @employee_id = id, @employee_id = employee_id FROM profiles WHERE email = @email;
+        SELECT @profile_id = id, @employee_id = employee_id FROM profiles WHERE email = @email;
         
-        IF @employee_id IS NULL
+        IF @profile_id IS NULL
         BEGIN
             INSERT INTO profiles (id, email, full_name, created_at, updated_at)
             VALUES (NEWID(), @email, @full_name, GETDATE(), GETDATE());
             
-            SET @employee_id = (SELECT id FROM profiles WHERE email = @email);
+            SET @profile_id = (SELECT id FROM profiles WHERE email = @email);
             SET @employee_id = (SELECT employee_id FROM profiles WHERE email = @email);
             
             PRINT 'Profile created for user: ' + @email + ' with employee_id: ' + CAST(@employee_id AS NVARCHAR);
