@@ -699,7 +699,7 @@ router.get('/analytics/late-patterns', authenticateToken, async (req, res) => {
       departmentLate: departmentLate.recordset
     });
   } catch (error) {
-    logError(error, req, { context: 'Error fetching late patterns', days });
+    logError(error, req, { context: 'Error fetching late patterns', days: req.query.days });
     res.status(500).json({ error: error.message });
   }
 });
