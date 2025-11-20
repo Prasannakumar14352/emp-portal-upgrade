@@ -448,42 +448,79 @@ router.get('/oauth/callback/azure', async (req, res) => {
     /* 3) Sync OAuth user using stored procedure */
     const pool = await getConnection();
 
-    // Call the sync procedure which will create/update profile and employee records
-    const syncResult = await pool.request()
-      .input("email", sql.NVarChar, email)
-      .input("full_name", sql.NVarChar, fullName)
-      .input("department", sql.NVarChar, userInfo.department || "Not Assigned")
-      .input("position", sql.NVarChar, userInfo.jobTitle || "Employee")
-      .execute("sp_sync_oauth_user");
+    let employee_id;
+    try {
+      // Call the sync procedure which will create/update profile and employee records
+      logInfo(`Attempting to sync OAuth user: ${email}`);
+      const syncResult = await pool.request()
+        .input("email", sql.NVarChar, email)
+        .input("full_name", sql.NVarChar, fullName)
+        .input("department", sql.NVarChar, userInfo.department || "Not Assigned")
+        .input("position", sql.NVarChar, userInfo.jobTitle || "Employee")
+        .execute("sp_sync_oauth_user");
 
-    const employee_id = syncResult.recordset[0].employee_id;
+      if (!syncResult.recordset || syncResult.recordset.length === 0) {
+        throw new Error('sp_sync_oauth_user did not return employee_id');
+      }
+
+      employee_id = syncResult.recordset[0].employee_id;
+      logInfo(`Successfully synced OAuth user. Employee ID: ${employee_id}`);
+    } catch (syncErr) {
+      logError(syncErr, req, { 
+        context: 'Failed to sync OAuth user with stored procedure',
+        email,
+        fullName,
+        storedProcedure: 'sp_sync_oauth_user'
+      });
+      throw new Error(`User synchronization failed: ${syncErr.message}`);
+    }
 
     /* 3.5) Sync user roles based on Azure AD groups */
-    const userIdResult = await pool.request()
-      .input('employee_id', sql.Int, employee_id)
-      .query('SELECT id FROM profiles WHERE employee_id = @employee_id');
-    
-    if (userIdResult.recordset.length > 0) {
-      const userId = userIdResult.recordset[0].id;
+    try {
+      logInfo(`Fetching user_id for employee_id: ${employee_id}`);
+      const userIdResult = await pool.request()
+        .input('employee_id', sql.Int, employee_id)
+        .query('SELECT user_id FROM profiles WHERE employee_id = @employee_id');
       
-      // Assign roles from Azure AD groups
-      for (const role of userRoles) {
-        try {
-          await pool.request()
-            .input('user_id', sql.UniqueIdentifier, userId)
-            .input('role', sql.NVarChar, role)
-            .query(`
-              IF NOT EXISTS (SELECT 1 FROM user_roles WHERE user_id = @user_id AND role = @role)
-              BEGIN
-                INSERT INTO user_roles (user_id, role, created_at)
-                VALUES (@user_id, @role, GETDATE())
-              END
-            `);
-          logInfo(`Assigned role '${role}' to user ${email}`);
-        } catch (roleErr) {
-          logError(roleErr, req, { context: `Failed to assign role: ${role}`, email });
+      if (userIdResult.recordset.length === 0) {
+        logWarning(`No user_id found for employee_id: ${employee_id}`, { email });
+      } else {
+        const userId = userIdResult.recordset[0].user_id;
+        logInfo(`Found user_id: ${userId} for employee_id: ${employee_id}`);
+        
+        // Assign roles from Azure AD groups
+        for (const role of userRoles) {
+          try {
+            logInfo(`Attempting to assign role '${role}' to user ${email} (user_id: ${userId})`);
+            
+            await pool.request()
+              .input('user_id', sql.NVarChar, userId)
+              .input('role', sql.NVarChar, role)
+              .query(`
+                IF NOT EXISTS (SELECT 1 FROM user_roles WHERE user_id = @user_id AND role = @role)
+                BEGIN
+                  INSERT INTO user_roles (user_id, role, created_at)
+                  VALUES (@user_id, @role, GETDATE())
+                END
+              `);
+            logInfo(`Successfully assigned role '${role}' to user ${email}`);
+          } catch (roleErr) {
+            logError(roleErr, req, { 
+              context: `Failed to assign role: ${role}`, 
+              email,
+              userId,
+              roleAttempted: role,
+              errorDetails: roleErr.message
+            });
+          }
         }
       }
+    } catch (userIdErr) {
+      logError(userIdErr, req, { 
+        context: 'Failed to fetch user_id from profiles table',
+        email,
+        employee_id
+      });
     }
 
     /* 4) Generate Tokens */
