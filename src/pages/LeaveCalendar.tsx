@@ -1,9 +1,11 @@
 import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths } from "date-fns";
+import { employeeService } from "@/services/employeeService";
 
 interface LeaveEvent {
   id: string;
@@ -23,6 +25,12 @@ const leaveTypeColors: Record<string, string> = {
 
 export default function LeaveCalendar() {
   const [currentDate, setCurrentDate] = useState(new Date());
+
+  // Fetch all employees to get accurate count
+  const { data: employees = [] } = useQuery({
+    queryKey: ["employees"],
+    queryFn: () => employeeService.getAllEmployees(),
+  });
 
   // Load approved leaves from localStorage
   const approvedLeaves: LeaveEvent[] = useMemo(() => {
@@ -60,7 +68,7 @@ export default function LeaveCalendar() {
   };
 
   const getTeamAvailability = (day: Date) => {
-    const totalEmployees = 50; // Mock total
+    const totalEmployees = employees.length;
     const onLeave = getLeavesForDay(day).length;
     const available = totalEmployees - onLeave;
     return { available, onLeave, total: totalEmployees };
