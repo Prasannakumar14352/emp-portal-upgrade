@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, isWeekend } from "date-fns";
 import { employeeService } from "@/services/employeeService";
 import { holidayService } from "@/services/holidayService";
+import { leaveTypeService } from "@/services/leaveTypeService";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { StatCard } from "@/components/StatCard";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -20,12 +21,14 @@ interface LeaveEvent {
   status: string;
 }
 
-const leaveTypeColors: Record<string, string> = {
-  "Annual Leave": "bg-primary text-primary-foreground",
-  "Sick Leave": "bg-warning text-warning-foreground",
-  "Personal Leave": "bg-accent text-accent-foreground",
-  "Unpaid Leave": "bg-muted text-muted-foreground",
-};
+// Predefined color classes for dynamic assignment
+const colorClasses = [
+  "bg-primary text-primary-foreground",
+  "bg-secondary text-secondary-foreground",
+  "bg-accent text-accent-foreground",
+  "bg-destructive text-destructive-foreground",
+  "bg-muted text-muted-foreground",
+];
 
 export default function LeaveCalendar() {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -43,6 +46,21 @@ export default function LeaveCalendar() {
     queryKey: ["holidays"],
     queryFn: () => holidayService.getAllHolidays(),
   });
+
+  // Fetch leave types from database
+  const { data: leaveTypes = [] } = useQuery({
+    queryKey: ["leaveTypes"],
+    queryFn: () => leaveTypeService.getActiveLeaveTypes(),
+  });
+
+  // Generate dynamic color mapping for leave types
+  const leaveTypeColors = useMemo(() => {
+    const colorMap: Record<string, string> = {};
+    leaveTypes.forEach((leaveType, index) => {
+      colorMap[leaveType.name] = colorClasses[index % colorClasses.length];
+    });
+    return colorMap;
+  }, [leaveTypes]);
 
   // Filter employees by department
   const employees = useMemo(() => {
