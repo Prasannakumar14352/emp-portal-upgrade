@@ -2,13 +2,14 @@ import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, TrendingUp, Clock, Award } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, TrendingUp, Clock, Award, List } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, isWeekend } from "date-fns";
 import { employeeService } from "@/services/employeeService";
 import { holidayService } from "@/services/holidayService";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { StatCard } from "@/components/StatCard";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface LeaveEvent {
   id: string;
@@ -29,6 +30,7 @@ const leaveTypeColors: Record<string, string> = {
 export default function LeaveCalendar() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDepartment, setSelectedDepartment] = useState<string>("all");
+  const [viewMode, setViewMode] = useState<"calendar" | "list">("calendar");
 
   // Fetch all employees to get accurate count
   const { data: allEmployees = [] } = useQuery({
@@ -148,7 +150,19 @@ export default function LeaveCalendar() {
           <h1 className="text-3xl font-bold">Leave Calendar</h1>
           <p className="text-muted-foreground">View team availability and approved leaves</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center flex-wrap">
+          <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as "calendar" | "list")}>
+            <TabsList>
+              <TabsTrigger value="calendar" className="gap-2">
+                <CalendarIcon className="h-4 w-4" />
+                Calendar
+              </TabsTrigger>
+              <TabsTrigger value="list" className="gap-2">
+                <List className="h-4 w-4" />
+                List
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
           <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Select department" />
@@ -231,135 +245,189 @@ export default function LeaveCalendar() {
         </CardContent>
       </Card>
 
-      {/* Calendar */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>{format(currentDate, "MMMM yyyy")}</CardTitle>
-            <div className="flex gap-2">
-              <Button variant="outline" size="icon" onClick={goToPreviousMonth}>
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <Button variant="outline" size="icon" onClick={goToNextMonth}>
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {/* Weekday headers */}
-          <div className="grid grid-cols-7 gap-2 mb-2">
-            {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
-              <div key={day} className="text-center text-sm font-semibold text-muted-foreground p-2">
-                {day}
+      {/* Calendar View */}
+      {viewMode === "calendar" && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>{format(currentDate, "MMMM yyyy")}</CardTitle>
+              <div className="flex gap-2">
+                <Button variant="outline" size="icon" onClick={goToPreviousMonth}>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button variant="outline" size="icon" onClick={goToNextMonth}>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
               </div>
-            ))}
-          </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {/* Weekday headers */}
+            <div className="grid grid-cols-7 gap-2 mb-2">
+              {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+                <div key={day} className="text-center text-sm font-semibold text-muted-foreground p-2">
+                  {day}
+                </div>
+              ))}
+            </div>
 
-          {/* Calendar days */}
-          <div className="grid grid-cols-7 gap-2">
-            {/* Padding days */}
-            {paddingDays.map((_, index) => (
-              <div key={`padding-${index}`} className="min-h-[120px] p-2" />
-            ))}
+            {/* Calendar days */}
+            <div className="grid grid-cols-7 gap-2">
+              {/* Padding days */}
+              {paddingDays.map((_, index) => (
+                <div key={`padding-${index}`} className="min-h-[120px] p-2" />
+              ))}
 
-            {/* Actual days */}
-            {daysInMonth.map((day) => {
-              const leavesForDay = getLeavesForDay(day);
-              const isToday = isSameDay(day, new Date());
-              const isWeekendDay = isWeekend(day);
-              const isHolidayDay = isHoliday(day);
-              const holiday = getHoliday(day);
-              const { available, onLeave } = getTeamAvailability(day);
+              {/* Actual days */}
+              {daysInMonth.map((day) => {
+                const leavesForDay = getLeavesForDay(day);
+                const isToday = isSameDay(day, new Date());
+                const isWeekendDay = isWeekend(day);
+                const isHolidayDay = isHoliday(day);
+                const holiday = getHoliday(day);
+                const { available, onLeave } = getTeamAvailability(day);
 
-              return (
-                <div
-                  key={day.toISOString()}
-                  className={`min-h-[120px] p-2 border rounded-lg ${
-                    isToday ? "border-primary bg-primary/5" : 
-                    isHolidayDay ? "border-destructive bg-destructive/5" :
-                    isWeekendDay ? "bg-muted/50" : "border-border"
-                  } ${!isSameMonth(day, currentDate) ? "opacity-50" : ""}`}
-                >
-                  <div className="flex justify-between items-start mb-2">
-                    <div className="flex flex-col gap-1">
-                      <span className={`text-sm font-semibold ${
-                        isToday ? "text-primary" : 
-                        isHolidayDay ? "text-destructive" :
-                        isWeekendDay ? "text-muted-foreground" : "text-foreground"
-                      }`}>
-                        {format(day, "d")}
-                      </span>
-                      {isHolidayDay && holiday && (
-                        <Badge variant="destructive" className="text-[10px] py-0 px-1">
-                          {holiday.name}
+                return (
+                  <div
+                    key={day.toISOString()}
+                    className={`min-h-[120px] p-2 border rounded-lg ${
+                      isToday ? "border-primary bg-primary/5" : 
+                      isHolidayDay ? "border-destructive bg-destructive/5" :
+                      isWeekendDay ? "bg-muted/50" : "border-border"
+                    } ${!isSameMonth(day, currentDate) ? "opacity-50" : ""}`}
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="flex flex-col gap-1">
+                        <span className={`text-sm font-semibold ${
+                          isToday ? "text-primary" : 
+                          isHolidayDay ? "text-destructive" :
+                          isWeekendDay ? "text-muted-foreground" : "text-foreground"
+                        }`}>
+                          {format(day, "d")}
+                        </span>
+                        {isHolidayDay && holiday && (
+                          <Badge variant="destructive" className="text-[10px] py-0 px-1">
+                            {holiday.name}
+                          </Badge>
+                        )}
+                        {isWeekendDay && !isHolidayDay && (
+                          <span className="text-[10px] text-muted-foreground">Weekend</span>
+                        )}
+                      </div>
+                      {leavesForDay.length > 0 && (
+                        <Badge variant="secondary" className="text-xs">
+                          {onLeave}/{onLeave + available}
                         </Badge>
                       )}
-                      {isWeekendDay && !isHolidayDay && (
-                        <span className="text-[10px] text-muted-foreground">Weekend</span>
+                    </div>
+
+                    <div className="space-y-1">
+                      {leavesForDay.slice(0, 3).map((leave) => (
+                        <div
+                          key={leave.id}
+                          className={`text-xs p-1 rounded truncate ${leaveTypeColors[leave.leaveType] || "bg-muted"}`}
+                          title={`${leave.employeeName} - ${leave.leaveType}`}
+                        >
+                          {leave.employeeName}
+                        </div>
+                      ))}
+                      {leavesForDay.length > 3 && (
+                        <div className="text-xs text-muted-foreground">
+                          +{leavesForDay.length - 3} more
+                        </div>
                       )}
                     </div>
-                    {leavesForDay.length > 0 && (
-                      <Badge variant="secondary" className="text-xs">
-                        {onLeave}/{onLeave + available}
-                      </Badge>
-                    )}
                   </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
-                  <div className="space-y-1">
-                    {leavesForDay.slice(0, 3).map((leave) => (
+      {/* List View */}
+      {viewMode === "list" && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>Approved Leaves - {format(currentDate, "MMMM yyyy")}</CardTitle>
+              <div className="flex gap-2">
+                <Button variant="outline" size="icon" onClick={goToPreviousMonth}>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button variant="outline" size="icon" onClick={goToNextMonth}>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {daysInMonth.map((day) => {
+                const { available, onLeave, total } = getTeamAvailability(day);
+                const availabilityPercentage = (available / total) * 100;
+                const leavesForDay = getLeavesForDay(day);
+                const isToday = isSameDay(day, new Date());
+                const isWeekendDay = isWeekend(day);
+                const isHolidayDay = isHoliday(day);
+                const holiday = getHoliday(day);
+
+                return (
+                  <div key={day.toISOString()} className={`space-y-2 p-4 rounded-lg border ${
+                    isToday ? "border-primary bg-primary/5" : 
+                    isHolidayDay ? "border-destructive bg-destructive/5" :
+                    isWeekendDay ? "bg-muted/50" : ""
+                  }`}>
+                    <div className="flex justify-between items-start text-sm">
+                      <div className="flex flex-col gap-1">
+                        <span className={`font-medium ${
+                          isToday ? "text-primary" : 
+                          isHolidayDay ? "text-destructive" :
+                          isWeekendDay ? "text-muted-foreground" : ""
+                        }`}>
+                          {format(day, "EEE, MMM d")}
+                        </span>
+                        {isHolidayDay && holiday && (
+                          <Badge variant="destructive" className="text-xs w-fit">
+                            {holiday.name}
+                          </Badge>
+                        )}
+                        {isWeekendDay && !isHolidayDay && (
+                          <span className="text-xs text-muted-foreground">Weekend</span>
+                        )}
+                      </div>
+                      <span className="text-muted-foreground">
+                        {available}/{total} available ({availabilityPercentage.toFixed(0)}%)
+                      </span>
+                    </div>
+                    <div className="w-full bg-muted rounded-full h-2">
                       <div
-                        key={leave.id}
-                        className={`text-xs p-1 rounded truncate ${leaveTypeColors[leave.leaveType] || "bg-muted"}`}
-                        title={`${leave.employeeName} - ${leave.leaveType}`}
-                      >
-                        {leave.employeeName}
-                      </div>
-                    ))}
-                    {leavesForDay.length > 3 && (
-                      <div className="text-xs text-muted-foreground">
-                        +{leavesForDay.length - 3} more
+                        className="bg-success h-2 rounded-full transition-all"
+                        style={{ width: `${availabilityPercentage}%` }}
+                      />
+                    </div>
+                    {leavesForDay.length > 0 && (
+                      <div className="space-y-2 mt-3">
+                        <span className="text-xs font-medium text-muted-foreground">On Leave:</span>
+                        <div className="flex flex-wrap gap-2">
+                          {leavesForDay.map((leave) => (
+                            <Badge
+                              key={leave.id}
+                              className={leaveTypeColors[leave.leaveType] || "bg-muted"}
+                            >
+                              {leave.employeeName} - {leave.leaveType}
+                            </Badge>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>
-                </div>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Team Availability Overview */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Team Availability Overview</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {daysInMonth.slice(0, 7).map((day) => {
-              const { available, onLeave, total } = getTeamAvailability(day);
-              const availabilityPercentage = (available / total) * 100;
-
-              return (
-                <div key={day.toISOString()} className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="font-medium">{format(day, "EEE, MMM d")}</span>
-                    <span className="text-muted-foreground">
-                      {available}/{total} available ({availabilityPercentage.toFixed(0)}%)
-                    </span>
-                  </div>
-                  <div className="w-full bg-muted rounded-full h-2">
-                    <div
-                      className="bg-success h-2 rounded-full transition-all"
-                      style={{ width: `${availabilityPercentage}%` }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
