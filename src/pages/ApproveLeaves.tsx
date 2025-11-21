@@ -26,6 +26,13 @@ const commentSchema = z.string()
   .min(5, { message: "Comment must be at least 5 characters" })
   .max(500, { message: "Comment must be less than 500 characters" });
 
+interface BulkActionResponse {
+  success: boolean;
+  processed: number;
+  failed: number;
+  failedLeaves: Array<{ leaveId: string; reason: string }>;
+}
+
 export default function ApproveLeaves() {
   const { role, loading: roleLoading } = useUserRole();
   const { user, loading: authLoading } = useAuth();
@@ -42,6 +49,9 @@ export default function ApproveLeaves() {
   const [rejectionDialogOpen, setRejectionDialogOpen] = useState(false);
   const [selectedRequestForAction, setSelectedRequestForAction] = useState<string | null>(null);
   const [actionComment, setActionComment] = useState("");
+  const [bulkApprovalDialogOpen, setBulkApprovalDialogOpen] = useState(false);
+  const [bulkRejectionDialogOpen, setBulkRejectionDialogOpen] = useState(false);
+  const [bulkActionComment, setBulkActionComment] = useState("");
 
   useEffect(() => {
     // Wait for both auth and role to load
@@ -175,48 +185,76 @@ export default function ApproveLeaves() {
   };
 
 
-  const handleBulkApprove = async () => {
+  const openBulkApprovalDialog = () => {
     if (selectedRequests.length === 0) {
       toast.error("No requests selected");
       return;
     }
+    setBulkActionComment("");
+    setBulkApprovalDialogOpen(true);
+  };
+
+  const openBulkRejectionDialog = () => {
+    if (selectedRequests.length === 0) {
+      toast.error("No requests selected");
+      return;
+    }
+    setBulkActionComment("");
+    setBulkRejectionDialogOpen(true);
+  };
+
+  const handleBulkApprove = async () => {
+    // Validate comment
+    const validationResult = commentSchema.safeParse(bulkActionComment);
+    if (!validationResult.success) {
+      toast.error(validationResult.error.errors[0].message);
+      return;
+    }
 
     try {
-      // Call backend API for each selected request
-      await Promise.all(
-        selectedRequests.map(id => leaveApprovalService.approve(id))
-      );
-
+      const response = await leaveApprovalService.bulkApprove(selectedRequests, validationResult.data) as BulkActionResponse;
+      
       // Reload requests to reflect updated statuses
       await loadRequests();
       setSelectedRequests([]);
+      setBulkApprovalDialogOpen(false);
+      setBulkActionComment("");
 
-      toast.success(`${selectedRequests.length} leave requests approved and notifications sent`);
+      if (response.failed > 0) {
+        toast.warning(`${response.processed} approved successfully, ${response.failed} failed`);
+      } else {
+        toast.success(`${response.processed} leave requests approved and notifications sent`);
+      }
     } catch (error: any) {
-      toast.error(error.message || "Failed to approve some requests");
+      toast.error(error.message || "Failed to approve requests");
       console.error("Bulk approval error:", error);
     }
   };
 
   const handleBulkReject = async () => {
-    if (selectedRequests.length === 0) {
-      toast.error("No requests selected");
+    // Validate comment
+    const validationResult = commentSchema.safeParse(bulkActionComment);
+    if (!validationResult.success) {
+      toast.error(validationResult.error.errors[0].message);
       return;
     }
 
     try {
-      // Call backend API for each selected request
-      await Promise.all(
-        selectedRequests.map(id => leaveApprovalService.reject(id))
-      );
-
+      const response = await leaveApprovalService.bulkReject(selectedRequests, validationResult.data) as BulkActionResponse;
+      
       // Reload requests to reflect updated statuses
       await loadRequests();
       setSelectedRequests([]);
+      setBulkRejectionDialogOpen(false);
+      setBulkActionComment("");
 
-      toast.error(`${selectedRequests.length} leave requests rejected and notifications sent`);
+      if (response.failed > 0) {
+        toast.warning(`${response.processed} rejected successfully, ${response.failed} failed`);
+      } else {
+        toast.success(`${response.processed} leave requests rejected and notifications sent`);
+      }
     } catch (error: any) {
-      toast.error(error.message || "Failed to reject some requests");
+      toast.error(error.message || "Failed to reject requests");
       console.error("Bulk rejection error:", error);
     }
   };
@@ -353,10 +391,10 @@ export default function ApproveLeaves() {
               </Button>
               {selectedRequests.length > 0 && (
                 <>
-                  <Button variant="default" size="sm" onClick={handleBulkApprove}>
+                  <Button variant="default" size="sm" onClick={openBulkApprovalDialog}>
                     Approve Selected ({selectedRequests.length})
                   </Button>
-                  <Button variant="destructive" size="sm" onClick={handleBulkReject}>
+                  <Button variant="destructive" size="sm" onClick={openBulkRejectionDialog}>
                     Reject Selected ({selectedRequests.length})
                   </Button>
                 </>
@@ -598,6 +636,103 @@ export default function ApproveLeaves() {
               >
                 <XCircle className="mr-2 h-4 w-4" />
                 Reject
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Approval Dialog */}
+      <Dialog open={bulkApprovalDialogOpen} onOpenChange={setBulkApprovalDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Bulk Approve Leave Requests</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              You are about to approve <strong>{selectedRequests.length}</strong> leave request(s).
+              Please add a comment that will be applied to all selected requests (5-500 characters).
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="bulk-approval-comment">Comment *</Label>
+              <Textarea
+                id="bulk-approval-comment"
+                placeholder="Enter your approval comments (minimum 5 characters)..."
+                value={bulkActionComment}
+                onChange={(e) => setBulkActionComment(e.target.value)}
+                rows={4}
+                required
+                maxLength={500}
+              />
+              <p className="text-xs text-muted-foreground text-right">
+                {bulkActionComment.trim().length}/500 characters
+              </p>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setBulkApprovalDialogOpen(false);
+                  setBulkActionComment("");
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleBulkApprove}
+                disabled={bulkActionComment.trim().length < 5}
+              >
+                <CheckCircle className="mr-2 h-4 w-4" />
+                Approve {selectedRequests.length} Request(s)
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Rejection Dialog */}
+      <Dialog open={bulkRejectionDialogOpen} onOpenChange={setBulkRejectionDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Bulk Reject Leave Requests</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              You are about to reject <strong>{selectedRequests.length}</strong> leave request(s).
+              Please add a comment explaining the rejection (5-500 characters).
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="bulk-rejection-comment">Comment *</Label>
+              <Textarea
+                id="bulk-rejection-comment"
+                placeholder="Enter your rejection reason (minimum 5 characters)..."
+                value={bulkActionComment}
+                onChange={(e) => setBulkActionComment(e.target.value)}
+                rows={4}
+                required
+                maxLength={500}
+              />
+              <p className="text-xs text-muted-foreground text-right">
+                {bulkActionComment.trim().length}/500 characters
+              </p>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setBulkRejectionDialogOpen(false);
+                  setBulkActionComment("");
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleBulkReject}
+                disabled={bulkActionComment.trim().length < 5}
+              >
+                <XCircle className="mr-2 h-4 w-4" />
+                Reject {selectedRequests.length} Request(s)
               </Button>
             </div>
           </div>
