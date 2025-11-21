@@ -7,11 +7,13 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Shield, UserPlus, Trash2, Loader2, AlertCircle, Users } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Shield, UserPlus, Trash2, Loader2, AlertCircle, Users, History } from "lucide-react";
 import { toast } from "sonner";
 import { roleManagementService, type UserWithRoles } from "@/services/roleManagementService";
 import { useUserRole } from "@/hooks/useUserRole";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { RoleAuditLog } from "@/components/RoleAuditLog";
 
 export default function RoleManagement() {
   const [users, setUsers] = useState<UserWithRoles[]>([]);
@@ -183,7 +185,20 @@ export default function RoleManagement() {
         <Shield className="h-8 w-8 text-primary" />
       </div>
 
-      <Card>
+      <Tabs defaultValue="users" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="users">
+            <Users className="h-4 w-4 mr-2" />
+            Users & Roles
+          </TabsTrigger>
+          <TabsTrigger value="audit-log">
+            <History className="h-4 w-4 mr-2" />
+            Audit Log
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="users" className="space-y-6">;
+          <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
@@ -378,6 +393,12 @@ export default function RoleManagement() {
           )}
         </CardContent>
       </Card>
+        </TabsContent>
+
+        <TabsContent value="audit-log">
+          <RoleAuditLog />
+        </TabsContent>
+      </Tabs>
 
       <AlertDialog open={!!roleToDelete} onOpenChange={(open) => !open && setRoleToDelete(null)}>
         <AlertDialogContent>
