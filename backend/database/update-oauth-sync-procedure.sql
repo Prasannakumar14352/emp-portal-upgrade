@@ -38,13 +38,15 @@ BEGIN
         
         IF @employee_id IS NULL
         BEGIN
-            -- Create new profile
-            INSERT INTO profiles (email, full_name, department, position, created_at, updated_at)
-            VALUES (@email, @full_name, @department, @position, GETDATE(), GETDATE());
+            -- Create new profile with a generated UUID for id column
+            DECLARE @new_id UNIQUEIDENTIFIER = NEWID();
+            
+            INSERT INTO profiles (id, email, full_name, department, position, created_at, updated_at)
+            VALUES (@new_id, @email, @full_name, @department, @position, GETDATE(), GETDATE());
             
             SET @employee_id = SCOPE_IDENTITY();
             
-            PRINT 'Created new profile with employee_id: ' + CAST(@employee_id AS NVARCHAR);
+            PRINT 'Created new profile with id: ' + CAST(@new_id AS NVARCHAR) + ', employee_id: ' + CAST(@employee_id AS NVARCHAR);
         END
         ELSE
         BEGIN
