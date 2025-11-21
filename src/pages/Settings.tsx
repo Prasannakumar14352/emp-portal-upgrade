@@ -312,78 +312,18 @@ export default function Settings() {
           <CardContent className="space-y-6">
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <Label>Email Notifications</Label>
-                <p className="text-sm text-muted-foreground">Receive notifications via email</p>
-              </div>
-              <Switch
-                checked={preferences.email_notifications}
-                onCheckedChange={(checked) => updatePreference('email_notifications', checked)}
-              />
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label>Push Notifications</Label>
+                <Label>Notification Preferences</Label>
                 <p className="text-sm text-muted-foreground">
-                  Receive push notifications in browser
-                  {notificationPermission === 'denied' && (
-                    <span className="text-destructive"> (Blocked by browser)</span>
-                  )}
+                  Customize which notifications you want to receive and how
                 </p>
               </div>
-              <Switch
-                checked={preferences.push_notifications && notificationPermission === 'granted'}
-                onCheckedChange={(checked) => updatePreference('push_notifications', checked)}
-                disabled={notificationPermission === 'denied'}
-              />
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label>Leave Updates</Label>
-                <p className="text-sm text-muted-foreground">Get notified about leave status changes</p>
-              </div>
-              <Switch
-                checked={preferences.leave_update_notifications}
-                onCheckedChange={(checked) => updatePreference('leave_update_notifications', checked)}
-              />
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label>Notification Sound</Label>
-                <p className="text-sm text-muted-foreground">Choose your notification sound</p>
-              </div>
-              <Select
-                value={preferences.notification_sound}
-                onValueChange={(value) => setPreferences(prev => ({ ...prev, notification_sound: value }))}
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => navigate('/notification-preferences')}
               >
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="default">Default</SelectItem>
-                  <SelectItem value="chime">Chime</SelectItem>
-                  <SelectItem value="ping">Ping</SelectItem>
-                  <SelectItem value="alert">Alert</SelectItem>
-                  <SelectItem value="success">Success</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label>Notification Volume</Label>
-                  <span className="text-sm text-muted-foreground">{preferences.notification_volume}%</span>
-                </div>
-                <Slider
-                  value={[preferences.notification_volume]}
-                  onValueChange={([value]) => setPreferences(prev => ({ ...prev, notification_volume: value }))}
-                  max={100}
-                  step={5}
-                  className="w-full"
-                />
-              </div>
+                Configure
+              </Button>
             </div>
           </CardContent>
         </Card>
