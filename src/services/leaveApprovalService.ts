@@ -3,7 +3,7 @@ import type { LeaveRequest } from "@/types/LeaveRequest";
 
 export const leaveApprovalService = {
     async getRequests(role: string, userId: string) {
-        return apiClient.get<LeaveRequest[]>(`/leaves/pending?role=${role}&manager_id=${userId}`);
+        return apiClient.get<LeaveRequest[]>(`/leaves?status=Pending`);
     },
 
     async approve(leaveId: string) {
