@@ -14,6 +14,7 @@ export interface UserProfile {
   created_at?: string;
   updated_at?: string;
   gender?: string;
+  role?: string;
 }
 
 export interface UserRoleResponse {
@@ -44,8 +45,8 @@ class UserService {
     const imageFile = new File([file], 'avatar.jpg', { type: 'image/jpeg' });
     formData.append('avatar', imageFile);
 
-    const token = localStorage.getItem('token');
-    const baseURL = 'http://localhost:3000/api'; // Use local backend
+    const token = localStorage.getItem('auth_token');
+    const baseURL = import.meta.env.API_BASE_URL; // Use local backend
     
     const response = await fetch(`${baseURL}/users/${userId}/avatar`, {
       method: 'POST',

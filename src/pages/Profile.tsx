@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Mail, Phone, Calendar, Briefcase, Edit, Camera } from "lucide-react";
+import { Mail, Phone, Calendar, Briefcase, Edit, Camera, User } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -31,6 +31,7 @@ export default function Profile() {
     position: '',
     department: '',
     gender: '',
+    role: '',
   });
 
   useEffect(() => {
@@ -51,6 +52,7 @@ export default function Profile() {
         position: data.position || '',
         department: data.department || '',
         gender: data.gender || '',
+        role: data.role || '',
       });
     } catch (error) {
       console.error('Failed to load profile:', error);
@@ -200,6 +202,28 @@ export default function Profile() {
                           day: 'numeric' 
                         })}
                       </p>
+                    </div>
+                  </div>
+                )}
+                {profile.gender && (
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                      <User className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Gender</p>
+                      <p className="font-medium">{profile.gender}</p>
+                    </div>
+                  </div>
+                )}
+                {profile.role && (
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                      <User className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Role</p>
+                      <p className="font-medium">{profile.role}</p>
                     </div>
                   </div>
                 )}

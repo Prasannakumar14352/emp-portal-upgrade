@@ -18,11 +18,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { leaveApprovalService } from "@/services/leaveApprovalService";
 import type { LeaveRequest } from "@/types/LeaveRequest";
-import { useAuth } from "@/hooks/useAuth";
+// import { useAuth } from "@/hooks/useAuth";
 
 export default function ApproveLeaves() {
   const { role, loading: roleLoading } = useUserRole();
-  const { user } = useAuth();
+  // const { user } = useAuth();
   const navigate = useNavigate();
   const [requests, setRequests] = useState<LeaveRequest[]>([]);
   const [selectedRequests, setSelectedRequests] = useState<string[]>([]);
@@ -52,7 +52,9 @@ export default function ApproveLeaves() {
   const loadRequests = async () => {
     try {
       // const user = JSON.parse(localStorage.getItem("mockUser")!);
-      if (!user) return;
+      // if (!user) return;
+      if (!localStorage.getItem("user")) return;
+      const user = JSON.parse(localStorage.getItem("user")!);
       console.log("Loading leave requests for role:", role, "and user ID:", user.id);
 
       const data = await leaveApprovalService.getRequests(role, user.id);
@@ -78,8 +80,8 @@ export default function ApproveLeaves() {
 
       // Send real email notification
       await sendLeaveNotification({
-        to: `${request.employeeName.toLowerCase().replace(/\s+/g, '.')}@company.com`,
-        employeeName: request.employeeName,
+        to: `${request.employeeName ? request.employeeName.toLowerCase().replace(/\s+/g, '.') : request.user_name.toLowerCase().replace(/\s+/g, '.')}@company.com`,
+        employeeName: request.employeeName ? request.employeeName : request.user_name,
         leaveType: request.leaveType,
         startDate: request.startDate,
         endDate: request.endDate,
@@ -108,8 +110,8 @@ export default function ApproveLeaves() {
 
       // Send real email notification
       await sendLeaveNotification({
-        to: `${request.employeeName.toLowerCase().replace(/\s+/g, '.')}@company.com`,
-        employeeName: request.employeeName,
+        to: `${request.employeeName ? request.employeeName.toLowerCase().replace(/\s+/g, '.') : request.user_name.toLowerCase().replace(/\s+/g, '.')}@company.com`,
+        employeeName: request.employeeName ? request.employeeName : request.user_name,
         leaveType: request.leaveType,
         startDate: request.startDate,
         endDate: request.endDate,
@@ -136,8 +138,8 @@ export default function ApproveLeaves() {
         if (selectedRequests.includes(req.id)) {
           // Send notification for each approved request
           sendLeaveNotification({
-            to: `${req.employeeName.toLowerCase().replace(/\s+/g, '.')}@company.com`,
-            employeeName: req.employeeName,
+            to: `${req.employeeName ? req.employeeName.toLowerCase().replace(/\s+/g, '.') : req.user_name.toLowerCase().replace(/\s+/g, '.')}@company.com`,
+            employeeName: req.employeeName ? req.employeeName : req.user_name,
             leaveType: req.leaveType,
             startDate: req.startDate,
             endDate: req.endDate,
@@ -171,8 +173,8 @@ export default function ApproveLeaves() {
         if (selectedRequests.includes(req.id)) {
           // Send notification for each rejected request
           sendLeaveNotification({
-            to: `${req.employeeName.toLowerCase().replace(/\s+/g, '.')}@company.com`,
-            employeeName: req.employeeName,
+            to: `${req.employeeName ? req.employeeName.toLowerCase().replace(/\s+/g, '.') : req.user_name.toLowerCase().replace(/\s+/g, '.')}@company.com`,
+            employeeName: req.employeeName ? req.employeeName : req.user_name,
             leaveType: req.leaveType,
             startDate: req.startDate,
             endDate: req.endDate,
@@ -233,7 +235,7 @@ export default function ApproveLeaves() {
 
   const filteredRequests = requests.filter((req) => {
     if (filterStatus !== "all" && req.status !== filterStatus) return false;
-    if (filterEmployee && !req.employeeName.toLowerCase().includes(filterEmployee.toLowerCase())) return false;
+    // if (filterEmployee && (req.employeeName ? req.employeeName.toLowerCase().includes(filterEmployee.toLowerCase()) : req.user_name.toLowerCase().includes(filterEmployee.toLowerCase()))) return false;
     if (filterDateFrom && new Date(req.startDate) < new Date(filterDateFrom)) return false;
     if (filterDateTo && new Date(req.endDate) > new Date(filterDateTo)) return false;
     return true;
@@ -375,13 +377,13 @@ export default function ApproveLeaves() {
                     />
                     <Avatar>
                       <AvatarFallback>
-                        {request.employeeName.split(" ").map((n) => n[0]).join("")}
+                        {request.employeeName ? request.employeeName.split(" ").map((n) => n[0]).join("") : request.user_name.split(" ").map((n) => n[0]).join("")}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1 space-y-2">
                       <div className="flex items-center justify-between">
                         <div>
-                          <h3 className="font-semibold">{request.employeeName}</h3>
+                          <h3 className="font-semibold">{request.employeeName ? request.employeeName : request.user_name}</h3>
                           <p className="text-sm text-muted-foreground">{request.leaveType}</p>
                         </div>
                         {getStatusBadge(request.status)}
@@ -411,7 +413,7 @@ export default function ApproveLeaves() {
                         variant="ghost"
                         size="icon"
                         onClick={() => {
-                          setSelectedEmployee(request.employeeName);
+                          setSelectedEmployee(request.employeeName ? request.employeeName : request.user_name);
                           setModalOpen(true);
                         }}
                         title="View Employee Details"
@@ -494,13 +496,13 @@ export default function ApproveLeaves() {
                   <div className="flex items-start gap-4">
                     <Avatar>
                       <AvatarFallback>
-                        {request.employeeName.split(" ").map((n) => n[0]).join("")}
+                        {request.employeeName ? request.employeeName.split(" ").map((n) => n[0]).join("") : request.user_name.split(" ").map((n) => n[0]).join("")}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1 space-y-2">
                       <div className="flex items-center justify-between">
                         <div>
-                          <h3 className="font-semibold">{request.employeeName}</h3>
+                          <h3 className="font-semibold">{request.employeeName ? request.employeeName : request.user_name}</h3>
                           <p className="text-sm text-muted-foreground">{request.leaveType}</p>
                         </div>
                         {getStatusBadge(request.status)}
