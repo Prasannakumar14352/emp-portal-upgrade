@@ -46,7 +46,7 @@ BEGIN
             
             SET @employee_id = SCOPE_IDENTITY();
             
-            PRINT 'Created new profile with id: ' + CAST(@new_id AS NVARCHAR) + ', employee_id: ' + CAST(@employee_id AS NVARCHAR);
+            PRINT 'Created new profile with id: ' + CAST(@new_id AS NVARCHAR(50)) + ', employee_id: ' + CAST(@employee_id AS NVARCHAR(50));
         END
         ELSE
         BEGIN
@@ -58,7 +58,7 @@ BEGIN
                 updated_at = GETDATE()
             WHERE employee_id = @employee_id;
             
-            PRINT 'Updated existing profile with employee_id: ' + CAST(@employee_id AS NVARCHAR);
+            PRINT 'Updated existing profile with employee_id: ' + CAST(@employee_id AS NVARCHAR(50));
         END
         
         -- Check if employee record exists (separate table)
@@ -67,7 +67,7 @@ BEGIN
             INSERT INTO employees (employee_id, email, full_name, department, position, status, created_at, updated_at)
             VALUES (@employee_id, @email, @full_name, @department, @position, 'Active', GETDATE(), GETDATE());
             
-            PRINT 'Created employee record for employee_id: ' + CAST(@employee_id AS NVARCHAR);
+            PRINT 'Created employee record for employee_id: ' + CAST(@employee_id AS NVARCHAR(50));
         END
         ELSE
         BEGIN
@@ -78,7 +78,7 @@ BEGIN
                 updated_at = GETDATE()
             WHERE employee_id = @employee_id;
             
-            PRINT 'Updated employee record for employee_id: ' + CAST(@employee_id AS NVARCHAR);
+            PRINT 'Updated employee record for employee_id: ' + CAST(@employee_id AS NVARCHAR(50));
         END
         
         -- NOTE: Role assignment is now handled by the OAuth callback
