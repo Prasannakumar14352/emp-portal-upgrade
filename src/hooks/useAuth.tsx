@@ -4,7 +4,11 @@ import { authService, User, Session } from "@/services/authService";
 import { useAuthLoading } from "./useAuthLoading";
 
 export function useAuth() {
-  const [user, setUser] = useState<User | null>(null);
+  // Initialize from localStorage synchronously to avoid null state
+  const [user, setUser] = useState<User | null>(() => {
+    const storedUser = localStorage.getItem('user');
+    return storedUser ? JSON.parse(storedUser) : null;
+  });
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
