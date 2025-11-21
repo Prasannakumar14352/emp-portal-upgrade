@@ -6,7 +6,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Shield, UserPlus, Trash2, Loader2, AlertCircle } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Shield, UserPlus, Trash2, Loader2, AlertCircle, Users } from "lucide-react";
 import { toast } from "sonner";
 import { roleManagementService, type UserWithRoles } from "@/services/roleManagementService";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -20,6 +21,9 @@ export default function RoleManagement() {
   const [selectedRole, setSelectedRole] = useState<'employee' | 'hr' | 'manager'>('employee');
   const [roleToDelete, setRoleToDelete] = useState<{ userId: number; roleId: number; role: string } | null>(null);
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
+  const [selectedUserIds, setSelectedUserIds] = useState<number[]>([]);
+  const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
+  const [bulkRole, setBulkRole] = useState<'employee' | 'hr' | 'manager'>('employee');
   const { role: currentUserRole, loading: roleLoading } = useUserRole();
 
   const canManage = currentUserRole === 'hr' || currentUserRole === 'manager';
@@ -78,6 +82,57 @@ export default function RoleManagement() {
     }
   };
 
+  const handleBulkAssign = async () => {
+    if (selectedUserIds.length === 0) {
+      toast.error('Please select at least one user');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      const result = await roleManagementService.bulkAssignRoles(selectedUserIds, bulkRole);
+      
+      if (result.summary.assigned > 0) {
+        toast.success(
+          `Successfully assigned ${bulkRole.toUpperCase()} role to ${result.summary.assigned} user(s)`,
+          { 
+            description: result.summary.skipped > 0 
+              ? `${result.summary.skipped} user(s) already had this role` 
+              : undefined
+          }
+        );
+      }
+      
+      if (result.summary.errors > 0) {
+        toast.error(`Failed to assign role to ${result.summary.errors} user(s)`);
+      }
+
+      setBulkDialogOpen(false);
+      setSelectedUserIds([]);
+      loadUsers();
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to bulk assign roles');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const toggleUserSelection = (userId: number) => {
+    setSelectedUserIds(prev => 
+      prev.includes(userId) 
+        ? prev.filter(id => id !== userId)
+        : [...prev, userId]
+    );
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedUserIds.length === users.length) {
+      setSelectedUserIds([]);
+    } else {
+      setSelectedUserIds(users.map(u => u.id));
+    }
+  };
+
   const getRoleBadgeVariant = (role: string) => {
     switch (role) {
       case 'hr':
@@ -130,15 +185,75 @@ export default function RoleManagement() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Users & Roles</CardTitle>
-          <CardDescription>
-            Assign or remove roles for users in the system. Each user must have at least one role.
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Users & Roles</CardTitle>
+              <CardDescription>
+                Assign or remove roles for users in the system. Each user must have at least one role.
+              </CardDescription>
+            </div>
+            {selectedUserIds.length > 0 && (
+              <Dialog open={bulkDialogOpen} onOpenChange={setBulkDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button>
+                    <Users className="h-4 w-4 mr-2" />
+                    Bulk Assign ({selectedUserIds.length})
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Bulk Assign Role</DialogTitle>
+                    <DialogDescription>
+                      Assign a role to {selectedUserIds.length} selected user(s)
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="py-4">
+                    <Select value={bulkRole} onValueChange={(value) => setBulkRole(value as 'employee' | 'hr' | 'manager')}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select role" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="employee">Employee</SelectItem>
+                        <SelectItem value="manager">Manager</SelectItem>
+                        <SelectItem value="hr">HR</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      This will assign the selected role to all {selectedUserIds.length} selected user(s). 
+                      Users who already have this role will be skipped.
+                    </p>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setBulkDialogOpen(false)} disabled={submitting}>
+                      Cancel
+                    </Button>
+                    <Button onClick={handleBulkAssign} disabled={submitting}>
+                      {submitting ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Assigning...
+                        </>
+                      ) : (
+                        'Assign to All'
+                      )}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-12">
+                  <Checkbox
+                    checked={selectedUserIds.length === users.length && users.length > 0}
+                    onCheckedChange={toggleSelectAll}
+                    aria-label="Select all"
+                  />
+                </TableHead>
                 <TableHead>User ID</TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>Email</TableHead>
@@ -151,6 +266,13 @@ export default function RoleManagement() {
             <TableBody>
               {users.map((user) => (
                 <TableRow key={user.id}>
+                  <TableCell>
+                    <Checkbox
+                      checked={selectedUserIds.includes(user.id)}
+                      onCheckedChange={() => toggleUserSelection(user.id)}
+                      aria-label={`Select ${user.full_name}`}
+                    />
+                  </TableCell>
                   <TableCell className="font-mono">{user.id}</TableCell>
                   <TableCell className="font-medium">{user.full_name}</TableCell>
                   <TableCell>{user.email}</TableCell>
