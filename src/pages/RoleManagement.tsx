@@ -9,6 +9,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { Shield, UserPlus, Trash2, Loader2, AlertCircle, Users, History, Search, X } from "lucide-react";
 import { toast } from "sonner";
 import { roleManagementService, type UserWithRoles } from "@/services/roleManagementService";
@@ -29,6 +30,8 @@ export default function RoleManagement() {
   const [bulkRole, setBulkRole] = useState<'employee' | 'hr' | 'manager'>('employee');
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<'all' | 'employee' | 'hr' | 'manager'>('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const { role: currentUserRole, loading: roleLoading } = useUserRole();
 
   const canManage = currentUserRole === 'hr' || currentUserRole === 'manager';
@@ -49,6 +52,17 @@ export default function RoleManagement() {
       return matchesSearch && matchesRole;
     });
   }, [users, searchTerm, roleFilter]);
+
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedUsers = filteredUsers.slice(startIndex, endIndex);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, roleFilter]);
 
   useEffect(() => {
     if (canManage) {
@@ -162,6 +176,12 @@ export default function RoleManagement() {
   const clearFilters = () => {
     setSearchTerm('');
     setRoleFilter('all');
+    setCurrentPage(1);
+  };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    setSelectedUserIds([]); // Clear selections when changing pages
   };
 
   const getRoleBadgeVariant = (role: string) => {
@@ -279,12 +299,34 @@ export default function RoleManagement() {
             )}
           </div>
 
-          {/* Results count */}
-          {(searchTerm || roleFilter !== 'all') && (
-            <p className="text-sm text-muted-foreground">
-              Showing {filteredUsers.length} of {users.length} users
-            </p>
-          )}
+          {/* Results count and page size selector */}
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-muted-foreground">
+              {(searchTerm || roleFilter !== 'all') ? (
+                <span>Showing {filteredUsers.length} of {users.length} users</span>
+              ) : (
+                <span>Total users: {users.length}</span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">Rows per page:</span>
+              <Select value={itemsPerPage.toString()} onValueChange={(value) => {
+                setItemsPerPage(Number(value));
+                setCurrentPage(1);
+              }}>
+                <SelectTrigger className="w-[70px] h-8">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="5">5</SelectItem>
+                  <SelectItem value="10">10</SelectItem>
+                  <SelectItem value="25">25</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                  <SelectItem value="100">100</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
 
           <div className="flex items-center justify-between mt-4">
             <div />
@@ -345,9 +387,23 @@ export default function RoleManagement() {
               <TableRow>
                 <TableHead className="w-12">
                   <Checkbox
-                    checked={selectedUserIds.length === filteredUsers.length && filteredUsers.length > 0}
-                    onCheckedChange={toggleSelectAll}
-                    aria-label="Select all"
+                    checked={
+                      paginatedUsers.length > 0 &&
+                      paginatedUsers.every(u => selectedUserIds.includes(u.id))
+                    }
+                    onCheckedChange={(checked) => {
+                      if (checked === "indeterminate") return;
+                      if (checked) {
+                        setSelectedUserIds(prev => [
+                          ...prev,
+                          ...paginatedUsers.filter(u => !prev.includes(u.id)).map(u => u.id)
+                        ]);
+                      } else {
+                        const pageUserIds = paginatedUsers.map(u => u.id);
+                        setSelectedUserIds(prev => prev.filter(id => !pageUserIds.includes(id)));
+                      }
+                    }}
+                    aria-label="Select all on this page"
                   />
                 </TableHead>
                 <TableHead>User ID</TableHead>
@@ -360,7 +416,7 @@ export default function RoleManagement() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredUsers.map((user) => (
+              {paginatedUsers.map((user) => (
                 <TableRow key={user.id}>
                   <TableCell>
                     <Checkbox
@@ -483,6 +539,57 @@ export default function RoleManagement() {
               <p className="text-muted-foreground">
                 Users will appear here once they are added to the system
               </p>
+            </div>
+          )}
+
+          {/* Pagination */}
+          {filteredUsers.length > 0 && totalPages > 1 && (
+            <div className="flex items-center justify-between px-2 py-4">
+              <div className="text-sm text-muted-foreground">
+                Showing {startIndex + 1} to {Math.min(endIndex, filteredUsers.length)} of {filteredUsers.length} users
+              </div>
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious 
+                      onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
+                      className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                    />
+                  </PaginationItem>
+                  
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum;
+                    if (totalPages <= 5) {
+                      pageNum = i + 1;
+                    } else if (currentPage <= 3) {
+                      pageNum = i + 1;
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i;
+                    } else {
+                      pageNum = currentPage - 2 + i;
+                    }
+                    
+                    return (
+                      <PaginationItem key={pageNum}>
+                        <PaginationLink
+                          onClick={() => handlePageChange(pageNum)}
+                          isActive={currentPage === pageNum}
+                          className="cursor-pointer"
+                        >
+                          {pageNum}
+                        </PaginationLink>
+                      </PaginationItem>
+                    );
+                  })}
+                  
+                  <PaginationItem>
+                    <PaginationNext 
+                      onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
+                      className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
             </div>
           )}
         </CardContent>
