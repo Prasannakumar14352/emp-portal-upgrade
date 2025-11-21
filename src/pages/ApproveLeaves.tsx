@@ -10,7 +10,6 @@ import { useNavigate } from "react-router-dom";
 import { Checkbox } from "@/components/ui/checkbox";
 import { EmployeeDetailModal } from "@/components/EmployeeDetailModal";
 import { exportToCSV, exportToPDF } from "@/lib/exportUtils";
-import { sendLeaveNotification } from "@/services/emailService";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -106,28 +105,16 @@ export default function ApproveLeaves() {
     if (!request) return;
 
     try {
-      const updatedRequests = requests.map((req) =>
-        req.id === id ? { ...req, status: "Approved" } : req
-      );
-      setRequests(updatedRequests);
+      // Call backend API to update status
+      await leaveApprovalService.approve(id);
+      
+      // Reload requests to reflect the updated status
       await loadRequests();
 
-      // Send real email notification
-      await sendLeaveNotification({
-        to: `${request.user_name.toLowerCase().replace(/\s+/g, '.')}@company.com`,
-        employeeName: request.user_name,
-        leaveType: request.leaveType,
-        startDate: request.startDate,
-        endDate: request.endDate,
-        days: request.days,
-        status: "approved",
-        reason: request.reason,
-      });
-
       toast.success("Leave request approved and email notification sent");
-    } catch (error) {
-      toast.error("Leave approved but failed to send email notification");
-      console.error("Email error:", error);
+    } catch (error: any) {
+      toast.error(error.message || "Failed to approve leave request");
+      console.error("Approval error:", error);
     }
   };
 
@@ -136,30 +123,19 @@ export default function ApproveLeaves() {
     if (!request) return;
 
     try {
-      const updatedRequests = requests.map((req) =>
-        req.id === id ? { ...req, status: "Rejected" } : req
-      );
-      setRequests(updatedRequests);
-      localStorage.setItem("leaveRequests", JSON.stringify(updatedRequests));
+      // Call backend API to update status
+      await leaveApprovalService.reject(id);
+      
+      // Reload requests to reflect the updated status
+      await loadRequests();
 
-      // Send real email notification
-      await sendLeaveNotification({
-        to: `${request.user_name.toLowerCase().replace(/\s+/g, '.')}@company.com`,
-        employeeName: request.user_name,
-        leaveType: request.leaveType,
-        startDate: request.startDate,
-        endDate: request.endDate,
-        days: request.days,
-        status: "rejected",
-        reason: request.reason,
-      });
-
-      toast.error("Leave request rejected and email notification sent");
-    } catch (error) {
-      toast.error("Leave rejected but failed to send email notification");
-      console.error("Email error:", error);
+      toast.success("Leave request rejected and email notification sent");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to reject leave request");
+      console.error("Rejection error:", error);
     }
   };
+
 
   const handleBulkApprove = async () => {
     if (selectedRequests.length === 0) {
@@ -168,31 +144,19 @@ export default function ApproveLeaves() {
     }
 
     try {
-      const updatedRequests = requests.map((req) => {
-        if (selectedRequests.includes(req.id)) {
-          // Send notification for each approved request
-          sendLeaveNotification({
-            to: `${req.user_name.toLowerCase().replace(/\s+/g, '.')}@company.com`,
-            employeeName: req.user_name,
-            leaveType: req.leaveType,
-            startDate: req.startDate,
-            endDate: req.endDate,
-            days: req.days,
-            status: "approved",
-            reason: req.reason,
-          });
-          return { ...req, status: "Approved" };
-        }
-        return req;
-      });
-      setRequests(updatedRequests);
-      localStorage.setItem("leaveRequests", JSON.stringify(updatedRequests));
+      // Call backend API for each selected request
+      await Promise.all(
+        selectedRequests.map(id => leaveApprovalService.approve(id))
+      );
+      
+      // Reload requests to reflect updated statuses
+      await loadRequests();
       setSelectedRequests([]);
 
       toast.success(`${selectedRequests.length} leave requests approved and notifications sent`);
-    } catch (error) {
-      toast.error("Some email notifications may have failed");
-      console.error("Bulk email error:", error);
+    } catch (error: any) {
+      toast.error(error.message || "Failed to approve some requests");
+      console.error("Bulk approval error:", error);
     }
   };
 
@@ -203,31 +167,19 @@ export default function ApproveLeaves() {
     }
 
     try {
-      const updatedRequests = requests.map((req) => {
-        if (selectedRequests.includes(req.id)) {
-          // Send notification for each rejected request
-          sendLeaveNotification({
-            to: `${req.user_name.toLowerCase().replace(/\s+/g, '.')}@company.com`,
-            employeeName: req.user_name,
-            leaveType: req.leaveType,
-            startDate: req.startDate,
-            endDate: req.endDate,
-            days: req.days,
-            status: "rejected",
-            reason: req.reason,
-          });
-          return { ...req, status: "Rejected" };
-        }
-        return req;
-      });
-      setRequests(updatedRequests);
-      localStorage.setItem("leaveRequests", JSON.stringify(updatedRequests));
+      // Call backend API for each selected request
+      await Promise.all(
+        selectedRequests.map(id => leaveApprovalService.reject(id))
+      );
+      
+      // Reload requests to reflect updated statuses
+      await loadRequests();
       setSelectedRequests([]);
 
       toast.error(`${selectedRequests.length} leave requests rejected and notifications sent`);
-    } catch (error) {
-      toast.error("Some email notifications may have failed");
-      console.error("Bulk email error:", error);
+    } catch (error: any) {
+      toast.error(error.message || "Failed to reject some requests");
+      console.error("Bulk rejection error:", error);
     }
   };
 
