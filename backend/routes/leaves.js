@@ -159,7 +159,7 @@ router.post('/', authenticateToken, async (req, res) => {
     const pool = await getConnection();
     const nodemailer = require('nodemailer');
 
-    const result = await pool.request()
+    const insertResult = await pool.request()
       .input('employee_id', sql.Int, req.user.id)
       .input('manager_id', sql.Int, manager_id || null)
       .input('leave_type', sql.NVarChar, leave_type)
@@ -170,9 +170,11 @@ router.post('/', authenticateToken, async (req, res) => {
       .input('cc_emails', sql.NVarChar, cc_emails ? JSON.stringify(cc_emails) : null)
       .query(`
         INSERT INTO leaves (employee_id, manager_id, leave_type, start_date, end_date, days, reason, cc_emails, status, manager_status, hr_status, created_at)
-        OUTPUT INSERTED.*
-        VALUES (@employee_id, @manager_id, @leave_type, @start_date, @end_date, @days, @reason, @cc_emails, 'Pending', 'Pending', 'Pending', GETDATE())
+        VALUES (@employee_id, @manager_id, @leave_type, @start_date, @end_date, @days, @reason, @cc_emails, 'Pending', 'Pending', 'Pending', GETDATE());
+        SELECT * FROM leaves WHERE id = SCOPE_IDENTITY();
       `);
+
+    const result = { recordset: insertResult.recordset };
 
     // Send email notifications
     try {
@@ -407,11 +409,9 @@ router.patch('/:leaveId', authenticateToken, authorizeRole('hr', 'manager'), asy
       });
     }
 
-    let result;
-
     if (isManager) {
       // Manager approval/rejection
-      result = await pool.request()
+      await pool.request()
         .input('leave_id', sql.Int, leaveId)
         .input('status', sql.NVarChar, status)
         .input('approved_by', sql.Int, req.user.id)
@@ -424,12 +424,11 @@ router.patch('/:leaveId', authenticateToken, authorizeRole('hr', 'manager'), asy
               manager_comments = @comments,
               status = CASE WHEN @status = 'Rejected' THEN 'Rejected' ELSE 'Pending' END,
               updated_at = GETDATE()
-          OUTPUT INSERTED.*
           WHERE id = @leave_id
         `);
     } else if (isHR) {
       // HR approval/rejection
-      result = await pool.request()
+      await pool.request()
         .input('leave_id', sql.Int, leaveId)
         .input('status', sql.NVarChar, status)
         .input('approved_by', sql.Int, req.user.id)
@@ -443,12 +442,16 @@ router.patch('/:leaveId', authenticateToken, authorizeRole('hr', 'manager'), asy
               status = @status,
               approved_by = @approved_by,
               updated_at = GETDATE()
-          OUTPUT INSERTED.*
           WHERE id = @leave_id
         `);
     }
 
-    const updatedLeave = result.recordset[0];
+    // Fetch the updated leave record
+    const updatedResult = await pool.request()
+      .input('leave_id', sql.Int, leaveId)
+      .query('SELECT * FROM leaves WHERE id = @leave_id');
+    
+    const updatedLeave = updatedResult.recordset[0];
 
     // Check user preferences and emit real-time notification if enabled
     const prefsResult = await pool.request()
@@ -704,14 +707,27 @@ router.post('/:leaveId/comments', authenticateToken, authorizeRole('hr', 'manage
     const { comment } = req.body;
 
     const pool = await getConnection();
-    const result = await pool.request()
+    await pool.request()
       .input('leave_id', sql.Int, leaveId)
       .input('employee_id', sql.Int, req.user.id)
       .input('comment', sql.NVarChar, comment)
       .query(`
         INSERT INTO leave_comments (leave_id, employee_id, comment, created_at)
-        OUTPUT INSERTED.*
         VALUES (@leave_id, @employee_id, @comment, GETDATE())
+      `);
+
+    // Fetch the inserted comment
+    const result = await pool.request()
+      .input('leave_id', sql.Int, leaveId)
+      .input('employee_id', sql.Int, req.user.id)
+      .query(`
+        SELECT TOP 1 
+          lc.id, lc.leave_id, lc.employee_id, lc.comment, lc.created_at,
+          u.full_name as author_name
+        FROM leave_comments lc
+        JOIN profiles u ON lc.employee_id = u.employee_id
+        WHERE lc.leave_id = @leave_id AND lc.employee_id = @employee_id
+        ORDER BY lc.created_at DESC
       `);
 
     res.status(201).json(result.recordset[0]);
