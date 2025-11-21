@@ -223,6 +223,16 @@ router.post('/:userId/roles', authenticateToken, authorizeRole('hr', 'manager'),
         VALUES (@employee_id, @role, GETDATE())
       `);
 
+    // Log the role assignment in audit log
+    await pool.request()
+      .input('employee_id', sql.Int, userId)
+      .input('role', sql.NVarChar, role)
+      .input('changed_by', sql.Int, req.user.id)
+      .query(`
+        INSERT INTO role_audit_log (employee_id, role, action, changed_by, changed_at)
+        VALUES (@employee_id, @role, 'assigned', @changed_by, GETDATE())
+      `);
+
     res.status(201).json({
       message: 'Role assigned successfully',
       role: result.recordset[0]
@@ -284,6 +294,16 @@ router.post('/bulk-assign-roles', authenticateToken, authorizeRole('hr', 'manage
           .input('role', sql.NVarChar, role)
           .query('INSERT INTO user_roles (employee_id, role, created_at) VALUES (@employee_id, @role, GETDATE())');
 
+        // Log the role assignment in audit log
+        await pool.request()
+          .input('employee_id', sql.Int, userId)
+          .input('role', sql.NVarChar, role)
+          .input('changed_by', sql.Int, req.user.id)
+          .query(`
+            INSERT INTO role_audit_log (employee_id, role, action, changed_by, changed_at)
+            VALUES (@employee_id, @role, 'bulk_assigned', @changed_by, GETDATE())
+          `);
+
         results.assigned.push({ userId, userName, role });
       } catch (err) {
         logError(err, req, { context: 'Bulk role assignment error for user', userId, role });
@@ -325,9 +345,11 @@ router.delete('/roles/:roleId', authenticateToken, authorizeRole('hr', 'manager'
       return res.status(404).json({ error: 'Role assignment not found' });
     }
 
+    const { employee_id, role } = roleInfo.recordset[0];
+
     // Prevent removing the last role from a user
     const userRolesCount = await pool.request()
-      .input('employee_id', sql.Int, roleInfo.recordset[0].employee_id)
+      .input('employee_id', sql.Int, employee_id)
       .query('SELECT COUNT(*) as count FROM user_roles WHERE employee_id = @employee_id');
 
     if (userRolesCount.recordset[0].count <= 1) {
@@ -341,10 +363,88 @@ router.delete('/roles/:roleId', authenticateToken, authorizeRole('hr', 'manager'
       .input('role_id', sql.Int, roleId)
       .query('DELETE FROM user_roles WHERE id = @role_id');
 
+    // Log the role removal in audit log
+    await pool.request()
+      .input('employee_id', sql.Int, employee_id)
+      .input('role', sql.NVarChar, role)
+      .input('changed_by', sql.Int, req.user.id)
+      .query(`
+        INSERT INTO role_audit_log (employee_id, role, action, changed_by, changed_at)
+        VALUES (@employee_id, @role, 'removed', @changed_by, GETDATE())
+      `);
+
     res.json({ message: 'Role removed successfully' });
   } catch (err) {
     logError(err, req, { context: 'Remove role error', roleId });
     res.status(500).json({ error: 'Failed to remove role' });
+  }
+});
+
+// GET /api/users/role-audit-log - Get role change audit log (HR and Manager)
+router.get('/role-audit-log', authenticateToken, authorizeRole('hr', 'manager'), async (req, res) => {
+  try {
+    const pool = await getConnection();
+    const { limit = 100, offset = 0, employeeId } = req.query;
+
+    let query = `
+      SELECT 
+        ral.id,
+        ral.employee_id,
+        p.full_name as employee_name,
+        p.email as employee_email,
+        ral.role,
+        ral.action,
+        ral.changed_by,
+        changer.full_name as changed_by_name,
+        changer.email as changed_by_email,
+        ral.changed_at,
+        ral.notes
+      FROM role_audit_log ral
+      INNER JOIN profiles p ON ral.employee_id = p.employee_id
+      INNER JOIN profiles changer ON ral.changed_by = changer.employee_id
+    `;
+
+    if (employeeId) {
+      query += ` WHERE ral.employee_id = @employee_id`;
+    }
+
+    query += ` ORDER BY ral.changed_at DESC
+      OFFSET @offset ROWS
+      FETCH NEXT @limit ROWS ONLY`;
+
+    const request = pool.request()
+      .input('limit', sql.Int, parseInt(limit))
+      .input('offset', sql.Int, parseInt(offset));
+
+    if (employeeId) {
+      request.input('employee_id', sql.Int, parseInt(employeeId));
+    }
+
+    const result = await request.query(query);
+
+    // Get total count
+    let countQuery = 'SELECT COUNT(*) as total FROM role_audit_log';
+    if (employeeId) {
+      countQuery += ' WHERE employee_id = @employee_id';
+    }
+
+    const countRequest = pool.request();
+    if (employeeId) {
+      countRequest.input('employee_id', sql.Int, parseInt(employeeId));
+    }
+    const countResult = await countRequest.query(countQuery);
+
+    res.json({
+      data: result.recordset,
+      pagination: {
+        total: countResult.recordset[0].total,
+        limit: parseInt(limit),
+        offset: parseInt(offset)
+      }
+    });
+  } catch (err) {
+    logError(err, req, { context: 'Get role audit log error' });
+    res.status(500).json({ error: 'Failed to get role audit log' });
   }
 });
 

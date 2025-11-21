@@ -478,6 +478,39 @@ export type Database = {
         }
         Relationships: []
       }
+      role_audit_log: {
+        Row: {
+          action: string
+          changed_at: string | null
+          changed_by: number
+          created_at: string | null
+          employee_id: number
+          id: string
+          notes: string | null
+          role: string
+        }
+        Insert: {
+          action: string
+          changed_at?: string | null
+          changed_by: number
+          created_at?: string | null
+          employee_id: number
+          id?: string
+          notes?: string | null
+          role: string
+        }
+        Update: {
+          action?: string
+          changed_at?: string | null
+          changed_by?: number
+          created_at?: string | null
+          employee_id?: number
+          id?: string
+          notes?: string | null
+          role?: string
+        }
+        Relationships: []
+      }
       user_preferences: {
         Row: {
           compact_view: boolean | null
