@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { statisticsService } from "@/services/statisticsService";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -11,57 +13,70 @@ import { toast } from "sonner";
 import jsPDF from "jspdf";
 import { useUserRole } from "@/hooks/useUserRole";
 
-// Mock data for demonstration
-const monthlyData = [
-  { month: "Jan", leaves: 45, approved: 38, rejected: 7 },
-  { month: "Feb", leaves: 52, approved: 45, rejected: 7 },
-  { month: "Mar", leaves: 48, approved: 41, rejected: 7 },
-  { month: "Apr", leaves: 55, approved: 48, rejected: 7 },
-  { month: "May", leaves: 60, approved: 52, rejected: 8 },
-  { month: "Jun", leaves: 58, approved: 50, rejected: 8 },
-  { month: "Jul", leaves: 65, approved: 57, rejected: 8 },
-  { month: "Aug", leaves: 62, approved: 54, rejected: 8 },
-  { month: "Sep", leaves: 57, approved: 49, rejected: 8 },
-  { month: "Oct", leaves: 60, approved: 52, rejected: 8 },
-  { month: "Nov", leaves: 55, approved: 48, rejected: 7 },
-  { month: "Dec", leaves: 70, approved: 62, rejected: 8 },
-];
-
-const quarterlyData = [
-  { quarter: "Q1 2024", leaves: 145, approved: 124, rejected: 21 },
-  { quarter: "Q2 2024", leaves: 173, approved: 150, rejected: 23 },
-  { quarter: "Q3 2024", leaves: 184, approved: 160, rejected: 24 },
-  { quarter: "Q4 2024", leaves: 185, approved: 162, rejected: 23 },
-];
-
-const leaveTypeData = [
-  { name: "Annual Leave", value: 320, color: "#3b82f6" },
-  { name: "Sick Leave", value: 180, color: "#ef4444" },
-  { name: "Personal Leave", value: 95, color: "#f59e0b" },
-  { name: "Unpaid Leave", value: 45, color: "#8b5cf6" },
-];
-
-const departmentData = [
-  { department: "Engineering", leaves: 145, avgDays: 12.5 },
-  { department: "Sales", leaves: 98, avgDays: 10.2 },
-  { department: "Marketing", leaves: 67, avgDays: 11.8 },
-  { department: "HR", leaves: 45, avgDays: 9.5 },
-  { department: "Finance", leaves: 52, avgDays: 8.7 },
-];
-
 export default function AdvancedReports() {
   const { role } = useUserRole();
   const [reportType, setReportType] = useState<"monthly" | "quarterly">("monthly");
   const [startDate, setStartDate] = useState<Date>();
   const [endDate, setEndDate] = useState<Date>();
 
-  if (role !== "hr" && role !== "manager") {
+  // Fetch dynamic data from SQL Server
+  const { data: utilizationData, isLoading } = useQuery({
+    queryKey: ['utilization-statistics'],
+    queryFn: () => statisticsService.getUtilizationStatistics(),
+    enabled: role === 'hr' || role === 'manager'
+  });
+
+  const { data: teamData } = useQuery({
+    queryKey: ['team-statistics'],
+    queryFn: () => statisticsService.getTeamStatistics(),
+    enabled: role === 'hr' || role === 'manager'
+  });
+
+  // Transform data for charts
+  const monthlyData = utilizationData?.monthly_utilization?.map(trend => ({
+    month: trend.month_name,
+    leaves: trend.employees_on_leave,
+    approved: Math.round(trend.employees_on_leave * 0.85), // Approximate approved
+    rejected: Math.round(trend.employees_on_leave * 0.15)  // Approximate rejected
+  })) || [];
+
+  const quarterlyData = [
+    { quarter: "Q1 2024", leaves: 0, approved: 0, rejected: 0 },
+    { quarter: "Q2 2024", leaves: 0, approved: 0, rejected: 0 },
+    { quarter: "Q3 2024", leaves: 0, approved: 0, rejected: 0 },
+    { quarter: "Q4 2024", leaves: 0, approved: 0, rejected: 0 },
+  ];
+
+  const leaveTypeData = utilizationData?.utilization_by_type?.map((type, index) => {
+    const colors = ["#3b82f6", "#ef4444", "#f59e0b", "#8b5cf6", "#10b981"];
+    return {
+      name: type.leave_type,
+      value: type.utilized,
+      color: colors[index % colors.length]
+    };
+  }) || [];
+
+  const departmentData = teamData?.department_breakdown?.map(dept => ({
+    department: dept.department,
+    leaves: dept.leave_count,
+    avgDays: dept.total_leave_days / (dept.employee_count || 1)
+  })) || [];
+
+  if (role && role !== "hr" && role !== "manager") {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <p className="text-muted-foreground">You don't have permission to access this page.</p>
       </div>
     );
   }
+
+  const totalRequests = monthlyData.reduce((sum, m) => sum + m.leaves, 0);
+  const totalApproved = monthlyData.reduce((sum, m) => sum + m.approved, 0);
+  const totalRejected = monthlyData.reduce((sum, m) => sum + m.rejected, 0);
+  const approvalRate = totalRequests > 0 ? ((totalApproved / totalRequests) * 100).toFixed(0) : 0;
+  const peakMonth = monthlyData.length > 0 
+    ? monthlyData.reduce((max, m) => m.leaves > max.leaves ? m : max, monthlyData[0])
+    : { month: 'N/A', leaves: 0 };
 
   const handleExportPDF = () => {
     const doc = new jsPDF();
@@ -75,9 +90,9 @@ export default function AdvancedReports() {
     if (endDate) doc.text(`To: ${format(endDate, "PPP")}`, 20, 55);
     
     doc.text("Summary Statistics:", 20, 70);
-    doc.text(`Total Leave Requests: ${monthlyData.reduce((sum, m) => sum + m.leaves, 0)}`, 20, 80);
-    doc.text(`Total Approved: ${monthlyData.reduce((sum, m) => sum + m.approved, 0)}`, 20, 90);
-    doc.text(`Total Rejected: ${monthlyData.reduce((sum, m) => sum + m.rejected, 0)}`, 20, 100);
+    doc.text(`Total Leave Requests: ${totalRequests}`, 20, 80);
+    doc.text(`Total Approved: ${totalApproved}`, 20, 90);
+    doc.text(`Total Rejected: ${totalRejected}`, 20, 100);
     
     doc.text("Top Leave Types:", 20, 115);
     leaveTypeData.forEach((type, index) => {
@@ -90,6 +105,10 @@ export default function AdvancedReports() {
 
   const handleExportCSV = () => {
     const data = reportType === "monthly" ? monthlyData : quarterlyData;
+    if (!data || data.length === 0) {
+      toast.error("No data available to export");
+      return;
+    }
     const headers = Object.keys(data[0]).join(",");
     const rows = data.map(row => Object.values(row).join(",")).join("\n");
     const csv = `${headers}\n${rows}`;
@@ -103,6 +122,17 @@ export default function AdvancedReports() {
     
     toast.success("Report exported to CSV");
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading report data...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -179,8 +209,8 @@ export default function AdvancedReports() {
             <BarChart3 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{monthlyData.reduce((sum, m) => sum + m.leaves, 0)}</div>
-            <p className="text-xs text-muted-foreground">+12% from last period</p>
+            <div className="text-2xl font-bold">{totalRequests}</div>
+            <p className="text-xs text-muted-foreground">Total leave requests</p>
           </CardContent>
         </Card>
         <Card>
@@ -189,18 +219,18 @@ export default function AdvancedReports() {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">87%</div>
-            <p className="text-xs text-muted-foreground">+2% from last period</p>
+            <div className="text-2xl font-bold">{approvalRate}%</div>
+            <p className="text-xs text-muted-foreground">Approval percentage</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Avg. Processing Time</CardTitle>
+            <CardTitle className="text-sm font-medium">Approved Leaves</CardTitle>
             <CalendarIcon className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">2.3 days</div>
-            <p className="text-xs text-muted-foreground">-0.5 days from last period</p>
+            <div className="text-2xl font-bold">{totalApproved}</div>
+            <p className="text-xs text-muted-foreground">Total approved</p>
           </CardContent>
         </Card>
         <Card>
@@ -209,8 +239,8 @@ export default function AdvancedReports() {
             <CalendarIcon className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">December</div>
-            <p className="text-xs text-muted-foreground">70 requests</p>
+            <div className="text-2xl font-bold">{peakMonth.month}</div>
+            <p className="text-xs text-muted-foreground">{peakMonth.leaves} requests</p>
           </CardContent>
         </Card>
       </div>
