@@ -1,9 +1,46 @@
 const express = require('express');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 const { getConnection, sql } = require('../config/database');
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
 const { logError } = require('../utils/logger');
 
 const router = express.Router();
+
+// Configure multer for avatar uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = path.join(__dirname, '../uploads/avatars');
+    // Create directory if it doesn't exist
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, 'avatar-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = /jpeg|jpg|png|webp/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+    
+    if (mimetype && extname) {
+      return cb(null, true);
+    } else {
+      cb(new Error('Only image files (JPEG, PNG, WebP) are allowed'));
+    }
+  }
+});
 
 // GET /api/users/:userId/role
 router.get('/:userId/role', authenticateToken, async (req, res) => {
@@ -68,6 +105,69 @@ router.get('/:userId/profile', authenticateToken, async (req, res) => {
       error: 'Failed to get user profile',
       details: err.message 
     });
+  }
+});
+
+// POST /api/users/:userId/avatar - Upload avatar
+router.post('/:userId/avatar', authenticateToken, upload.single('avatar'), async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    // Verify user can only update their own avatar or is HR/manager
+    if (parseInt(req.user.id) !== parseInt(userId) && !['hr', 'manager'].includes(req.user.role)) {
+      // Clean up uploaded file
+      if (req.file) {
+        fs.unlinkSync(req.file.path);
+      }
+      return res.status(403).json({ error: 'Not authorized to update this avatar' });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const pool = await getConnection();
+    
+    // Get old avatar URL to delete old file
+    const oldAvatarResult = await pool.request()
+      .input('employee_id', sql.Int, userId)
+      .query('SELECT avatar_url FROM profiles WHERE employee_id = @employee_id');
+    
+    const oldAvatarUrl = oldAvatarResult.recordset[0]?.avatar_url;
+    
+    // Delete old avatar file if it exists and is a local file
+    if (oldAvatarUrl && oldAvatarUrl.startsWith('/uploads/avatars/')) {
+      const oldFilePath = path.join(__dirname, '..', oldAvatarUrl);
+      if (fs.existsSync(oldFilePath)) {
+        fs.unlinkSync(oldFilePath);
+      }
+    }
+
+    // Generate avatar URL
+    const avatarUrl = `/uploads/avatars/${req.file.filename}`;
+
+    // Update profile with new avatar URL
+    const result = await pool.request()
+      .input('employee_id', sql.Int, userId)
+      .input('avatar_url', sql.NVarChar, avatarUrl)
+      .query(`
+        UPDATE profiles
+        SET avatar_url = @avatar_url, updated_at = GETDATE()
+        OUTPUT INSERTED.avatar_url
+        WHERE employee_id = @employee_id
+      `);
+
+    res.json({
+      message: 'Avatar uploaded successfully',
+      avatar_url: result.recordset[0].avatar_url
+    });
+  } catch (err) {
+    // Clean up uploaded file on error
+    if (req.file) {
+      fs.unlinkSync(req.file.path);
+    }
+    logError(err, req, { context: 'Upload avatar error', userId: req.params.userId });
+    res.status(500).json({ error: 'Failed to upload avatar' });
   }
 });
 

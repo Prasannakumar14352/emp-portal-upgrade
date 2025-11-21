@@ -16,7 +16,6 @@ import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
 import { userService, type UserProfile } from "@/services/userService";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
 import { AvatarUploadModal } from "@/components/AvatarUploadModal";
 
 export default function Profile() {
@@ -83,39 +82,17 @@ export default function Profile() {
     if (!user) return;
 
     try {
-      // Delete old avatar if exists
-      if (profile?.avatar_url) {
-        const oldPath = profile.avatar_url.split('/').slice(-2).join('/');
-        if (oldPath) {
-          await supabase.storage.from('avatars').remove([oldPath]);
-        }
-      }
-
-      // Upload new avatar
-      const filePath = `${user.id}/${Date.now()}.jpg`;
+      // Upload avatar to backend
+      const response = await userService.uploadAvatar(user.id, blob);
       
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(filePath, blob, {
-          contentType: 'image/jpeg',
-          upsert: false,
-        });
-
-      if (uploadError) throw uploadError;
-
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('avatars')
-        .getPublicUrl(filePath);
-
-      // Update profile with new avatar URL
-      const updatedProfile = await userService.updateUserProfile(user.id, {
-        avatar_url: publicUrl,
-      });
-
-      setProfile(updatedProfile);
+      // Update local profile state with the backend URL
+      const baseURL = 'http://localhost:3000';
+      const fullAvatarUrl = `${baseURL}${response.avatar_url}`;
+      
+      setProfile(prev => prev ? { ...prev, avatar_url: fullAvatarUrl } : null);
       toast.success('Profile picture updated successfully');
     } catch (error: any) {
+      console.error('Upload failed:', error);
       toast.error(error.message || 'Failed to upload image');
       throw error;
     }
