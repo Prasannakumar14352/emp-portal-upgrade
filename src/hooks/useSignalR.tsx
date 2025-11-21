@@ -61,14 +61,30 @@ export const useSignalR = () => {
       window.dispatchEvent(new CustomEvent('leaveStatusUpdated', { detail: data }));
     };
 
+    // Listen for new leave request submissions
+    const handleLeaveRequestSubmitted = (data: any) => {
+      toast.info(data.title || 'New Leave Request', {
+        description: data.message || 'A new leave request has been submitted',
+        action: {
+          label: 'Review',
+          onClick: () => window.location.href = '/approve-leaves',
+        },
+      });
+
+      // Dispatch custom event to trigger data reload in ApproveLeaves page
+      window.dispatchEvent(new CustomEvent('leaveRequestSubmitted', { detail: data }));
+    };
+
     signalrService.on('attendanceUpdate', handleAttendanceUpdate);
     signalrService.on('performanceReview', handlePerformanceReview);
     signalrService.on('leaveStatusUpdate', handleLeaveStatusUpdate);
+    signalrService.on('leaveRequestSubmitted', handleLeaveRequestSubmitted);
 
     return () => {
       signalrService.off('attendanceUpdate', handleAttendanceUpdate);
       signalrService.off('performanceReview', handlePerformanceReview);
       signalrService.off('leaveStatusUpdate', handleLeaveStatusUpdate);
+      signalrService.off('leaveRequestSubmitted', handleLeaveRequestSubmitted);
       signalrService.disconnect();
     };
   }, [user]);

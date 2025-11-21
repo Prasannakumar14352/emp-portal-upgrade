@@ -99,7 +99,7 @@ export function NotificationCenter() {
       case 'leave_rejected':
         return 'text-red-600';
       case 'leave_pending':
-        return 'text-blue-600';
+        return 'text-amber-600';
       case 'payslip':
         return 'text-purple-600';
       case 'holiday':

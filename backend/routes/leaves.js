@@ -222,6 +222,97 @@ router.post('/', authenticateToken, async (req, res) => {
       logError(emailErr, req, { context: 'Failed to send email notification' });
     }
 
+    // Create notifications in database for HR and managers
+    try {
+      const userResult = await pool.request()
+        .input('employee_id', sql.Int, req.user.id)
+        .query('SELECT full_name FROM profiles WHERE employee_id = @employee_id');
+      
+      const employeeName = userResult.recordset[0]?.full_name || 'Employee';
+      
+      // Create notification for manager if assigned
+      if (manager_id) {
+        await pool.request()
+          .input('employee_id', sql.Int, manager_id)
+          .input('type', sql.NVarChar, 'leave_pending')
+          .input('title', sql.NVarChar, 'New Leave Request')
+          .input('message', sql.NVarChar, `${employeeName} has submitted a ${leave_type} request for ${days} days`)
+          .input('metadata', sql.NVarChar, JSON.stringify({
+            leaveId: result.recordset[0].id,
+            leaveType: leave_type,
+            startDate: start_date,
+            endDate: end_date,
+            days: days,
+            employeeName: employeeName
+          }))
+          .query(`
+            INSERT INTO notifications (employee_id, type, title, message, metadata, created_at)
+            VALUES (@employee_id, @type, @title, @message, @metadata, GETDATE())
+          `);
+      }
+
+      // Create notifications for all HR users
+      const hrResult = await pool.request()
+        .query(`
+          SELECT p.employee_id 
+          FROM profiles p
+          INNER JOIN user_roles ur ON p.employee_id = ur.employee_id
+          WHERE ur.role = 'hr'
+        `);
+      
+      for (const hr of hrResult.recordset) {
+        await pool.request()
+          .input('employee_id', sql.Int, hr.employee_id)
+          .input('type', sql.NVarChar, 'leave_pending')
+          .input('title', sql.NVarChar, 'New Leave Request')
+          .input('message', sql.NVarChar, `${employeeName} has submitted a ${leave_type} request for ${days} days`)
+          .input('metadata', sql.NVarChar, JSON.stringify({
+            leaveId: result.recordset[0].id,
+            leaveType: leave_type,
+            startDate: start_date,
+            endDate: end_date,
+            days: days,
+            employeeName: employeeName
+          }))
+          .query(`
+            INSERT INTO notifications (employee_id, type, title, message, metadata, created_at)
+            VALUES (@employee_id, @type, @title, @message, @metadata, GETDATE())
+          `);
+      }
+
+      // Emit real-time Socket.IO notifications
+      const io = req.app.get('io');
+      if (io) {
+        const notificationData = {
+          type: 'leave_pending',
+          title: 'New Leave Request',
+          message: `${employeeName} has submitted a ${leave_type} request for ${days} days`,
+          leaveId: result.recordset[0].id,
+          leaveType: leave_type,
+          startDate: start_date,
+          endDate: end_date,
+          days: days,
+          employeeName: employeeName,
+          timestamp: new Date().toISOString()
+        };
+
+        // Emit to manager
+        if (manager_id) {
+          io.to(`user-${manager_id}`).emit('leaveRequestSubmitted', notificationData);
+        }
+
+        // Emit to all HR users
+        hrResult.recordset.forEach(hr => {
+          io.to(`user-${hr.employee_id}`).emit('leaveRequestSubmitted', notificationData);
+        });
+      }
+
+      console.log('Notifications created for new leave request');
+    } catch (notifErr) {
+      console.error('Create notification error:', notifErr);
+      logError(notifErr, req, { context: 'Failed to create notifications' });
+    }
+
     res.status(201).json(result.recordset[0]);
   } catch (err) {
     console.error('Create leave error:', err);

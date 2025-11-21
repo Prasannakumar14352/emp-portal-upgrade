@@ -57,6 +57,20 @@ export default function ApproveLeaves() {
     loadRequests();
   }, [role, roleLoading, user, authLoading, navigate]);
 
+  // Listen for real-time leave request submissions
+  useEffect(() => {
+    const handleNewLeaveRequest = () => {
+      console.log('New leave request submitted, reloading...');
+      loadRequests();
+    };
+
+    window.addEventListener('leaveRequestSubmitted', handleNewLeaveRequest);
+
+    return () => {
+      window.removeEventListener('leaveRequestSubmitted', handleNewLeaveRequest);
+    };
+  }, [role, user]);
+
 
   const loadRequests = async () => {
     if (!user) {
