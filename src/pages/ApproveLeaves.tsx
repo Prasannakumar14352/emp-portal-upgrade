@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
+import { z } from "zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { CheckCircle, XCircle, Clock, Calendar, User, Eye, Download, FileText, MessageSquare, Send } from "lucide-react";
+import { CheckCircle, XCircle, Clock, Calendar, User, Eye, Download, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useNavigate } from "react-router-dom";
@@ -13,11 +14,17 @@ import { exportToCSV, exportToPDF } from "@/lib/exportUtils";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { leaveApprovalService } from "@/services/leaveApprovalService";
 import type { LeaveRequest } from "@/types/LeaveRequest";
 import { useAuth } from "@/hooks/useAuth";
+
+// Comment validation schema
+const commentSchema = z.string()
+  .trim()
+  .min(10, { message: "Comment must be at least 10 characters" })
+  .max(500, { message: "Comment must be less than 500 characters" });
 
 export default function ApproveLeaves() {
   const { role, loading: roleLoading } = useUserRole();
@@ -31,9 +38,10 @@ export default function ApproveLeaves() {
   const [filterEmployee, setFilterEmployee] = useState<string>("");
   const [filterDateFrom, setFilterDateFrom] = useState<string>("");
   const [filterDateTo, setFilterDateTo] = useState<string>("");
-  const [commentDialogOpen, setCommentDialogOpen] = useState(false);
-  const [selectedRequestForComment, setSelectedRequestForComment] = useState<string | null>(null);
-  const [newComment, setNewComment] = useState("");
+  const [approvalDialogOpen, setApprovalDialogOpen] = useState(false);
+  const [rejectionDialogOpen, setRejectionDialogOpen] = useState(false);
+  const [selectedRequestForAction, setSelectedRequestForAction] = useState<string | null>(null);
+  const [actionComment, setActionComment] = useState("");
 
   useEffect(() => {
     // Wait for both auth and role to load
@@ -101,15 +109,24 @@ export default function ApproveLeaves() {
 
 
   const handleApprove = async (id: string) => {
-    const request = requests.find(req => req.id === id);
-    if (!request) return;
+    // Validate comment
+    const validationResult = commentSchema.safeParse(actionComment);
+    if (!validationResult.success) {
+      toast.error(validationResult.error.errors[0].message);
+      return;
+    }
 
     try {
-      // Call backend API to update status
-      await leaveApprovalService.approve(id);
+      // Call backend API to update status with comments
+      await leaveApprovalService.approve(id, validationResult.data);
       
       // Reload requests to reflect the updated status
       await loadRequests();
+      
+      // Close dialog and reset state
+      setApprovalDialogOpen(false);
+      setSelectedRequestForAction(null);
+      setActionComment("");
 
       toast.success("Leave request approved and email notification sent");
     } catch (error: any) {
@@ -119,21 +136,42 @@ export default function ApproveLeaves() {
   };
 
   const handleReject = async (id: string) => {
-    const request = requests.find(req => req.id === id);
-    if (!request) return;
+    // Validate comment
+    const validationResult = commentSchema.safeParse(actionComment);
+    if (!validationResult.success) {
+      toast.error(validationResult.error.errors[0].message);
+      return;
+    }
 
     try {
-      // Call backend API to update status
-      await leaveApprovalService.reject(id);
+      // Call backend API to update status with comments
+      await leaveApprovalService.reject(id, validationResult.data);
       
       // Reload requests to reflect the updated status
       await loadRequests();
+      
+      // Close dialog and reset state
+      setRejectionDialogOpen(false);
+      setSelectedRequestForAction(null);
+      setActionComment("");
 
       toast.success("Leave request rejected and email notification sent");
     } catch (error: any) {
       toast.error(error.message || "Failed to reject leave request");
       console.error("Rejection error:", error);
     }
+  };
+
+  const openApprovalDialog = (id: string) => {
+    setSelectedRequestForAction(id);
+    setActionComment("");
+    setApprovalDialogOpen(true);
+  };
+
+  const openRejectionDialog = (id: string) => {
+    setSelectedRequestForAction(id);
+    setActionComment("");
+    setRejectionDialogOpen(true);
   };
 
 
@@ -183,31 +221,6 @@ export default function ApproveLeaves() {
     }
   };
 
-  const handleAddComment = () => {
-    if (!selectedRequestForComment || !newComment.trim()) {
-      toast.error("Please enter a comment");
-      return;
-    }
-
-    const user = JSON.parse(localStorage.getItem("mockUser") || "{}");
-    const comment = {
-      author: user.full_name || "HR Manager",
-      text: newComment,
-      timestamp: new Date().toISOString(),
-    };
-
-    const updatedRequests = requests.map((req) =>
-      req.id === selectedRequestForComment
-        ? { ...req, comments: [...(req.comments || []), comment] }
-        : req
-    );
-
-    setRequests(updatedRequests);
-    localStorage.setItem("leaveRequests", JSON.stringify(updatedRequests));
-    setNewComment("");
-    setCommentDialogOpen(false);
-    toast.success("Comment added");
-  };
 
   const handleExportCSV = () => {
     exportToCSV(filteredRequests, `leave-requests-${new Date().toISOString().split('T')[0]}.csv`);
@@ -406,48 +419,18 @@ export default function ApproveLeaves() {
                       >
                         <Eye className="h-4 w-4" />
                       </Button>
-                      <Dialog open={commentDialogOpen && selectedRequestForComment === request.id} onOpenChange={(open) => {
-                        setCommentDialogOpen(open);
-                        if (open) setSelectedRequestForComment(request.id);
-                      }}>
-                        <DialogTrigger asChild>
-                          <Button variant="ghost" size="icon" title="Add Comment">
-                            <MessageSquare className="h-4 w-4" />
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                          <DialogHeader>
-                            <DialogTitle>Add Comment</DialogTitle>
-                          </DialogHeader>
-                          <div className="space-y-4">
-                            <div className="space-y-2">
-                              <Label>Comment</Label>
-                              <Textarea
-                                placeholder="Enter your comment or feedback..."
-                                value={newComment}
-                                onChange={(e) => setNewComment(e.target.value)}
-                                rows={4}
-                              />
-                            </div>
-                            <Button onClick={handleAddComment} className="w-full">
-                              <Send className="mr-2 h-4 w-4" />
-                              Add Comment
-                            </Button>
-                          </div>
-                        </DialogContent>
-                      </Dialog>
                       <Button
-                        variant="ghost"
+                        variant="default"
                         size="sm"
-                        onClick={() => handleApprove(request.id)}
+                        onClick={() => openApprovalDialog(request.id)}
                       >
                         <CheckCircle className="mr-2 h-4 w-4" />
                         Approve
                       </Button>
                       <Button
-                        variant="ghost"
+                        variant="destructive"
                         size="sm"
-                        onClick={() => handleReject(request.id)}
+                        onClick={() => openRejectionDialog(request.id)}
                       >
                         <XCircle className="mr-2 h-4 w-4" />
                         Reject
@@ -520,6 +503,101 @@ export default function ApproveLeaves() {
           employeeEmail={`${selectedEmployee.toLowerCase().replace(/\s+/g, '.')}@company.com`}
         />
       )}
+
+      {/* Approval Dialog */}
+      <Dialog open={approvalDialogOpen} onOpenChange={setApprovalDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Approve Leave Request</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Please add a comment explaining your approval decision (10-500 characters).
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="approval-comment">Comment *</Label>
+              <Textarea
+                id="approval-comment"
+                placeholder="Enter your approval comments (minimum 10 characters)..."
+                value={actionComment}
+                onChange={(e) => setActionComment(e.target.value)}
+                rows={4}
+                required
+                maxLength={500}
+              />
+              <p className="text-xs text-muted-foreground text-right">
+                {actionComment.trim().length}/500 characters
+              </p>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setApprovalDialogOpen(false);
+                  setActionComment("");
+                }}
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={() => selectedRequestForAction && handleApprove(selectedRequestForAction)}
+                disabled={actionComment.trim().length < 10}
+              >
+                <CheckCircle className="mr-2 h-4 w-4" />
+                Approve
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Rejection Dialog */}
+      <Dialog open={rejectionDialogOpen} onOpenChange={setRejectionDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reject Leave Request</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Please add a comment explaining the reason for rejection (10-500 characters).
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="rejection-comment">Comment *</Label>
+              <Textarea
+                id="rejection-comment"
+                placeholder="Enter your rejection reason (minimum 10 characters)..."
+                value={actionComment}
+                onChange={(e) => setActionComment(e.target.value)}
+                rows={4}
+                required
+                maxLength={500}
+              />
+              <p className="text-xs text-muted-foreground text-right">
+                {actionComment.trim().length}/500 characters
+              </p>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setRejectionDialogOpen(false);
+                  setActionComment("");
+                }}
+              >
+                Cancel
+              </Button>
+              <Button 
+                variant="destructive"
+                onClick={() => selectedRequestForAction && handleReject(selectedRequestForAction)}
+                disabled={actionComment.trim().length < 10}
+              >
+                <XCircle className="mr-2 h-4 w-4" />
+                Reject
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
