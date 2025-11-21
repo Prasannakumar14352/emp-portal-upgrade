@@ -46,9 +46,18 @@ router.get('/user/:userId', authenticateToken, async (req, res) => {
   try {
     const { userId } = req.params;
     const userIdInt = parseInt(userId);
+    const pool = await getConnection();
+    
+    // Check if user has HR or manager role
+    const rolesResult = await pool.request()
+      .input('employee_id', sql.Int, req.user.id)
+      .query('SELECT role FROM user_roles WHERE employee_id = @employee_id');
+    
+    const userRoles = rolesResult.recordset.map(r => r.role);
+    const isHROrManager = userRoles.includes('hr') || userRoles.includes('manager');
     
     // Users can only view their own leaves unless HR/manager
-    if (parseInt(req.user.id) !== userIdInt && !['hr', 'manager'].includes(req.user.role)) {
+    if (parseInt(req.user.id) !== userIdInt && !isHROrManager) {
       return res.status(403).json({ error: 'Not authorized' });
     }
 
@@ -556,8 +565,17 @@ router.get('/balances/:userId', authenticateToken, async (req, res) => {
     const { userId } = req.params;
     const userIdInt = parseInt(userId);
     const { year } = req.query;
+    const pool = await getConnection();
     
-    if (parseInt(req.user.id) !== userIdInt && !['hr', 'manager'].includes(req.user.role)) {
+    // Check if user has HR or manager role
+    const rolesResult = await pool.request()
+      .input('employee_id', sql.Int, req.user.id)
+      .query('SELECT role FROM user_roles WHERE employee_id = @employee_id');
+    
+    const userRoles = rolesResult.recordset.map(r => r.role);
+    const isHROrManager = userRoles.includes('hr') || userRoles.includes('manager');
+    
+    if (parseInt(req.user.id) !== userIdInt && !isHROrManager) {
       return res.status(403).json({ error: 'Not authorized' });
     }
 

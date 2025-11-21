@@ -31,12 +31,17 @@ export function EmployeeDetailModal({
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (isOpen && employeeId) {
+    if (isOpen && employeeId && employeeId !== 'unknown') {
       loadEmployeeData();
     }
   }, [isOpen, employeeId]);
 
   const loadEmployeeData = async () => {
+    if (!employeeId || employeeId === 'unknown') {
+      toast.error('Invalid employee ID');
+      return;
+    }
+    
     try {
       setLoading(true);
       const [leaves, balances] = await Promise.all([

@@ -141,7 +141,7 @@ export default function Employees() {
         <EmployeeDetailModal
           isOpen={!!selectedEmployee}
           onClose={() => setSelectedEmployee(null)}
-          employeeId={selectedEmployee.employee_id}
+          employeeId={String(selectedEmployee.employee_id)}
           employeeName={selectedEmployee.full_name}
           employeeEmail={selectedEmployee.email}
           employeeDepartment={selectedEmployee.department}
