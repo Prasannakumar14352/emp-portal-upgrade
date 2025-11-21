@@ -53,13 +53,14 @@ export default function HRAttendanceDashboard() {
   const [editData, setEditData] = useState<EditDialogData | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // Check HR access
-  useEffect(() => {
-    if (role !== 'hr' && role !== 'manager') {
-      toast.error('Access denied. HR/Manager role required.');
-      navigate('/');
-    }
-  }, [role, navigate]);
+  // Role access check - show message instead of redirecting
+  if (role && role !== 'hr' && role !== 'manager') {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <p className="text-muted-foreground">You don't have permission to access this page.</p>
+      </div>
+    );
+  }
 
   useEffect(() => {
     loadDepartments();
