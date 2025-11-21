@@ -352,8 +352,15 @@ router.patch('/:leaveId', authenticateToken, authorizeRole('hr', 'manager'), asy
     }
 
     const leave = leaveResult.recordset[0];
-    const isManager = req.user.role === 'manager';
-    const isHR = req.user.role === 'hr';
+    
+    // Fetch user roles from database
+    const rolesResult = await pool.request()
+      .input('employee_id', sql.Int, req.user.id)
+      .query('SELECT role FROM user_roles WHERE employee_id = @employee_id');
+    
+    const userRoles = rolesResult.recordset.map(r => r.role);
+    const isManager = userRoles.includes('manager');
+    const isHR = userRoles.includes('hr');
 
     let result;
 
