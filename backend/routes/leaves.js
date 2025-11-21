@@ -61,7 +61,6 @@ router.get('/user/:userId', authenticateToken, async (req, res) => {
       return res.status(403).json({ error: 'Not authorized' });
     }
 
-    const pool = await getConnection();
     const result = await pool.request()
       .input('employee_id', sql.Int, userIdInt)
       .query(`
