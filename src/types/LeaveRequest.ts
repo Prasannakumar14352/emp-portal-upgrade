@@ -1,20 +1,19 @@
 export interface LeaveRequest {
+    user_email: any;
+    email: string;
+    employee_id: string;
+    created_at: any;
+    end_date: any;
+    start_date: any;
+    user_name: any;
     id: string;
-    user_name: string;
-    user_email?: string;
-    employee_id: number;
+    employeeName: string;
     leaveType: string;
-    leave_type: string;
     startDate: string;
-    start_date: string;
     endDate: string;
-    end_date: string;
     days: number;
     reason: string;
     status: string;
     appliedDate: string;
-    created_at: string;
-    updated_at?: string;
-    approved_by?: number;
     comments?: { author: string; text: string; timestamp: string }[];
 }

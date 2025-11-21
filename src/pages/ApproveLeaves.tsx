@@ -23,7 +23,7 @@ import { useAuth } from "@/hooks/useAuth";
 // Comment validation schema
 const commentSchema = z.string()
   .trim()
-  .min(10, { message: "Comment must be at least 10 characters" })
+  .min(5, { message: "Comment must be at least 5 characters" })
   .max(500, { message: "Comment must be less than 500 characters" });
 
 export default function ApproveLeaves() {
@@ -33,7 +33,7 @@ export default function ApproveLeaves() {
   const [requests, setRequests] = useState<LeaveRequest[]>([]);
   const [selectedRequests, setSelectedRequests] = useState<string[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
-  const [selectedEmployee, setSelectedEmployee] = useState<string | null>(null);
+  const [selectedEmployee, setSelectedEmployee] = useState<LeaveRequest | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterEmployee, setFilterEmployee] = useState<string>("");
   const [filterDateFrom, setFilterDateFrom] = useState<string>("");
@@ -89,12 +89,12 @@ export default function ApproveLeaves() {
       console.log("Loading leave requests for role:", role, "and user ID:", user.id);
 
       const data = await leaveApprovalService.getRequests(role, user.id);
-      
+
       console.log(`Successfully loaded ${data.length} leave requests`);
       setRequests(data);
     } catch (err: any) {
       console.error("Failed to load leave requests:", err);
-      
+
       // Show specific error message based on response
       if (err.status === 403) {
         toast.error("You don't have permission to view leave requests. Please contact your administrator to grant you HR or Manager role.");
@@ -119,10 +119,10 @@ export default function ApproveLeaves() {
     try {
       // Call backend API to update status with comments
       await leaveApprovalService.approve(id, validationResult.data);
-      
+
       // Reload requests to reflect the updated status
       await loadRequests();
-      
+
       // Close dialog and reset state
       setApprovalDialogOpen(false);
       setSelectedRequestForAction(null);
@@ -146,10 +146,10 @@ export default function ApproveLeaves() {
     try {
       // Call backend API to update status with comments
       await leaveApprovalService.reject(id, validationResult.data);
-      
+
       // Reload requests to reflect the updated status
       await loadRequests();
-      
+
       // Close dialog and reset state
       setRejectionDialogOpen(false);
       setSelectedRequestForAction(null);
@@ -186,7 +186,7 @@ export default function ApproveLeaves() {
       await Promise.all(
         selectedRequests.map(id => leaveApprovalService.approve(id))
       );
-      
+
       // Reload requests to reflect updated statuses
       await loadRequests();
       setSelectedRequests([]);
@@ -209,7 +209,7 @@ export default function ApproveLeaves() {
       await Promise.all(
         selectedRequests.map(id => leaveApprovalService.reject(id))
       );
-      
+
       // Reload requests to reflect updated statuses
       await loadRequests();
       setSelectedRequests([]);
@@ -264,6 +264,11 @@ export default function ApproveLeaves() {
       Rejected: "destructive",
     };
     return <Badge variant={variants[status] || "secondary"}>{status}</Badge>;
+  };
+  const formatDate = (d) => {
+    if (!d) return '';
+    const date = new Date(d);
+    return date.toLocaleDateString('en-GB').replace(/\//g, '-');
   };
 
   return (
@@ -390,12 +395,12 @@ export default function ApproveLeaves() {
                       <div className="flex items-center gap-4 text-sm text-muted-foreground">
                         <div className="flex items-center gap-1">
                           <Calendar className="h-4 w-4" />
-                          {request.startDate} to {request.endDate}
+                          {request.startDate ? formatDate(request.startDate) : request.start_date ? formatDate(request.start_date) : ''} to {request.endDate ? formatDate(request.endDate) : request.end_date ? formatDate(request.end_date) : ''}
                         </div>
                         <div>({request.days} days)</div>
                       </div>
                       <p className="text-sm"><strong>Reason:</strong> {request.reason}</p>
-                      <p className="text-xs text-muted-foreground">Applied: {request.appliedDate}</p>
+                      <p className="text-xs text-muted-foreground">Applied: {request.appliedDate ? formatDate(request.appliedDate) : request.created_at ? formatDate(request.created_at) : ''}</p>
                       {request.comments && request.comments.length > 0 && (
                         <div className="mt-2 space-y-1">
                           <Label className="text-xs">Comments:</Label>
@@ -412,7 +417,7 @@ export default function ApproveLeaves() {
                         variant="ghost"
                         size="icon"
                         onClick={() => {
-                          setSelectedEmployee(request.user_name);
+                          setSelectedEmployee(request);
                           setModalOpen(true);
                         }}
                         title="View Employee Details"
@@ -422,7 +427,7 @@ export default function ApproveLeaves() {
                       <Button
                         variant="default"
                         size="sm"
-                        onClick={() => openApprovalDialog(request.id)}
+                        onClick={() => openApprovalDialog(request.id ? request.id : request.employee_id)}
                       >
                         <CheckCircle className="mr-2 h-4 w-4" />
                         Approve
@@ -430,7 +435,7 @@ export default function ApproveLeaves() {
                       <Button
                         variant="destructive"
                         size="sm"
-                        onClick={() => openRejectionDialog(request.id)}
+                        onClick={() => openRejectionDialog(request.id ? request.id : request.employee_id)}
                       >
                         <XCircle className="mr-2 h-4 w-4" />
                         Reject
@@ -465,13 +470,13 @@ export default function ApproveLeaves() {
                   <div className="flex items-start gap-4">
                     <Avatar>
                       <AvatarFallback>
-                        {request.user_name.split(" ").map((n) => n[0]).join("")}
+                        {request.user_name ? request.user_name.split(" ").map((n) => n[0]).join("") : request.employeeName ? request.employeeName.split(" ").map((n) => n[0]).join("") : "Unknown"}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1 space-y-2">
                       <div className="flex items-center justify-between">
                         <div>
-                          <h3 className="font-semibold">{request.user_name}</h3>
+                          <h3 className="font-semibold">{request.user_name ? request.user_name : request.employeeName ? request.employeeName : "Unknown"}</h3>
                           <p className="text-sm text-muted-foreground">{request.leaveType}</p>
                         </div>
                         {getStatusBadge(request.status)}
@@ -479,7 +484,7 @@ export default function ApproveLeaves() {
                       <div className="flex items-center gap-4 text-sm text-muted-foreground">
                         <div className="flex items-center gap-1">
                           <Calendar className="h-4 w-4" />
-                          {request.startDate} to {request.endDate}
+                          {request.startDate ? formatDate(request.startDate) : request.start_date ? formatDate(request.start_date) : ''} to {request.endDate ? formatDate(request.endDate) : request.end_date ? formatDate(request.end_date) : ''}
                         </div>
                         <div>({request.days} days)</div>
                       </div>
@@ -498,9 +503,9 @@ export default function ApproveLeaves() {
         <EmployeeDetailModal
           isOpen={modalOpen}
           onClose={() => setModalOpen(false)}
-          employeeId="unknown"
-          employeeName={selectedEmployee}
-          employeeEmail={`${selectedEmployee.toLowerCase().replace(/\s+/g, '.')}@company.com`}
+          employeeId={selectedEmployee.employee_id ? selectedEmployee.employee_id : selectedEmployee.id}
+          employeeName={selectedEmployee.user_name ? selectedEmployee.user_name : selectedEmployee.employeeName ? selectedEmployee.employeeName : "Unknown"}
+          employeeEmail={`${selectedEmployee.user_name ? selectedEmployee.user_name : selectedEmployee.employeeName ? selectedEmployee.employeeName : "Unknown"}.toLowerCase().replace(/\s+/g, '.')}@company.com`}
         />
       )}
 
@@ -530,8 +535,8 @@ export default function ApproveLeaves() {
               </p>
             </div>
             <div className="flex gap-2 justify-end">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => {
                   setApprovalDialogOpen(false);
                   setActionComment("");
@@ -539,9 +544,9 @@ export default function ApproveLeaves() {
               >
                 Cancel
               </Button>
-              <Button 
+              <Button
                 onClick={() => selectedRequestForAction && handleApprove(selectedRequestForAction)}
-                disabled={actionComment.trim().length < 10}
+                disabled={actionComment.trim().length < 5}
               >
                 <CheckCircle className="mr-2 h-4 w-4" />
                 Approve
@@ -577,8 +582,8 @@ export default function ApproveLeaves() {
               </p>
             </div>
             <div className="flex gap-2 justify-end">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => {
                   setRejectionDialogOpen(false);
                   setActionComment("");
@@ -586,10 +591,10 @@ export default function ApproveLeaves() {
               >
                 Cancel
               </Button>
-              <Button 
+              <Button
                 variant="destructive"
                 onClick={() => selectedRequestForAction && handleReject(selectedRequestForAction)}
-                disabled={actionComment.trim().length < 10}
+                disabled={actionComment.trim().length < 5}
               >
                 <XCircle className="mr-2 h-4 w-4" />
                 Reject

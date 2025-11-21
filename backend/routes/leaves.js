@@ -676,7 +676,6 @@ router.get('/balances/:userId', authenticateToken, async (req, res) => {
       return res.status(403).json({ error: 'Not authorized' });
     }
 
-    const pool = await getConnection();
     const currentYear = year || new Date().getFullYear();
 
     const result = await pool.request()
