@@ -188,7 +188,34 @@ export default function LeaveCalendar() {
         />
       </div>
 
-      {/* Legend */}
+      {/* Day Types Legend */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm">Day Types</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-3">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 border-2 border-primary bg-primary/5 rounded" />
+              <span className="text-sm">Today</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 border border-destructive bg-destructive/5 rounded" />
+              <span className="text-sm">Holiday</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 bg-muted/50 border border-border rounded" />
+              <span className="text-sm">Weekend</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 border border-border rounded" />
+              <span className="text-sm">Regular Day</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Leave Types Legend */}
       <Card>
         <CardHeader>
           <CardTitle className="text-sm">Leave Types</CardTitle>
