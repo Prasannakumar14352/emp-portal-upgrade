@@ -85,23 +85,60 @@ router.get('/', authenticateToken, authorizeRole('hr', 'manager'), async (req, r
   try {
     const { status } = req.query;
     const pool = await getConnection();
+    
+    // Fetch user roles from database
+    const rolesResult = await pool.request()
+      .input('employee_id', sql.Int, req.user.id)
+      .query('SELECT role FROM user_roles WHERE employee_id = @employee_id');
+    
+    const userRoles = rolesResult.recordset.map(r => r.role);
+    const isManager = userRoles.includes('manager');
+    const isHR = userRoles.includes('hr');
 
     let query = `
       SELECT 
         l.id, l.employee_id, l.leave_type, l.start_date, l.end_date,
-        l.days, l.reason, l.status, l.approved_by, l.created_at, l.updated_at,
+        l.days, l.reason, l.status, l.manager_status, l.hr_status,
+        l.approved_by, l.manager_approved_by, l.hr_approved_by,
+        l.manager_comments, l.hr_comments,
+        l.created_at, l.updated_at,
         u.full_name as user_name, u.email as user_email
       FROM leaves l
       JOIN profiles u ON l.employee_id = u.employee_id
     `;
 
+    const conditions = [];
+    
+    // Filter based on role and two-tier approval workflow
+    if (isManager) {
+      // Managers see leaves that need their approval
+      conditions.push('l.manager_status = @manager_pending_status');
+    } else if (isHR) {
+      // HR sees leaves that manager has already approved and need HR approval
+      conditions.push('l.manager_status = @manager_approved_status');
+      conditions.push('l.hr_status = @hr_pending_status');
+    }
+    
+    // Apply status filter if provided
     if (status) {
-      query += ' WHERE l.status = @status';
+      conditions.push('l.status = @status');
+    }
+    
+    if (conditions.length > 0) {
+      query += ' WHERE ' + conditions.join(' AND ');
     }
 
     query += ' ORDER BY l.created_at DESC';
 
     const request = pool.request();
+    
+    if (isManager) {
+      request.input('manager_pending_status', sql.NVarChar, 'Pending');
+    } else if (isHR) {
+      request.input('manager_approved_status', sql.NVarChar, 'Approved');
+      request.input('hr_pending_status', sql.NVarChar, 'Pending');
+    }
+    
     if (status) {
       request.input('status', sql.NVarChar, status);
     }
@@ -362,6 +399,14 @@ router.patch('/:leaveId', authenticateToken, authorizeRole('hr', 'manager'), asy
     const isManager = userRoles.includes('manager');
     const isHR = userRoles.includes('hr');
 
+    // Validation: HR can only approve if manager has already approved
+    if (isHR && leave.manager_status !== 'Approved') {
+      return res.status(400).json({ 
+        error: 'Cannot approve/reject this leave request',
+        message: 'This leave request must be approved by the manager first before HR can take action.'
+      });
+    }
+
     let result;
 
     if (isManager) {
@@ -418,26 +463,33 @@ router.patch('/:leaveId', authenticateToken, authorizeRole('hr', 'manager'), asy
       if (io) {
         io.to(`user-${updatedLeave.employee_id}`).emit('leaveStatusUpdate', {
           leaveId: updatedLeave.id,
-          status: updatedLeave.status,
+          status: isManager && status === 'Approved' ? 'Pending' : updatedLeave.status,
           leaveType: updatedLeave.leave_type,
           approvedBy: isManager ? 'Manager' : 'HR',
           comments: comments || '',
-          message: `Your ${updatedLeave.leave_type} request has been ${status.toLowerCase()} by ${isManager ? 'your manager' : 'HR'}`,
-          timestamp: new Date().toISOString()
+          message: isManager && status === 'Approved'
+            ? `Your ${updatedLeave.leave_type} request has been approved by your manager. It now awaits HR approval.`
+            : `Your ${updatedLeave.leave_type} request has been ${status.toLowerCase()} by ${isManager ? 'your manager' : 'HR'}`,
+          timestamp: new Date().toISOString(),
+          awaitingHR: isManager && status === 'Approved'
         });
       }
 
       // Insert notification into database
       await pool.request()
         .input('employee_id', sql.Int, updatedLeave.employee_id)
-        .input('type', sql.NVarChar, status === 'Approved' ? 'leave_approved' : 'leave_rejected')
-        .input('title', sql.NVarChar, `Leave Request ${status}`)
-        .input('message', sql.NVarChar, `Your ${updatedLeave.leave_type} request has been ${status.toLowerCase()} by ${isManager ? 'your manager' : 'HR'}`)
+        .input('type', sql.NVarChar, isManager && status === 'Approved' ? 'leave_pending' : status === 'Approved' ? 'leave_approved' : 'leave_rejected')
+        .input('title', sql.NVarChar, isManager && status === 'Approved' ? 'Leave Approved by Manager' : `Leave Request ${status}`)
+        .input('message', sql.NVarChar, isManager && status === 'Approved' 
+          ? `Your ${updatedLeave.leave_type} request has been approved by your manager. It now awaits HR approval.`
+          : `Your ${updatedLeave.leave_type} request has been ${status.toLowerCase()} by ${isManager ? 'your manager' : 'HR'}`
+        )
         .input('metadata', sql.NVarChar, JSON.stringify({
           leaveId: updatedLeave.id,
           leaveType: updatedLeave.leave_type,
           approvedBy: isManager ? 'Manager' : 'HR',
-          comments: comments || ''
+          comments: comments || '',
+          awaitingHR: isManager && status === 'Approved'
         }))
         .query(`
           INSERT INTO notifications (employee_id, type, title, message, metadata, created_at)
@@ -503,7 +555,7 @@ router.patch('/:leaveId', authenticateToken, authorizeRole('hr', 'manager'), asy
             `);
           
           if (hrResult.recordset.length > 0) {
-            // Filter HR emails based on their preferences
+            // Send email notifications to HR
             const hrWithPrefs = hrResult.recordset.map(hr => ({
               employee_id: hr.employee_id,
               email: hr.email
@@ -524,6 +576,45 @@ router.patch('/:leaveId', authenticateToken, authorizeRole('hr', 'manager'), asy
                   <p>Please log in to the system to review and approve/reject this request.</p>
                 `
               });
+            }
+            
+            // Send real-time notifications to HR users
+            const io = req.app.get('io');
+            for (const hr of hrResult.recordset) {
+              // Insert notification into database
+              await pool.request()
+                .input('employee_id', sql.Int, hr.employee_id)
+                .input('type', sql.NVarChar, 'leave_pending')
+                .input('title', sql.NVarChar, 'Leave Request Requires HR Approval')
+                .input('message', sql.NVarChar, `${employee.full_name}'s ${updatedLeave.leave_type} request has been approved by manager and awaits your approval`)
+                .input('metadata', sql.NVarChar, JSON.stringify({
+                  leaveId: updatedLeave.id,
+                  leaveType: updatedLeave.leave_type,
+                  startDate: updatedLeave.start_date,
+                  endDate: updatedLeave.end_date,
+                  days: updatedLeave.days,
+                  employeeName: employee.full_name
+                }))
+                .query(`
+                  INSERT INTO notifications (employee_id, type, title, message, metadata, created_at)
+                  VALUES (@employee_id, @type, @title, @message, @metadata, GETDATE())
+                `);
+              
+              // Emit real-time Socket.IO notification
+              if (io) {
+                io.to(`user-${hr.employee_id}`).emit('leaveRequestSubmitted', {
+                  type: 'leave_pending',
+                  title: 'Leave Request Requires HR Approval',
+                  message: `${employee.full_name}'s ${updatedLeave.leave_type} request has been approved by manager and awaits your approval`,
+                  leaveId: updatedLeave.id,
+                  leaveType: updatedLeave.leave_type,
+                  startDate: updatedLeave.start_date,
+                  endDate: updatedLeave.end_date,
+                  days: updatedLeave.days,
+                  employeeName: employee.full_name,
+                  timestamp: new Date().toISOString()
+                });
+              }
             }
           }
         }
