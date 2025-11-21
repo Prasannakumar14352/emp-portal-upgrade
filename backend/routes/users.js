@@ -146,20 +146,19 @@ router.post('/:userId/avatar', authenticateToken, upload.single('avatar'), async
     // Generate avatar URL
     const avatarUrl = `/uploads/avatars/${req.file.filename}`;
 
-    // Update profile with new avatar URL
-    const result = await pool.request()
+    // Update profile with new avatar URL (without OUTPUT due to trigger conflict)
+    await pool.request()
       .input('employee_id', sql.Int, userId)
       .input('avatar_url', sql.NVarChar, avatarUrl)
       .query(`
         UPDATE profiles
         SET avatar_url = @avatar_url, updated_at = GETDATE()
-        OUTPUT INSERTED.avatar_url
         WHERE employee_id = @employee_id
       `);
 
     res.json({
       message: 'Avatar uploaded successfully',
-      avatar_url: result.recordset[0].avatar_url
+      avatar_url: avatarUrl
     });
   } catch (err) {
     // Clean up uploaded file on error
@@ -185,7 +184,8 @@ router.patch('/:userId/profile', authenticateToken, async (req, res) => {
     const { full_name, phone, department, position, avatar_url, hire_date } = req.body;
     const pool = await getConnection();
 
-    const result = await pool.request()
+    // Update the profile (without OUTPUT due to trigger conflict)
+    await pool.request()
       .input('employee_id', sql.Int, userId)
       .input('full_name', sql.NVarChar, full_name)
       .input('phone', sql.NVarChar, phone)
@@ -203,10 +203,17 @@ router.patch('/:userId/profile', authenticateToken, async (req, res) => {
           avatar_url = COALESCE(@avatar_url, avatar_url),
           hire_date = COALESCE(@hire_date, hire_date),
           updated_at = GETDATE()
-        OUTPUT 
-          INSERTED.employee_id, INSERTED.email, INSERTED.full_name, 
-          INSERTED.phone, INSERTED.department, INSERTED.position,
-          INSERTED.avatar_url, INSERTED.hire_date
+        WHERE employee_id = @employee_id
+      `);
+
+    // Fetch the updated profile
+    const result = await pool.request()
+      .input('employee_id', sql.Int, userId)
+      .query(`
+        SELECT 
+          employee_id, email, full_name, phone, 
+          department, position, avatar_url, hire_date
+        FROM profiles
         WHERE employee_id = @employee_id
       `);
 
