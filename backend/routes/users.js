@@ -80,8 +80,7 @@ router.get('/:userId/profile', authenticateToken, async (req, res) => {
 
     const query = `
       SELECT 
-        p.employee_id, p.email, p.full_name, p.phone, 
-        p.department, p.position, p.avatar_url, p.hire_date, p.created_at, p.updated_at
+        *
       FROM profiles p
       WHERE p.employee_id = @employee_id
     `;
@@ -211,8 +210,7 @@ router.patch('/:userId/profile', authenticateToken, async (req, res) => {
       .input('employee_id', sql.Int, userId)
       .query(`
         SELECT 
-          employee_id, email, full_name, phone, 
-          department, position, avatar_url, hire_date
+          *
         FROM profiles
         WHERE employee_id = @employee_id
       `);

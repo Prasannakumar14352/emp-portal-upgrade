@@ -341,8 +341,8 @@ export default function Leaves() {
                     </SelectTrigger>
                     <SelectContent>
                       {managers.map((manager) => (
-                        <SelectItem key={manager.id} value={manager.id.toString()}>
-                          {manager.full_name} - {manager.department}
+                        <SelectItem key={manager.id} value={manager.employee_id}>
+                          {manager.full_name} - {manager.email}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -785,8 +785,8 @@ export default function Leaves() {
                 </SelectTrigger>
                 <SelectContent>
                   {managers.map((manager) => (
-                    <SelectItem key={manager.id} value={manager.id.toString()}>
-                      {manager.full_name} - {manager.department}
+                    <SelectItem key={manager.id} value={manager.employee_id}>
+                      {manager.full_name} - {manager.email}
                     </SelectItem>
                   ))}
                 </SelectContent>

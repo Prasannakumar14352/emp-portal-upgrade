@@ -30,6 +30,7 @@ export default function Profile() {
     phone: '',
     position: '',
     department: '',
+    gender: '',
   });
 
   useEffect(() => {
@@ -49,6 +50,7 @@ export default function Profile() {
         phone: data.phone || '',
         position: data.position || '',
         department: data.department || '',
+        gender: data.gender || '',
       });
     } catch (error) {
       console.error('Failed to load profile:', error);

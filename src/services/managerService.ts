@@ -6,6 +6,7 @@ export interface Manager {
   email: string;
   department?: string;
   position?: string;
+  employee_id: string;
 }
 
 class ManagerService {
