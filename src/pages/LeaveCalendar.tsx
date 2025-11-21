@@ -2,10 +2,13 @@ import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, TrendingUp, Clock, Award } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths } from "date-fns";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, isWeekend } from "date-fns";
 import { employeeService } from "@/services/employeeService";
+import { holidayService } from "@/services/holidayService";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { StatCard } from "@/components/StatCard";
 
 interface LeaveEvent {
   id: string;
@@ -25,12 +28,31 @@ const leaveTypeColors: Record<string, string> = {
 
 export default function LeaveCalendar() {
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedDepartment, setSelectedDepartment] = useState<string>("all");
 
   // Fetch all employees to get accurate count
-  const { data: employees = [] } = useQuery({
+  const { data: allEmployees = [] } = useQuery({
     queryKey: ["employees"],
     queryFn: () => employeeService.getAllEmployees(),
   });
+
+  // Fetch holidays
+  const { data: holidays = [] } = useQuery({
+    queryKey: ["holidays"],
+    queryFn: () => holidayService.getAllHolidays(),
+  });
+
+  // Filter employees by department
+  const employees = useMemo(() => {
+    if (selectedDepartment === "all") return allEmployees;
+    return allEmployees.filter(emp => emp.department === selectedDepartment);
+  }, [allEmployees, selectedDepartment]);
+
+  // Get unique departments
+  const departments = useMemo(() => {
+    const depts = new Set(allEmployees.map(emp => emp.department));
+    return Array.from(depts).sort();
+  }, [allEmployees]);
 
   // Load approved leaves from localStorage
   const approvedLeaves: LeaveEvent[] = useMemo(() => {
@@ -67,6 +89,47 @@ export default function LeaveCalendar() {
     });
   };
 
+  const isHoliday = (day: Date) => {
+    return holidays.some(holiday => 
+      isSameDay(new Date(holiday.date), day)
+    );
+  };
+
+  const getHoliday = (day: Date) => {
+    return holidays.find(holiday => 
+      isSameDay(new Date(holiday.date), day)
+    );
+  };
+
+  // Calculate statistics for current month
+  const monthlyStats = useMemo(() => {
+    const leavesThisMonth = approvedLeaves.filter(leave => 
+      isSameMonth(leave.startDate, currentDate) || isSameMonth(leave.endDate, currentDate)
+    );
+
+    const totalLeaves = leavesThisMonth.length;
+    
+    // Most common leave type
+    const leaveTypeCounts: Record<string, number> = {};
+    leavesThisMonth.forEach(leave => {
+      leaveTypeCounts[leave.leaveType] = (leaveTypeCounts[leave.leaveType] || 0) + 1;
+    });
+    const mostCommonType = Object.entries(leaveTypeCounts).sort((a, b) => b[1] - a[1])[0];
+
+    // Average leave duration
+    const totalDays = leavesThisMonth.reduce((sum, leave) => {
+      const duration = Math.ceil((leave.endDate.getTime() - leave.startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+      return sum + duration;
+    }, 0);
+    const avgDuration = totalLeaves > 0 ? (totalDays / totalLeaves).toFixed(1) : "0";
+
+    return {
+      totalLeaves,
+      mostCommonType: mostCommonType ? mostCommonType[0] : "N/A",
+      avgDuration,
+    };
+  }, [approvedLeaves, currentDate]);
+
   const getTeamAvailability = (day: Date) => {
     const totalEmployees = employees.length;
     const onLeave = getLeavesForDay(day).length;
@@ -80,15 +143,49 @@ export default function LeaveCalendar() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-3xl font-bold">Leave Calendar</h1>
           <p className="text-muted-foreground">View team availability and approved leaves</p>
         </div>
-        <Button onClick={goToToday} variant="outline">
-          <CalendarIcon className="mr-2 h-4 w-4" />
-          Today
-        </Button>
+        <div className="flex gap-2">
+          <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Select department" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Departments</SelectItem>
+              {departments.map((dept) => (
+                <SelectItem key={dept} value={dept}>
+                  {dept}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button onClick={goToToday} variant="outline">
+            <CalendarIcon className="mr-2 h-4 w-4" />
+            Today
+          </Button>
+        </div>
+      </div>
+
+      {/* Statistics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <StatCard
+          title="Total Leaves This Month"
+          value={monthlyStats.totalLeaves}
+          icon={TrendingUp}
+        />
+        <StatCard
+          title="Most Common Leave Type"
+          value={monthlyStats.mostCommonType}
+          icon={Award}
+        />
+        <StatCard
+          title="Avg Leave Duration"
+          value={`${monthlyStats.avgDuration} days`}
+          icon={Clock}
+        />
       </div>
 
       {/* Legend */}
@@ -143,19 +240,38 @@ export default function LeaveCalendar() {
             {daysInMonth.map((day) => {
               const leavesForDay = getLeavesForDay(day);
               const isToday = isSameDay(day, new Date());
+              const isWeekendDay = isWeekend(day);
+              const isHolidayDay = isHoliday(day);
+              const holiday = getHoliday(day);
               const { available, onLeave } = getTeamAvailability(day);
 
               return (
                 <div
                   key={day.toISOString()}
                   className={`min-h-[120px] p-2 border rounded-lg ${
-                    isToday ? "border-primary bg-primary/5" : "border-border"
+                    isToday ? "border-primary bg-primary/5" : 
+                    isHolidayDay ? "border-destructive bg-destructive/5" :
+                    isWeekendDay ? "bg-muted/50" : "border-border"
                   } ${!isSameMonth(day, currentDate) ? "opacity-50" : ""}`}
                 >
                   <div className="flex justify-between items-start mb-2">
-                    <span className={`text-sm font-semibold ${isToday ? "text-primary" : "text-foreground"}`}>
-                      {format(day, "d")}
-                    </span>
+                    <div className="flex flex-col gap-1">
+                      <span className={`text-sm font-semibold ${
+                        isToday ? "text-primary" : 
+                        isHolidayDay ? "text-destructive" :
+                        isWeekendDay ? "text-muted-foreground" : "text-foreground"
+                      }`}>
+                        {format(day, "d")}
+                      </span>
+                      {isHolidayDay && holiday && (
+                        <Badge variant="destructive" className="text-[10px] py-0 px-1">
+                          {holiday.name}
+                        </Badge>
+                      )}
+                      {isWeekendDay && !isHolidayDay && (
+                        <span className="text-[10px] text-muted-foreground">Weekend</span>
+                      )}
+                    </div>
                     {leavesForDay.length > 0 && (
                       <Badge variant="secondary" className="text-xs">
                         {onLeave}/{onLeave + available}
