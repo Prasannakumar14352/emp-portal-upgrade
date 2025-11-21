@@ -233,6 +233,83 @@ router.post('/:userId/roles', authenticateToken, authorizeRole('hr', 'manager'),
   }
 });
 
+// POST /api/users/bulk-assign-roles - Bulk assign roles to multiple users (HR and Manager)
+router.post('/bulk-assign-roles', authenticateToken, authorizeRole('hr', 'manager'), async (req, res) => {
+  try {
+    const { userIds, role } = req.body;
+
+    if (!role || !['employee', 'hr', 'manager'].includes(role)) {
+      return res.status(400).json({ error: 'Invalid role. Must be employee, hr, or manager' });
+    }
+
+    if (!Array.isArray(userIds) || userIds.length === 0) {
+      return res.status(400).json({ error: 'userIds must be a non-empty array' });
+    }
+
+    const pool = await getConnection();
+    const results = {
+      assigned: [],
+      skipped: [],
+      errors: []
+    };
+
+    for (const userId of userIds) {
+      try {
+        // Check if user exists
+        const userCheck = await pool.request()
+          .input('employee_id', sql.Int, userId)
+          .query('SELECT employee_id, full_name FROM profiles WHERE employee_id = @employee_id');
+
+        if (userCheck.recordset.length === 0) {
+          results.errors.push({ userId, reason: 'User not found' });
+          continue;
+        }
+
+        const userName = userCheck.recordset[0].full_name;
+
+        // Check if role already assigned
+        const roleCheck = await pool.request()
+          .input('employee_id', sql.Int, userId)
+          .input('role', sql.NVarChar, role)
+          .query('SELECT id FROM user_roles WHERE employee_id = @employee_id AND role = @role');
+
+        if (roleCheck.recordset.length > 0) {
+          results.skipped.push({ userId, userName, reason: 'Role already assigned' });
+          continue;
+        }
+
+        // Assign role
+        await pool.request()
+          .input('employee_id', sql.Int, userId)
+          .input('role', sql.NVarChar, role)
+          .query('INSERT INTO user_roles (employee_id, role, created_at) VALUES (@employee_id, @role, GETDATE())');
+
+        results.assigned.push({ userId, userName, role });
+      } catch (err) {
+        logError(err, req, { context: 'Bulk role assignment error for user', userId, role });
+        results.errors.push({ userId, reason: err.message });
+      }
+    }
+
+    const totalProcessed = results.assigned.length + results.skipped.length + results.errors.length;
+    
+    res.status(200).json({
+      message: `Bulk role assignment completed. ${results.assigned.length} assigned, ${results.skipped.length} skipped, ${results.errors.length} errors`,
+      summary: {
+        total: userIds.length,
+        processed: totalProcessed,
+        assigned: results.assigned.length,
+        skipped: results.skipped.length,
+        errors: results.errors.length
+      },
+      details: results
+    });
+  } catch (err) {
+    logError(err, req, { context: 'Bulk assign roles error' });
+    res.status(500).json({ error: 'Failed to bulk assign roles' });
+  }
+});
+
 // DELETE /api/users/roles/:roleId - Remove role from user (HR and Manager)
 router.delete('/roles/:roleId', authenticateToken, authorizeRole('hr', 'manager'), async (req, res) => {
   try {

@@ -19,6 +19,22 @@ export interface AssignRoleRequest {
   role: 'employee' | 'hr' | 'manager';
 }
 
+export interface BulkRoleAssignmentResult {
+  message: string;
+  summary: {
+    total: number;
+    processed: number;
+    assigned: number;
+    skipped: number;
+    errors: number;
+  };
+  details: {
+    assigned: Array<{ userId: number; userName: string; role: string }>;
+    skipped: Array<{ userId: number; userName: string; reason: string }>;
+    errors: Array<{ userId: number; reason: string }>;
+  };
+}
+
 class RoleManagementService {
   async getUsersWithRoles(): Promise<UserWithRoles[]> {
     return apiClient.get<UserWithRoles[]>('/users/with-roles');
@@ -26,6 +42,10 @@ class RoleManagementService {
 
   async assignRole(userId: number, role: 'employee' | 'hr' | 'manager'): Promise<void> {
     await apiClient.post(`/users/${userId}/roles`, { role });
+  }
+
+  async bulkAssignRoles(userIds: number[], role: 'employee' | 'hr' | 'manager'): Promise<BulkRoleAssignmentResult> {
+    return apiClient.post<BulkRoleAssignmentResult>('/users/bulk-assign-roles', { userIds, role });
   }
 
   async removeRole(roleId: number): Promise<void> {
