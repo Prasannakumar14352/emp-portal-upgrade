@@ -36,6 +36,29 @@ class UserService {
   async getAllUsers(): Promise<UserProfile[]> {
     return apiClient.get<UserProfile[]>('/users');
   }
+
+  async uploadAvatar(userId: string, file: Blob): Promise<{ avatar_url: string }> {
+    const formData = new FormData();
+    formData.append('avatar', file);
+
+    const token = localStorage.getItem('token');
+    const baseURL = 'http://localhost:3000/api'; // Use local backend
+    
+    const response = await fetch(`${baseURL}/users/${userId}/avatar`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      },
+      body: formData
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to upload avatar');
+    }
+
+    return response.json();
+  }
 }
 
 export const userService = new UserService();
