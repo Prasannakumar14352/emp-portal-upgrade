@@ -40,7 +40,9 @@ class UserService {
 
   async uploadAvatar(userId: string, file: Blob): Promise<{ avatar_url: string }> {
     const formData = new FormData();
-    formData.append('avatar', file);
+    // Create a File object from the Blob with proper filename and MIME type
+    const imageFile = new File([file], 'avatar.jpg', { type: 'image/jpeg' });
+    formData.append('avatar', imageFile);
 
     const token = localStorage.getItem('token');
     const baseURL = 'http://localhost:3000/api'; // Use local backend
