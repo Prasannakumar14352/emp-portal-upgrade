@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { StatCard } from "@/components/StatCard";
+import { ApprovalWorkflowWidget } from "@/components/ApprovalWorkflowWidget";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +15,7 @@ import {
   XCircle
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useUserRole } from "@/hooks/useUserRole";
 import { leaveService, type Leave } from "@/services/leaveService";
 import { holidayService, type Holiday } from "@/services/holidayService";
 import { dashboardService } from "@/services/dashboardService";
@@ -22,6 +24,7 @@ import { toast } from "sonner";
 export default function Dashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { role } = useUserRole();
   const [stats, setStats] = useState({
     leaveBalance: 0,
     pendingApprovals: 0,
@@ -139,6 +142,11 @@ export default function Dashboard() {
           <StatCard key={index} {...stat} />
         ))}
       </div>
+
+      {/* Approval Workflow Widget - Only visible to HR and Managers */}
+      {(role === 'hr' || role === 'manager') && (
+        <ApprovalWorkflowWidget />
+      )}
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
