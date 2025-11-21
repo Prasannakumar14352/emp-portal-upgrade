@@ -119,19 +119,23 @@ export default function RoleManagement() {
     }
   };
 
-  const toggleUserSelection = (userId: number) => {
+  const toggleUserSelection = (userId: number, checked: boolean | "indeterminate") => {
+    if (checked === "indeterminate") return;
+    
     setSelectedUserIds(prev => 
-      prev.includes(userId) 
-        ? prev.filter(id => id !== userId)
-        : [...prev, userId]
+      checked
+        ? [...prev, userId]
+        : prev.filter(id => id !== userId)
     );
   };
 
-  const toggleSelectAll = () => {
-    if (selectedUserIds.length === users.length) {
-      setSelectedUserIds([]);
-    } else {
+  const toggleSelectAll = (checked: boolean | "indeterminate") => {
+    if (checked === "indeterminate") return;
+    
+    if (checked) {
       setSelectedUserIds(users.map(u => u.id));
+    } else {
+      setSelectedUserIds([]);
     }
   };
 
@@ -284,7 +288,7 @@ export default function RoleManagement() {
                   <TableCell>
                     <Checkbox
                       checked={selectedUserIds.includes(user.id)}
-                      onCheckedChange={() => toggleUserSelection(user.id)}
+                      onCheckedChange={(checked) => toggleUserSelection(user.id, checked)}
                       aria-label={`Select ${user.full_name}`}
                     />
                   </TableCell>
