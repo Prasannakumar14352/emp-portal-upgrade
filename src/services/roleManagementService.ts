@@ -13,6 +13,7 @@ export interface UserWithRoles {
   department: string | null;
   position: string | null;
   roles: UserRole[];
+  employee_id: string;
 }
 
 export interface AssignRoleRequest {

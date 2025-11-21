@@ -607,7 +607,7 @@ router.get('/reports', authenticateToken, async (req, res) => {
           ar.work_hours,
           ar.status
         FROM attendance_records ar
-        JOIN employees e ON ar.employee_id = e.employee_id
+        JOIN profiles e ON ar.employee_id = e.employee_id
         WHERE ar.date >= @startDate AND ar.date <= @endDate
         ORDER BY ar.date DESC, e.full_name
       `);
@@ -637,7 +637,7 @@ router.get('/analytics/late-patterns', authenticateToken, async (req, res) => {
           COUNT(*) as late_count,
           CAST(AVG(DATEDIFF(MINUTE, '09:00:00', CAST(ar.check_in_time AS TIME))) as INT) as avg_late_minutes
         FROM attendance_records ar
-        JOIN employees e ON ar.employee_id = e.employee_id
+        JOIN profiles e ON ar.employee_id = e.employee_id
         WHERE ar.status = 'late' 
           AND ar.date >= DATEADD(day, -@days, GETDATE())
         GROUP BY e.full_name, e.department
@@ -685,7 +685,7 @@ router.get('/analytics/late-patterns', authenticateToken, async (req, res) => {
           COUNT(DISTINCT ar.employee_id) as employees_with_late,
           CAST(AVG(DATEDIFF(MINUTE, '09:00:00', CAST(ar.check_in_time AS TIME))) as INT) as avg_delay_minutes
         FROM attendance_records ar
-        JOIN employees e ON ar.employee_id = e.employee_id
+        JOIN profiles e ON ar.employee_id = e.employee_id
         WHERE ar.status = 'late'
           AND ar.date >= DATEADD(day, -@days, GETDATE())
         GROUP BY e.department

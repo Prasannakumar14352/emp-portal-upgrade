@@ -43,7 +43,8 @@ export default function RoleManagement() {
       const matchesSearch = searchTerm === '' || 
         user.full_name.toLowerCase().includes(searchLower) ||
         user.email.toLowerCase().includes(searchLower) ||
-        user.id.toString().includes(searchLower);
+        user.employee_id.includes(searchLower);
+
 
       // Role filter
       const matchesRole = roleFilter === 'all' || 
@@ -90,7 +91,7 @@ export default function RoleManagement() {
 
     try {
       setSubmitting(true);
-      await roleManagementService.assignRole(selectedUser.id, selectedRole);
+      await roleManagementService.assignRole(Number(selectedUser.employee_id), selectedRole);
       toast.success(`${selectedRole.toUpperCase()} role assigned to ${selectedUser.full_name}`);
       setAssignDialogOpen(false);
       setSelectedUser(null);
@@ -417,15 +418,15 @@ export default function RoleManagement() {
             </TableHeader>
             <TableBody>
               {paginatedUsers.map((user) => (
-                <TableRow key={user.id}>
+                <TableRow key={user.employee_id}>
                   <TableCell>
                     <Checkbox
-                      checked={selectedUserIds.includes(user.id)}
-                      onCheckedChange={(checked) => toggleUserSelection(user.id, checked)}
+                      checked={selectedUserIds.includes(parseInt(user.employee_id))}
+                      onCheckedChange={(checked) => toggleUserSelection(parseInt(user.employee_id), checked)}
                       aria-label={`Select ${user.full_name}`}
                     />
                   </TableCell>
-                  <TableCell className="font-mono">{user.id}</TableCell>
+                  <TableCell className="font-mono">{user.employee_id}</TableCell>
                   <TableCell className="font-medium">{user.full_name}</TableCell>
                   <TableCell>{user.email}</TableCell>
                   <TableCell>{user.department || '-'}</TableCell>
@@ -444,7 +445,7 @@ export default function RoleManagement() {
                                 size="icon"
                                 className="h-5 w-5"
                                 onClick={() => setRoleToDelete({ 
-                                  userId: user.id, 
+                                  userId: user.employee_id as unknown as number, 
                                   roleId: roleInfo.role_id, 
                                   role: roleInfo.role 
                                 })}
@@ -460,7 +461,7 @@ export default function RoleManagement() {
                     </div>
                   </TableCell>
                   <TableCell className="text-right">
-                    <Dialog open={assignDialogOpen && selectedUser?.id === user.id} onOpenChange={(open) => {
+                    <Dialog open={assignDialogOpen && selectedUser?.employee_id === user.employee_id} onOpenChange={(open) => {
                       setAssignDialogOpen(open);
                       if (!open) setSelectedUser(null);
                     }}>

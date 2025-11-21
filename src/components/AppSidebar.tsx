@@ -44,7 +44,7 @@ const mainItems = [
 const hrManagerItems = [
   { title: "HR Dashboard", url: "/hr-dashboard", icon: LayoutDashboard },
   { title: "Approve Leaves", url: "/approve-leaves", icon: ClipboardCheck },
-  { title: "Leave Calendar", url: "/leave-calendar", icon: CalendarClock },
+  // { title: "Leave Calendar", url: "/leave-calendar", icon: CalendarClock },
   { title: "Attendance Calendar", url: "/hr-attendance-dashboard", icon: Calendar },
   { title: "Attendance Reports", url: "/attendance-reports", icon: BarChart3 },
   { title: "Attendance Analytics", url: "/attendance-analytics", icon: TrendingUp },
