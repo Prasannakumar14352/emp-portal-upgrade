@@ -50,7 +50,7 @@ const hrManagerItems = [
   { title: "Attendance Analytics", url: "/attendance-analytics", icon: TrendingUp },
   { title: "Advanced Reports", url: "/advanced-reports", icon: BarChart3 },
   { title: "Bulk Operations", url: "/bulk-operations", icon: Upload },
-  { title: "Employee Import", url: "/employee-import", icon: Upload },
+  // { title: "Employee Import", url: "/employee-import", icon: Upload },
   { title: "Team Time Tracking", url: "/team-time-tracking", icon: Clock },
   { title: "Leave Types", url: "/leave-types", icon: Calendar },
   { title: "Role Management", url: "/role-management", icon: Shield },

@@ -18,7 +18,7 @@ const createDefaultPreferences = async (userId, pool) => {
     const existing = await pool.request()
       .input('employee_id', sql.Int, userId)
       .query('SELECT id FROM user_preferences WHERE employee_id = @employee_id');
-    
+
     if (existing.recordset.length === 0) {
       // Create default preferences
       await pool.request()
@@ -50,9 +50,9 @@ const createDefaultPreferences = async (userId, pool) => {
 --------------------------------------------------------- */
 const generateTokens = (user) => {
   const accessToken = jwt.sign(
-    { 
-      id: user.id, 
-      email: user.email, 
+    {
+      id: user.id,
+      email: user.email,
       roles: user.roles || [user.role || 'employee']
     },
     process.env.JWT_SECRET,
@@ -174,7 +174,7 @@ router.post('/login', [
         WHERE employee_id = @employee_id
       `);
 
-    const roles = rolesResult.recordset.length > 0 
+    const roles = rolesResult.recordset.length > 0
       ? rolesResult.recordset.map(r => r.role)
       : ['employee'];
 
@@ -221,7 +221,7 @@ router.post('/logout', authenticateToken, async (req, res) => {
 router.get('/session', authenticateToken, async (req, res) => {
   try {
     console.log('Session request - req.user:', req.user);
-    
+
     if (!req.user || !req.user.id) {
       console.error('Session error: No user ID in request', req.user);
       return res.status(401).json({ error: 'Invalid authentication token' });
@@ -254,7 +254,7 @@ router.get('/session', authenticateToken, async (req, res) => {
         WHERE employee_id = @employee_id
       `);
 
-    const roles = rolesResult.recordset.length > 0 
+    const roles = rolesResult.recordset.length > 0
       ? rolesResult.recordset.map(r => r.role)
       : ['employee'];
 
@@ -294,7 +294,7 @@ router.post('/refresh', async (req, res) => {
     const decoded = jwt.verify(refresh_token, process.env.JWT_REFRESH_SECRET);
 
     const pool = await getConnection();
-    
+
     // Get user basic info
     const userResult = await pool.request()
       .input('employee_id', sql.Int, decoded.id)
@@ -318,7 +318,7 @@ router.post('/refresh', async (req, res) => {
         WHERE employee_id = @employee_id
       `);
 
-    const roles = rolesResult.recordset.length > 0 
+    const roles = rolesResult.recordset.length > 0
       ? rolesResult.recordset.map(r => r.role)
       : ['employee'];
 
@@ -406,8 +406,8 @@ router.get('/oauth/callback/azure', async (req, res) => {
     const fullName = userInfo.displayName;
 
     /* 2.5) Fetch User's Azure AD Group Memberships */
-    let userRoles = []; // Start with empty roles
-    
+    let userRoles = [];
+
     try {
       const groupsRes = await axios.get(
         "https://graph.microsoft.com/v1.0/me/memberOf",
@@ -415,44 +415,38 @@ router.get('/oauth/callback/azure', async (req, res) => {
       );
 
       const groups = groupsRes.data.value || [];
-      
-      // Map Azure AD group names/IDs to app roles
-      // Configure these group IDs/names in your environment variables
+
       const HR_GROUP_ID = process.env.AZURE_HR_GROUP_ID || 'HR';
       const MANAGER_GROUP_ID = process.env.AZURE_MANAGER_GROUP_ID || 'Manager';
-      
-      const isHR = groups.some(g => 
-        g.id === HR_GROUP_ID || 
+
+      const isHR = groups.some(g =>
+        g.id === HR_GROUP_ID ||
         g.displayName?.toLowerCase().includes('hr') ||
         g.displayName?.toLowerCase().includes('human resources')
       );
-      
-      const isManager = groups.some(g => 
-        g.id === MANAGER_GROUP_ID || 
+
+      const isManager = groups.some(g =>
+        g.id === MANAGER_GROUP_ID ||
         g.displayName?.toLowerCase().includes('manager') ||
         g.displayName?.toLowerCase().includes('lead')
       );
 
-      // Assign roles based on group membership
       if (isHR) userRoles.push('hr');
       if (isManager) userRoles.push('manager');
-      
-      // Only add employee role if no other roles were detected
-      if (userRoles.length === 0) {
-        userRoles.push('employee');
-      }
-      
+      if (userRoles.length === 0) userRoles.push('employee');
+
       logInfo(`Detected roles for ${email}: ${userRoles.join(', ')}`);
     } catch (groupErr) {
-      logError(groupErr, req, { 
+      logError(groupErr, req, {
         context: 'Failed to fetch Azure AD groups, using default employee role',
-        email 
+        email
       });
-      // On error, default to employee role
+
       if (userRoles.length === 0) {
         userRoles.push('employee');
       }
     }
+
 
     /* 3) Sync OAuth user using stored procedure */
     const pool = await getConnection();
@@ -475,7 +469,7 @@ router.get('/oauth/callback/azure', async (req, res) => {
       employee_id = syncResult.recordset[0].employee_id;
       logInfo(`Successfully synced OAuth user. Employee ID: ${employee_id}`);
     } catch (syncErr) {
-      logError(syncErr, req, { 
+      logError(syncErr, req, {
         context: 'Failed to sync OAuth user with stored procedure',
         email,
         fullName,
@@ -495,18 +489,18 @@ router.get('/oauth/callback/azure', async (req, res) => {
       const userIdResult = await pool.request()
         .input('employee_id', sql.Int, employee_id)
         .query('SELECT employee_id FROM profiles WHERE employee_id = @employee_id');
-      
+
       if (userIdResult.recordset.length === 0) {
         logWarning(`No employee_id found for employee_id: ${employee_id}`, { email });
       } else {
         const userId = userIdResult.recordset[0].employee_id;
         logInfo(`Found employee_id: ${userId} for employee_id: ${employee_id}`);
-        
+
         // Assign roles from Azure AD groups
         for (const role of userRoles) {
           try {
             logInfo(`Attempting to assign role '${role}' to user ${email} (employee_id: ${userId})`);
-            
+
             await pool.request()
               .input('employee_id', sql.Int, userId)
               .input('role', sql.NVarChar, role)
@@ -519,8 +513,8 @@ router.get('/oauth/callback/azure', async (req, res) => {
               `);
             logInfo(`Successfully assigned role '${role}' to user ${email}`);
           } catch (roleErr) {
-            logError(roleErr, req, { 
-              context: `Failed to assign role: ${role}`, 
+            logError(roleErr, req, {
+              context: `Failed to assign role: ${role}`,
               email,
               userId,
               roleAttempted: role,
@@ -530,7 +524,7 @@ router.get('/oauth/callback/azure', async (req, res) => {
             });
           }
         }
-        
+
         // Clean up: Check database for elevated roles and remove redundant 'employee' role
         try {
           const existingRolesResult = await pool.request()
@@ -538,11 +532,11 @@ router.get('/oauth/callback/azure', async (req, res) => {
             .query(`
               SELECT role FROM user_roles WHERE employee_id = @employee_id
             `);
-          
+
           const dbRoles = existingRolesResult.recordset.map(r => r.role);
           const hasElevatedRole = dbRoles.includes('hr') || dbRoles.includes('manager');
           const hasEmployeeRole = dbRoles.includes('employee');
-          
+
           if (hasElevatedRole && hasEmployeeRole) {
             await pool.request()
               .input('employee_id', sql.Int, userId)
@@ -555,15 +549,14 @@ router.get('/oauth/callback/azure', async (req, res) => {
           }
         } catch (cleanupErr) {
           logError(cleanupErr, req, {
-              context: 'Failed to cleanup employee role',
-              email,
-              userId
-            });
-          }
+            context: 'Failed to cleanup employee role',
+            email,
+            userId
+          });
         }
       }
     } catch (userIdErr) {
-      logError(userIdErr, req, { 
+      logError(userIdErr, req, {
         context: 'Failed to fetch employee_id from profiles table',
         email,
         employee_id,
@@ -591,7 +584,7 @@ router.get('/oauth/callback/azure', async (req, res) => {
 
   } catch (err) {
     logError(err, req, { context: 'OAuth callback failed', provider: 'azure' });
-    
+
     let errorMessage = "Authentication failed. Please try again.";
     let errorDetails = err.message;
 
