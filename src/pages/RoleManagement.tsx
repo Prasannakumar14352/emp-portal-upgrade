@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,7 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Shield, UserPlus, Trash2, Loader2, AlertCircle, Users, History } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Shield, UserPlus, Trash2, Loader2, AlertCircle, Users, History, Search, X } from "lucide-react";
 import { toast } from "sonner";
 import { roleManagementService, type UserWithRoles } from "@/services/roleManagementService";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -26,9 +27,28 @@ export default function RoleManagement() {
   const [selectedUserIds, setSelectedUserIds] = useState<number[]>([]);
   const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
   const [bulkRole, setBulkRole] = useState<'employee' | 'hr' | 'manager'>('employee');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [roleFilter, setRoleFilter] = useState<'all' | 'employee' | 'hr' | 'manager'>('all');
   const { role: currentUserRole, loading: roleLoading } = useUserRole();
 
   const canManage = currentUserRole === 'hr' || currentUserRole === 'manager';
+
+  const filteredUsers = useMemo(() => {
+    return users.filter(user => {
+      // Search filter
+      const searchLower = searchTerm.toLowerCase();
+      const matchesSearch = searchTerm === '' || 
+        user.full_name.toLowerCase().includes(searchLower) ||
+        user.email.toLowerCase().includes(searchLower) ||
+        user.id.toString().includes(searchLower);
+
+      // Role filter
+      const matchesRole = roleFilter === 'all' || 
+        user.roles.some(r => r.role === roleFilter);
+
+      return matchesSearch && matchesRole;
+    });
+  }, [users, searchTerm, roleFilter]);
 
   useEffect(() => {
     if (canManage) {
@@ -133,10 +153,15 @@ export default function RoleManagement() {
     if (checked === "indeterminate") return;
     
     if (checked) {
-      setSelectedUserIds(users.map(u => u.id));
+      setSelectedUserIds(filteredUsers.map(u => u.id));
     } else {
       setSelectedUserIds([]);
     }
+  };
+
+  const clearFilters = () => {
+    setSearchTerm('');
+    setRoleFilter('all');
   };
 
   const getRoleBadgeVariant = (role: string) => {
@@ -201,7 +226,7 @@ export default function RoleManagement() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="users" className="space-y-6">;
+        <TabsContent value="users" className="space-y-6">
           <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -211,6 +236,58 @@ export default function RoleManagement() {
                 Assign or remove roles for users in the system. Each user must have at least one role.
               </CardDescription>
             </div>
+          </div>
+          
+          {/* Search and Filter Section */}
+          <div className="flex flex-col sm:flex-row gap-4 mt-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by name, email, or user ID..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9"
+              />
+              {searchTerm && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                  onClick={() => setSearchTerm('')}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+            
+            <Select value={roleFilter} onValueChange={(value) => setRoleFilter(value as any)}>
+              <SelectTrigger className="w-full sm:w-[180px]">
+                <SelectValue placeholder="Filter by role" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Roles</SelectItem>
+                <SelectItem value="employee">Employee</SelectItem>
+                <SelectItem value="manager">Manager</SelectItem>
+                <SelectItem value="hr">HR</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {(searchTerm || roleFilter !== 'all') && (
+              <Button variant="outline" onClick={clearFilters}>
+                Clear Filters
+              </Button>
+            )}
+          </div>
+
+          {/* Results count */}
+          {(searchTerm || roleFilter !== 'all') && (
+            <p className="text-sm text-muted-foreground">
+              Showing {filteredUsers.length} of {users.length} users
+            </p>
+          )}
+
+          <div className="flex items-center justify-between mt-4">
+            <div />
             {selectedUserIds.length > 0 && (
               <Dialog open={bulkDialogOpen} onOpenChange={setBulkDialogOpen}>
                 <DialogTrigger asChild>
@@ -268,7 +345,7 @@ export default function RoleManagement() {
               <TableRow>
                 <TableHead className="w-12">
                   <Checkbox
-                    checked={selectedUserIds.length === users.length && users.length > 0}
+                    checked={selectedUserIds.length === filteredUsers.length && filteredUsers.length > 0}
                     onCheckedChange={toggleSelectAll}
                     aria-label="Select all"
                   />
@@ -283,7 +360,7 @@ export default function RoleManagement() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {users.map((user) => (
+              {filteredUsers.map((user) => (
                 <TableRow key={user.id}>
                   <TableCell>
                     <Checkbox
@@ -386,6 +463,19 @@ export default function RoleManagement() {
             </TableBody>
           </Table>
 
+          {filteredUsers.length === 0 && users.length > 0 && (
+            <div className="text-center py-12">
+              <Search className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+              <h3 className="text-lg font-semibold mb-2">No users found</h3>
+              <p className="text-muted-foreground mb-4">
+                No users match your current filters
+              </p>
+              <Button variant="outline" onClick={clearFilters}>
+                Clear Filters
+              </Button>
+            </div>
+          )}
+          
           {users.length === 0 && (
             <div className="text-center py-12">
               <Shield className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
