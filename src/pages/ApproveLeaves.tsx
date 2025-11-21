@@ -18,11 +18,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { leaveApprovalService } from "@/services/leaveApprovalService";
 import type { LeaveRequest } from "@/types/LeaveRequest";
-// import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function ApproveLeaves() {
   const { role, loading: roleLoading } = useUserRole();
-  // const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [requests, setRequests] = useState<LeaveRequest[]>([]);
   const [selectedRequests, setSelectedRequests] = useState<string[]>([]);
@@ -37,8 +37,17 @@ export default function ApproveLeaves() {
   const [newComment, setNewComment] = useState("");
 
   useEffect(() => {
-    if (roleLoading) return;
+    // Wait for both auth and role to load
+    if (authLoading || roleLoading) return;
 
+    // Check if user is logged in
+    if (!user) {
+      navigate("/auth");
+      toast.error("Please log in to access this page");
+      return;
+    }
+
+    // Check if user has required role
     if (role !== "hr" && role !== "manager") {
       navigate("/");
       toast.error("You don't have permission to access this page");
@@ -46,15 +55,16 @@ export default function ApproveLeaves() {
     }
 
     loadRequests();
-  }, [role, roleLoading]);
+  }, [role, roleLoading, user, authLoading, navigate]);
 
 
   const loadRequests = async () => {
+    if (!user) {
+      console.error("Cannot load requests: user is null");
+      return;
+    }
+
     try {
-      // const user = JSON.parse(localStorage.getItem("mockUser")!);
-      // if (!user) return;
-      if (!localStorage.getItem("user")) return;
-      const user = JSON.parse(localStorage.getItem("user")!);
       console.log("Loading leave requests for role:", role, "and user ID:", user.id);
 
       const data = await leaveApprovalService.getRequests(role, user.id);
@@ -69,6 +79,7 @@ export default function ApproveLeaves() {
         toast.error("You don't have permission to view leave requests. Please contact your administrator to grant you HR or Manager role.");
       } else if (err.status === 401) {
         toast.error("Session expired. Please log in again.");
+        navigate("/auth");
       } else {
         toast.error(`Failed to load leave requests: ${err.message || 'Unknown error'}`);
       }
