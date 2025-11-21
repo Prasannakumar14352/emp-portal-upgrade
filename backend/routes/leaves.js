@@ -6,6 +6,284 @@ const { shouldSendLeaveNotification, filterEmailRecipients } = require('../utils
 
 const router = express.Router();
 
+// POST /api/leaves/bulk-action - Bulk approve/reject leave requests (HR/Manager only)
+router.post('/bulk-action', authenticateToken, authorizeRole('hr', 'manager'), async (req, res) => {
+  try {
+    const { leaveIds, action, comments } = req.body;
+    const nodemailer = require('nodemailer');
+
+    if (!leaveIds || !Array.isArray(leaveIds) || leaveIds.length === 0) {
+      return res.status(400).json({ error: 'Leave IDs array is required' });
+    }
+
+    if (!['Approved', 'Rejected'].includes(action)) {
+      return res.status(400).json({ error: 'Invalid action. Must be Approved or Rejected' });
+    }
+
+    if (!comments || comments.trim().length < 5) {
+      return res.status(400).json({ error: 'Comment is required (minimum 5 characters)' });
+    }
+
+    const pool = await getConnection();
+    
+    // Fetch user roles from database
+    const rolesResult = await pool.request()
+      .input('employee_id', sql.Int, req.user.id)
+      .query('SELECT role FROM user_roles WHERE employee_id = @employee_id');
+    
+    const userRoles = rolesResult.recordset.map(r => r.role);
+    const isManager = userRoles.includes('manager');
+    const isHR = userRoles.includes('hr');
+
+    const processedLeaves = [];
+    const failedLeaves = [];
+
+    // Process each leave request
+    for (const leaveId of leaveIds) {
+      try {
+        // Get current leave request
+        const leaveResult = await pool.request()
+          .input('leave_id', sql.Int, leaveId)
+          .query('SELECT * FROM leaves WHERE id = @leave_id');
+        
+        if (leaveResult.recordset.length === 0) {
+          failedLeaves.push({ leaveId, reason: 'Leave request not found' });
+          continue;
+        }
+
+        const leave = leaveResult.recordset[0];
+
+        // Validation: HR can only approve if manager has already approved
+        if (isHR && leave.manager_status !== 'Approved') {
+          failedLeaves.push({ 
+            leaveId, 
+            reason: 'Manager approval required first' 
+          });
+          continue;
+        }
+
+        // Update leave status based on role
+        if (isManager) {
+          await pool.request()
+            .input('leave_id', sql.Int, leaveId)
+            .input('status', sql.NVarChar, action)
+            .input('approved_by', sql.Int, req.user.id)
+            .input('comments', sql.NVarChar, comments)
+            .query(`
+              UPDATE leaves
+              SET manager_status = @status,
+                  manager_approved_by = @approved_by,
+                  manager_approved_at = GETDATE(),
+                  manager_comments = @comments,
+                  status = CASE WHEN @status = 'Rejected' THEN 'Rejected' ELSE 'Pending' END,
+                  updated_at = GETDATE()
+              WHERE id = @leave_id
+            `);
+        } else if (isHR) {
+          await pool.request()
+            .input('leave_id', sql.Int, leaveId)
+            .input('status', sql.NVarChar, action)
+            .input('approved_by', sql.Int, req.user.id)
+            .input('comments', sql.NVarChar, comments)
+            .query(`
+              UPDATE leaves
+              SET hr_status = @status,
+                  hr_approved_by = @approved_by,
+                  hr_approved_at = GETDATE(),
+                  hr_comments = @comments,
+                  status = @status,
+                  approved_by = @approved_by,
+                  updated_at = GETDATE()
+              WHERE id = @leave_id
+            `);
+        }
+
+        // Fetch the updated leave record
+        const updatedResult = await pool.request()
+          .input('leave_id', sql.Int, leaveId)
+          .query('SELECT * FROM leaves WHERE id = @leave_id');
+        
+        const updatedLeave = updatedResult.recordset[0];
+        processedLeaves.push(updatedLeave);
+
+        // Send notifications for this leave (reusing notification logic)
+        try {
+          // Check user preferences
+          const prefsResult = await pool.request()
+            .input('employee_id', sql.Int, updatedLeave.employee_id)
+            .query('SELECT leave_update_notifications FROM user_preferences WHERE employee_id = @employee_id');
+          
+          const shouldNotify = prefsResult.recordset.length === 0 || prefsResult.recordset[0].leave_update_notifications !== false;
+
+          if (shouldNotify) {
+            // Emit real-time notification to employee
+            const io = req.app.get('io');
+            if (io) {
+              io.to(`user-${updatedLeave.employee_id}`).emit('leaveStatusUpdate', {
+                leaveId: updatedLeave.id,
+                status: isManager && action === 'Approved' ? 'Pending' : updatedLeave.status,
+                approver: req.user.full_name || 'Manager/HR',
+                comments: comments,
+                timestamp: new Date().toISOString()
+              });
+            }
+          }
+
+          // Create notification in database
+          const userResult = await pool.request()
+            .input('employee_id', sql.Int, updatedLeave.employee_id)
+            .query('SELECT full_name FROM profiles WHERE employee_id = @employee_id');
+          
+          const employeeName = userResult.recordset[0]?.full_name || 'Employee';
+          
+          let notificationTitle, notificationMessage;
+          if (isManager && action === 'Approved') {
+            notificationTitle = 'Leave Approved by Manager';
+            notificationMessage = `Your ${updatedLeave.leave_type} leave request has been approved by your manager and is now awaiting HR approval`;
+          } else if (action === 'Approved') {
+            notificationTitle = 'Leave Request Approved';
+            notificationMessage = `Your ${updatedLeave.leave_type} leave request has been fully approved`;
+          } else {
+            notificationTitle = 'Leave Request Rejected';
+            notificationMessage = `Your ${updatedLeave.leave_type} leave request has been rejected`;
+          }
+
+          await pool.request()
+            .input('employee_id', sql.Int, updatedLeave.employee_id)
+            .input('type', sql.NVarChar, action === 'Approved' ? 'leave_approved' : 'leave_rejected')
+            .input('title', sql.NVarChar, notificationTitle)
+            .input('message', sql.NVarChar, notificationMessage)
+            .input('metadata', sql.NVarChar, JSON.stringify({
+              leaveId: updatedLeave.id,
+              leaveType: updatedLeave.leave_type,
+              startDate: updatedLeave.start_date,
+              endDate: updatedLeave.end_date,
+              days: updatedLeave.days,
+              comments: comments
+            }))
+            .query(`
+              INSERT INTO notifications (employee_id, type, title, message, metadata, created_at)
+              VALUES (@employee_id, @type, @title, @message, @metadata, GETDATE())
+            `);
+
+          // Send email notification
+          const shouldSendEmail = await shouldSendLeaveNotification(updatedLeave.employee_id);
+          if (shouldSendEmail) {
+            const transporter = nodemailer.createTransporter({
+              host: process.env.SMTP_HOST,
+              port: 587,
+              secure: false,
+              auth: {
+                user: process.env.GMAIL_USER,
+                pass: process.env.GMAIL_APP_PASSWORD
+              }
+            });
+
+            await transporter.sendMail({
+              from: process.env.GMAIL_USER,
+              to: userResult.recordset[0]?.email || updatedLeave.employee_id,
+              subject: notificationTitle,
+              html: `
+                <h2>${notificationTitle}</h2>
+                <p>${notificationMessage}</p>
+                <p><strong>Leave Type:</strong> ${updatedLeave.leave_type}</p>
+                <p><strong>Duration:</strong> ${updatedLeave.start_date} to ${updatedLeave.end_date} (${updatedLeave.days} days)</p>
+                <p><strong>Comments:</strong> ${comments}</p>
+              `
+            });
+          }
+
+          // Notify HR if manager approved
+          if (isManager && action === 'Approved') {
+            const hrResult = await pool.request()
+              .query(`
+                SELECT p.employee_id, p.email 
+                FROM profiles p
+                INNER JOIN user_roles ur ON p.employee_id = ur.employee_id
+                WHERE ur.role = 'hr'
+              `);
+            
+            for (const hr of hrResult.recordset) {
+              await pool.request()
+                .input('employee_id', sql.Int, hr.employee_id)
+                .input('type', sql.NVarChar, 'leave_pending')
+                .input('title', sql.NVarChar, 'Leave Awaiting HR Approval')
+                .input('message', sql.NVarChar, `${employeeName}'s ${updatedLeave.leave_type} request has been approved by manager and requires HR approval`)
+                .input('metadata', sql.NVarChar, JSON.stringify({
+                  leaveId: updatedLeave.id,
+                  leaveType: updatedLeave.leave_type,
+                  startDate: updatedLeave.start_date,
+                  endDate: updatedLeave.end_date,
+                  days: updatedLeave.days,
+                  employeeName: employeeName
+                }))
+                .query(`
+                  INSERT INTO notifications (employee_id, type, title, message, metadata, created_at)
+                  VALUES (@employee_id, @type, @title, @message, @metadata, GETDATE())
+                `);
+
+              const io = req.app.get('io');
+              if (io) {
+                io.to(`user-${hr.employee_id}`).emit('leaveRequestSubmitted', {
+                  type: 'leave_pending',
+                  title: 'Leave Awaiting HR Approval',
+                  message: `${employeeName}'s ${updatedLeave.leave_type} request requires HR approval`,
+                  leaveId: updatedLeave.id,
+                  timestamp: new Date().toISOString()
+                });
+              }
+            }
+
+            const hrEmails = await filterEmailRecipients(hrResult.recordset);
+            if (hrEmails.length > 0) {
+              const transporter = nodemailer.createTransporter({
+                host: process.env.SMTP_HOST,
+                port: 587,
+                secure: false,
+                auth: {
+                  user: process.env.GMAIL_USER,
+                  pass: process.env.GMAIL_APP_PASSWORD
+                }
+              });
+
+              await transporter.sendMail({
+                from: process.env.GMAIL_USER,
+                to: hrEmails.join(', '),
+                subject: 'Leave Request Awaiting HR Approval',
+                html: `
+                  <h2>Leave Awaiting HR Approval</h2>
+                  <p><strong>${employeeName}</strong> has a leave request that has been approved by the manager and now requires HR approval.</p>
+                  <p><strong>Leave Type:</strong> ${updatedLeave.leave_type}</p>
+                  <p><strong>Duration:</strong> ${updatedLeave.start_date} to ${updatedLeave.end_date} (${updatedLeave.days} days)</p>
+                  <p><strong>Manager Comments:</strong> ${comments}</p>
+                  <p>Please log in to the system to review and approve/reject this request.</p>
+                `
+              });
+            }
+          }
+        } catch (notifErr) {
+          console.error(`Notification error for leave ${leaveId}:`, notifErr);
+          logError(notifErr, req, { context: 'Bulk action notification error', leaveId });
+        }
+      } catch (err) {
+        console.error(`Error processing leave ${leaveId}:`, err);
+        failedLeaves.push({ leaveId, reason: err.message });
+      }
+    }
+
+    res.json({
+      success: true,
+      processed: processedLeaves.length,
+      failed: failedLeaves.length,
+      failedLeaves: failedLeaves
+    });
+  } catch (err) {
+    console.error('Bulk action error:', err);
+    logError(err, req, { context: 'Bulk action error', data: req.body });
+    res.status(500).json({ error: 'Failed to process bulk action' });
+  }
+});
+
 // GET /api/leaves/conflicts - Check for leave conflicts
 router.get('/conflicts', authenticateToken, async (req, res) => {
   try {

@@ -20,6 +20,22 @@ export const leaveApprovalService = {
         });
     },
 
+    async bulkApprove(leaveIds: string[], comments: string) {
+        return apiClient.post(`/leaves/bulk-action`, {
+            leaveIds,
+            action: 'Approved',
+            comments
+        });
+    },
+
+    async bulkReject(leaveIds: string[], comments: string) {
+        return apiClient.post(`/leaves/bulk-action`, {
+            leaveIds,
+            action: 'Rejected',
+            comments
+        });
+    },
+
     async addComment(leaveId: string, comment: string) {
         return apiClient.post(`/leaves/${leaveId}/comment`, { comment });
     }
