@@ -3,15 +3,8 @@ const { getConnection, sql } = require('../config/database');
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
 const nodemailer = require('nodemailer');
 const { shouldSendEmail } = require('../utils/emailHelper');
-const { createClient } = require('@supabase/supabase-js');
 
 const router = express.Router();
-
-// Initialize Supabase client
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
 
 // Email transporter configuration
 const transporter = nodemailer.createTransport({
@@ -248,6 +241,59 @@ router.delete('/:id', authenticateToken, authorizeRole('hr'), async (req, res) =
   }
 });
 
+// GET /api/payslips/notifications - Get all payslip notifications (HR only)
+router.get('/notifications', authenticateToken, authorizeRole('hr'), async (req, res) => {
+  try {
+    const { status } = req.query;
+    const pool = await getConnection();
+    
+    let query = `
+      SELECT 
+        n.id, n.employee_id, n.payslip_id, n.month, n.year, n.email,
+        n.status, n.error_message, n.sent_at, n.created_at, n.updated_at,
+        p.full_name as employee_name
+      FROM payslip_notifications n
+      LEFT JOIN profiles p ON n.employee_id = p.id
+    `;
+    
+    const request = pool.request();
+    
+    if (status) {
+      query += ' WHERE n.status = @status';
+      request.input('status', sql.NVarChar, status);
+    }
+    
+    query += ' ORDER BY n.created_at DESC';
+    
+    const result = await request.query(query);
+    res.json(result.recordset);
+  } catch (err) {
+    console.error('Get notifications error:', err);
+    res.status(500).json({ error: 'Failed to get notifications' });
+  }
+});
+
+// GET /api/payslips/notifications/statistics - Get notification statistics (HR only)
+router.get('/notifications/statistics', authenticateToken, authorizeRole('hr'), async (req, res) => {
+  try {
+    const pool = await getConnection();
+    
+    const result = await pool.request().query(`
+      SELECT 
+        COUNT(*) as total,
+        SUM(CASE WHEN status = 'sent' THEN 1 ELSE 0 END) as sent,
+        SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed,
+        SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending
+      FROM payslip_notifications
+    `);
+    
+    res.json(result.recordset[0]);
+  } catch (err) {
+    console.error('Get notification statistics error:', err);
+    res.status(500).json({ error: 'Failed to get statistics' });
+  }
+});
+
 // POST /api/payslips/notify - Send payslip notification email (HR only)
 router.post('/notify', authenticateToken, authorizeRole('hr'), async (req, res) => {
   try {
@@ -284,24 +330,24 @@ router.post('/notify', authenticateToken, authorizeRole('hr'), async (req, res) 
         
         const employee = result.recordset[0];
         
-        // Create notification record in Supabase
-        const { data: notification, error: notifError } = await supabase
-          .from('payslip_notifications')
-          .insert({
-            employee_id: employee.id,
-            payslip_id: payslipId,
-            month,
-            year: parseInt(year),
-            email: employee.email,
-            status: 'pending'
-          })
-          .select()
-          .single();
-        
-        if (notifError) {
+        // Create notification record in SQL Server
+        try {
+          const notifResult = await pool.request()
+            .input('employee_id', sql.VarChar, employee.id)
+            .input('payslip_id', sql.Int, payslipId)
+            .input('month', sql.NVarChar, month)
+            .input('year', sql.Int, parseInt(year))
+            .input('email', sql.NVarChar, employee.email)
+            .input('status', sql.NVarChar, 'pending')
+            .query(`
+              INSERT INTO payslip_notifications (id, employee_id, payslip_id, month, year, email, status, created_at, updated_at)
+              OUTPUT INSERTED.id
+              VALUES (NEWID(), @employee_id, @payslip_id, @month, @year, @email, @status, GETDATE(), GETDATE())
+            `);
+          
+          notificationId = notifResult.recordset[0].id;
+        } catch (notifError) {
           console.error('Failed to create notification record:', notifError);
-        } else {
-          notificationId = notification.id;
         }
         
         // Send email
@@ -335,13 +381,14 @@ router.post('/notify', authenticateToken, authorizeRole('hr'), async (req, res) 
         
         // Update notification status to sent
         if (notificationId) {
-          await supabase
-            .from('payslip_notifications')
-            .update({
-              status: 'sent',
-              sent_at: new Date().toISOString()
-            })
-            .eq('id', notificationId);
+          await pool.request()
+            .input('id', sql.VarChar, notificationId)
+            .input('sent_at', sql.DateTime2, new Date())
+            .query(`
+              UPDATE payslip_notifications
+              SET status = 'sent', sent_at = @sent_at, updated_at = GETDATE()
+              WHERE id = @id
+            `);
         }
         
         sentEmails.push({ employeeId, email: employee.email });
@@ -352,13 +399,14 @@ router.post('/notify', authenticateToken, authorizeRole('hr'), async (req, res) 
         
         // Update notification status to failed
         if (notificationId) {
-          await supabase
-            .from('payslip_notifications')
-            .update({
-              status: 'failed',
-              error_message: emailError.message
-            })
-            .eq('id', notificationId);
+          await pool.request()
+            .input('id', sql.VarChar, notificationId)
+            .input('error_message', sql.NVarChar, emailError.message)
+            .query(`
+              UPDATE payslip_notifications
+              SET status = 'failed', error_message = @error_message, updated_at = GETDATE()
+              WHERE id = @id
+            `);
         }
         
         failedEmails.push({ employeeId, reason: emailError.message });
@@ -384,16 +432,16 @@ router.post('/retry-notification/:notificationId', authenticateToken, authorizeR
     const { notificationId } = req.params;
     const pool = await getConnection();
     
-    // Get notification details from Supabase
-    const { data: notification, error: fetchError } = await supabase
-      .from('payslip_notifications')
-      .select('*')
-      .eq('id', notificationId)
-      .single();
+    // Get notification details from SQL Server
+    const notifResult = await pool.request()
+      .input('id', sql.VarChar, notificationId)
+      .query('SELECT * FROM payslip_notifications WHERE id = @id');
     
-    if (fetchError || !notification) {
+    if (notifResult.recordset.length === 0) {
       return res.status(404).json({ error: 'Notification not found' });
     }
+    
+    const notification = notifResult.recordset[0];
     
     try {
       // Check if user has email notifications enabled
@@ -443,16 +491,15 @@ router.post('/retry-notification/:notificationId', authenticateToken, authorizeR
         `
       });
       
-      // Update notification status in Supabase
-      await supabase
-        .from('payslip_notifications')
-        .update({
-          status: 'sent',
-          sent_at: new Date().toISOString(),
-          error_message: null,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', notificationId);
+      // Update notification status in SQL Server
+      await pool.request()
+        .input('id', sql.VarChar, notificationId)
+        .input('sent_at', sql.DateTime2, new Date())
+        .query(`
+          UPDATE payslip_notifications
+          SET status = 'sent', sent_at = @sent_at, error_message = NULL, updated_at = GETDATE()
+          WHERE id = @id
+        `);
       
       res.json({ success: true, message: 'Email sent successfully' });
       
@@ -460,14 +507,14 @@ router.post('/retry-notification/:notificationId', authenticateToken, authorizeR
       console.error('Failed to retry email:', emailError);
       
       // Update notification with error
-      await supabase
-        .from('payslip_notifications')
-        .update({
-          status: 'failed',
-          error_message: emailError.message,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', notificationId);
+      await pool.request()
+        .input('id', sql.VarChar, notificationId)
+        .input('error_message', sql.NVarChar, emailError.message)
+        .query(`
+          UPDATE payslip_notifications
+          SET status = 'failed', error_message = @error_message, updated_at = GETDATE()
+          WHERE id = @id
+        `);
       
       res.status(500).json({ error: emailError.message });
     }

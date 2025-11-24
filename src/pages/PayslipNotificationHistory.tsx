@@ -41,14 +41,14 @@ export default function PayslipNotificationHistory() {
     }
   };
 
-  const loadStatistics = async () => {
-    try {
-      const stats = await payslipNotificationService.getStatistics();
-      setStatistics(stats);
-    } catch (error) {
-      console.error('Failed to load statistics:', error);
-    }
-  };
+    const loadStatistics = async () => {
+      try {
+        const stats = await payslipNotificationService.getStatistics();
+        setStatistics(stats as { total: number; sent: number; failed: number; pending: number; });
+      } catch (error) {
+        console.error('Failed to load statistics:', error);
+      }
+    };
 
   const filterNotifications = () => {
     let filtered = notifications;
