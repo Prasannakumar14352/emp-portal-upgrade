@@ -113,19 +113,20 @@ export default function Leaves() {
         employeeService.getAllEmployees(),
       ]);
       
-      // If no leave balances exist, create default ones from leave types
-      const effectiveBalances = balances.length > 0 
-        ? balances 
-        : types.map(type => ({
-            id: String(type.id),
-            employee_id: user!.id,
-            year: new Date().getFullYear(),
-            leave_type: type.name,
-            total_days: type.default_days,
-            used_days: 0,
-            remaining_days: type.default_days,
-            carry_forward_days: 0
-          }));
+      // Merge leave types with existing balances to show all leave types
+      const effectiveBalances = types.map(type => {
+        const existingBalance = balances.find(b => b.leave_type === type.name);
+        return existingBalance || {
+          id: String(type.id),
+          employee_id: user!.id,
+          year: new Date().getFullYear(),
+          leave_type: type.name,
+          total_days: type.default_days,
+          used_days: 0,
+          remaining_days: type.default_days,
+          carry_forward_days: 0
+        };
+      });
       
       setLeaveBalance(effectiveBalances);
       setLeaveHistory(history);
