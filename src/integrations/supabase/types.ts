@@ -298,6 +298,56 @@ export type Database = {
         }
         Relationships: []
       }
+      payslip_notifications: {
+        Row: {
+          created_at: string | null
+          email: string
+          employee_id: string
+          error_message: string | null
+          id: string
+          month: string
+          payslip_id: string | null
+          sent_at: string | null
+          status: string
+          updated_at: string | null
+          year: number
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          employee_id: string
+          error_message?: string | null
+          id?: string
+          month: string
+          payslip_id?: string | null
+          sent_at?: string | null
+          status?: string
+          updated_at?: string | null
+          year: number
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          employee_id?: string
+          error_message?: string | null
+          id?: string
+          month?: string
+          payslip_id?: string | null
+          sent_at?: string | null
+          status?: string
+          updated_at?: string | null
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payslip_notifications_payslip_id_fkey"
+            columns: ["payslip_id"]
+            isOneToOne: false
+            referencedRelation: "payslips"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payslips: {
         Row: {
           allowances: number | null
