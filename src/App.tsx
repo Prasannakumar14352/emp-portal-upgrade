@@ -37,6 +37,7 @@ import HRAttendanceDashboard from "./pages/HRAttendanceDashboard";
 import EmployeeImport from "./pages/EmployeeImport";
 import NotificationPreferences from "./pages/NotificationPreferences";
 import PayslipManagement from "./pages/PayslipManagement";
+import PayslipNotificationHistory from "./pages/PayslipNotificationHistory";
 
 const queryClient = new QueryClient();
 
@@ -54,6 +55,7 @@ const App = () => (
           <Route path="/leaves" element={<ProtectedRoute><DashboardLayout><Leaves /></DashboardLayout></ProtectedRoute>} />
           <Route path="/payslips" element={<ProtectedRoute><DashboardLayout><Payslips /></DashboardLayout></ProtectedRoute>} />
           <Route path="/payslip-management" element={<ProtectedRoute><DashboardLayout><PayslipManagement /></DashboardLayout></ProtectedRoute>} />
+          <Route path="/payslip-notifications" element={<ProtectedRoute><DashboardLayout><PayslipNotificationHistory /></DashboardLayout></ProtectedRoute>} />
           <Route path="/holidays" element={<ProtectedRoute><DashboardLayout><Holidays /></DashboardLayout></ProtectedRoute>} />
           <Route path="/employees" element={<ProtectedRoute><DashboardLayout><Employees /></DashboardLayout></ProtectedRoute>} />
           <Route path="/employee-import" element={<ProtectedRoute><DashboardLayout><EmployeeImport /></DashboardLayout></ProtectedRoute>} />

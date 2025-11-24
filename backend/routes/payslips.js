@@ -3,8 +3,15 @@ const { getConnection, sql } = require('../config/database');
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
 const nodemailer = require('nodemailer');
 const { shouldSendEmail } = require('../utils/emailHelper');
+const { createClient } = require('@supabase/supabase-js');
 
 const router = express.Router();
+
+// Initialize Supabase client
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
 // Email transporter configuration
 const transporter = nodemailer.createTransport({
@@ -244,7 +251,7 @@ router.delete('/:id', authenticateToken, authorizeRole('hr'), async (req, res) =
 // POST /api/payslips/notify - Send payslip notification email (HR only)
 router.post('/notify', authenticateToken, authorizeRole('hr'), async (req, res) => {
   try {
-    const { employeeIds, month, year } = req.body;
+    const { employeeIds, month, year, payslipId } = req.body;
     
     if (!employeeIds || !Array.isArray(employeeIds) || employeeIds.length === 0) {
       return res.status(400).json({ error: 'Employee IDs are required' });
@@ -255,6 +262,7 @@ router.post('/notify', authenticateToken, authorizeRole('hr'), async (req, res) 
     const failedEmails = [];
     
     for (const employeeId of employeeIds) {
+      let notificationId = null;
       try {
         // Check if user has email notifications enabled
         const shouldSend = await shouldSendEmail(employeeId);
@@ -264,10 +272,10 @@ router.post('/notify', authenticateToken, authorizeRole('hr'), async (req, res) 
           continue;
         }
         
-        // Get employee details
+        // Get employee details from SQL Server
         const result = await pool.request()
           .input('employee_id', sql.Int, employeeId)
-          .query('SELECT full_name, email FROM profiles WHERE employee_id = @employee_id');
+          .query('SELECT id, full_name, email FROM profiles WHERE employee_id = @employee_id');
         
         if (result.recordset.length === 0) {
           failedEmails.push({ employeeId, reason: 'Employee not found' });
@@ -275,6 +283,26 @@ router.post('/notify', authenticateToken, authorizeRole('hr'), async (req, res) 
         }
         
         const employee = result.recordset[0];
+        
+        // Create notification record in Supabase
+        const { data: notification, error: notifError } = await supabase
+          .from('payslip_notifications')
+          .insert({
+            employee_id: employee.id,
+            payslip_id: payslipId,
+            month,
+            year: parseInt(year),
+            email: employee.email,
+            status: 'pending'
+          })
+          .select()
+          .single();
+        
+        if (notifError) {
+          console.error('Failed to create notification record:', notifError);
+        } else {
+          notificationId = notification.id;
+        }
         
         // Send email
         await transporter.sendMail({
@@ -305,11 +333,34 @@ router.post('/notify', authenticateToken, authorizeRole('hr'), async (req, res) 
           `
         });
         
+        // Update notification status to sent
+        if (notificationId) {
+          await supabase
+            .from('payslip_notifications')
+            .update({
+              status: 'sent',
+              sent_at: new Date().toISOString()
+            })
+            .eq('id', notificationId);
+        }
+        
         sentEmails.push({ employeeId, email: employee.email });
         console.log(`Payslip notification sent to ${employee.email}`);
         
       } catch (emailError) {
         console.error(`Failed to send email to employee ${employeeId}:`, emailError);
+        
+        // Update notification status to failed
+        if (notificationId) {
+          await supabase
+            .from('payslip_notifications')
+            .update({
+              status: 'failed',
+              error_message: emailError.message
+            })
+            .eq('id', notificationId);
+        }
+        
         failedEmails.push({ employeeId, reason: emailError.message });
       }
     }
@@ -324,6 +375,106 @@ router.post('/notify', authenticateToken, authorizeRole('hr'), async (req, res) 
   } catch (err) {
     console.error('Send payslip notification error:', err);
     res.status(500).json({ error: 'Failed to send notifications' });
+  }
+});
+
+// POST /api/payslips/retry-notification - Retry failed notification (HR only)
+router.post('/retry-notification/:notificationId', authenticateToken, authorizeRole('hr'), async (req, res) => {
+  try {
+    const { notificationId } = req.params;
+    const pool = await getConnection();
+    
+    // Get notification details from Supabase
+    const { data: notification, error: fetchError } = await supabase
+      .from('payslip_notifications')
+      .select('*')
+      .eq('id', notificationId)
+      .single();
+    
+    if (fetchError || !notification) {
+      return res.status(404).json({ error: 'Notification not found' });
+    }
+    
+    try {
+      // Check if user has email notifications enabled
+      const shouldSend = await shouldSendEmail(notification.employee_id);
+      
+      if (!shouldSend) {
+        return res.status(400).json({ error: 'Email notifications disabled for this employee' });
+      }
+      
+      // Get employee details from SQL Server
+      const result = await pool.request()
+        .input('employee_id', sql.VarChar, notification.employee_id)
+        .query('SELECT full_name, email FROM profiles WHERE id = @employee_id');
+      
+      if (result.recordset.length === 0) {
+        return res.status(404).json({ error: 'Employee not found' });
+      }
+      
+      const employee = result.recordset[0];
+      
+      // Send email
+      await transporter.sendMail({
+        from: `"HR Team" <${process.env.GMAIL_USER}>`,
+        to: employee.email,
+        subject: `Payslip Available - ${notification.month} ${notification.year}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #2563eb;">New Payslip Available</h2>
+            <p>Dear ${employee.full_name},</p>
+            <p>Your payslip for <strong>${notification.month} ${notification.year}</strong> is now available in the employee portal.</p>
+            <p>Please log in to view and download your payslip:</p>
+            <div style="margin: 30px 0;">
+              <a href="${process.env.FRONTEND_URL}/payslips" 
+                 style="background-color: #2563eb; color: white; padding: 12px 24px; 
+                        text-decoration: none; border-radius: 6px; display: inline-block;">
+                View Payslip
+              </a>
+            </div>
+            <p style="color: #666; font-size: 14px;">
+              If you have any questions about your payslip, please contact HR.
+            </p>
+            <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+            <p style="color: #999; font-size: 12px;">
+              This is an automated message. Please do not reply to this email.
+            </p>
+          </div>
+        `
+      });
+      
+      // Update notification status in Supabase
+      await supabase
+        .from('payslip_notifications')
+        .update({
+          status: 'sent',
+          sent_at: new Date().toISOString(),
+          error_message: null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', notificationId);
+      
+      res.json({ success: true, message: 'Email sent successfully' });
+      
+    } catch (emailError) {
+      console.error('Failed to retry email:', emailError);
+      
+      // Update notification with error
+      await supabase
+        .from('payslip_notifications')
+        .update({
+          status: 'failed',
+          error_message: emailError.message,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', notificationId);
+      
+      res.status(500).json({ error: emailError.message });
+    }
+    
+  } catch (err) {
+    console.error('Retry notification error:', err);
+    res.status(500).json({ error: 'Failed to retry notification' });
   }
 });
 
