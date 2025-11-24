@@ -12,8 +12,6 @@ import { Navigate } from "react-router-dom";
 import { bulkService } from "@/services/bulkService";
 import { apiClient } from "@/services/apiClient";
 import * as XLSX from "xlsx";
-import JSZip from "jszip";
-import { supabase } from "@/integrations/supabase/client";
 
 export default function BulkOperations() {
   const { role, loading } = useUserRole();
@@ -179,145 +177,51 @@ export default function BulkOperations() {
 
     try {
       setUploading(true);
-      toast.info("Processing ZIP file...");
+      toast.info("Uploading ZIP file...");
 
-      // Load ZIP file
-      const zip = new JSZip();
-      const zipContent = await zip.loadAsync(payslipZipFile);
-      
-      // Get all PDF files
-      const pdfFiles = Object.keys(zipContent.files).filter(
-        name => name.toLowerCase().endsWith('.pdf') && !zipContent.files[name].dir
-      );
+      const formData = new FormData();
+      formData.append('zipFile', payslipZipFile);
 
-      if (pdfFiles.length === 0) {
-        throw new Error("No PDF files found in ZIP");
-      }
-
-      toast.info(`Found ${pdfFiles.length} PDFs. Processing...`);
-
-      // Get all employees to match names
-      const { data: employees, error: employeesError } = await supabase
-        .from('profiles')
-        .select('id, full_name');
-
-      if (employeesError) throw employeesError;
-
-      let successCount = 0;
-      let failedCount = 0;
-      const failures: string[] = [];
-      const uploadedPayslips: { employeeId: string; month: string; year: number }[] = [];
-
-      // Process each PDF
-      for (const fileName of pdfFiles) {
-        try {
-          // Parse filename: "IST Salary Slip Month Of Apr-2024_Singamsetty Prasanna Kumar.pdf"
-          const match = fileName.match(/Month Of (.+?)-(\d{4})_(.+)\.pdf/i);
-          
-          if (!match) {
-            failures.push(`${fileName}: Invalid filename format`);
-            failedCount++;
-            continue;
-          }
-
-          const [, monthStr, yearStr, employeeName] = match;
-          const month = monthStr.trim();
-          const year = parseInt(yearStr);
-          const name = employeeName.trim();
-
-          // Find employee by name (case-insensitive)
-          const employee = employees?.find(
-            e => e.full_name.toLowerCase() === name.toLowerCase()
-          );
-
-          if (!employee) {
-            failures.push(`${fileName}: Employee "${name}" not found`);
-            failedCount++;
-            continue;
-          }
-
-          // Get PDF blob
-          const pdfBlob = await zipContent.files[fileName].async('blob');
-          
-          // Upload to Supabase Storage
-          const filePath = `${employee.id}/${year}-${month}.pdf`;
-          const { error: uploadError } = await supabase.storage
-            .from('payslips')
-            .upload(filePath, pdfBlob, {
-              contentType: 'application/pdf',
-              upsert: true
-            });
-
-          if (uploadError) throw uploadError;
-
-          // Get public URL
-          const { data: { publicUrl } } = supabase.storage
-            .from('payslips')
-            .getPublicUrl(filePath);
-
-          // Create payslip record
-          const { error: insertError } = await supabase
-            .from('payslips')
-            .upsert({
-              user_id: employee.id,
-              month,
-              year,
-              basic_salary: 0, // Default values - can be updated later
-              allowances: 0,
-              deductions: 0,
-              net_salary: 0,
-              file_url: publicUrl
-            }, {
-              onConflict: 'user_id,month,year'
-            });
-
-          if (insertError) throw insertError;
-
-          successCount++;
-          uploadedPayslips.push({ employeeId: employee.id, month, year });
-        } catch (error: any) {
-          console.error(`Error processing ${fileName}:`, error);
-          failures.push(`${fileName}: ${error.message}`);
-          failedCount++;
+      const response: any = await apiClient.post('/bulk/payslips/zip', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
         }
-      }
+      });
 
-      // Show results
-      if (failedCount > 0) {
+      if (response.failed > 0) {
         toast.warning(
-          `Uploaded ${successCount} payslips. ${failedCount} failed.`,
+          `Uploaded ${response.uploaded} payslips. ${response.failed} failed.`,
           {
-            description: failures.slice(0, 3).join('; ') + (failures.length > 3 ? '...' : ''),
+            description: response.failures?.slice(0, 3).map((f: any) => `${f.fileName}: ${f.reason}`).join('; ') + (response.failures?.length > 3 ? '...' : ''),
             duration: 10000
           }
         );
       } else {
-        toast.success(`Successfully uploaded ${successCount} payslips`);
-        
-        // Send email notifications to employees
-        if (uploadedPayslips.length > 0) {
-          try {
-            const uniqueEmployeeIds = Array.from(new Set(uploadedPayslips.map(p => p.employeeId)));
-            const firstPayslip = uploadedPayslips[0];
-            
-            const notifyResponse: any = await apiClient.post('/payslips/notify', {
-              employeeIds: uniqueEmployeeIds,
-              month: firstPayslip.month,
-              year: firstPayslip.year
-            });
-            
-            if (notifyResponse?.sent > 0) {
-              toast.success(`Email notifications sent to ${notifyResponse.sent} employees`);
-            }
-          } catch (emailError) {
-            console.error('Email notification error:', emailError);
-            toast.warning('Payslips uploaded but some email notifications failed');
+        toast.success(`Successfully uploaded ${response.uploaded} payslips`);
+      }
+
+      // Send email notifications if any payslips were uploaded
+      if (response.uploadedPayslips?.length > 0) {
+        try {
+          const uniqueEmployeeIds = Array.from(new Set(response.uploadedPayslips.map((p: any) => p.employeeId)));
+          const firstPayslip = response.uploadedPayslips[0];
+          
+          const notifyResponse: any = await apiClient.post('/payslips/notify', {
+            employeeIds: uniqueEmployeeIds,
+            month: firstPayslip.month,
+            year: firstPayslip.year
+          });
+          
+          if (notifyResponse?.sent > 0) {
+            toast.success(`Email notifications sent to ${notifyResponse.sent} employees`);
           }
+        } catch (emailError) {
+          console.error('Email notification error:', emailError);
+          toast.warning('Payslips uploaded but some email notifications failed');
         }
       }
 
       setPayslipZipFile(null);
-      // Reset file input
       const fileInput = document.getElementById('payslip-zip-file') as HTMLInputElement;
       if (fileInput) fileInput.value = '';
 
