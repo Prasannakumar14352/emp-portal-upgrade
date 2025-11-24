@@ -3,8 +3,31 @@ const { body, validationResult } = require('express-validator');
 const { getConnection, sql } = require('../config/database');
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
 const bcrypt = require('bcrypt');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs').promises;
+const JSZip = require('jszip');
 
 const router = express.Router();
+
+// Configure multer for file uploads
+const upload = multer({ 
+  dest: 'uploads/temp/',
+  limits: { fileSize: 100 * 1024 * 1024 } // 100MB limit
+});
+
+// Ensure directories exist
+const ensureDirectories = async () => {
+  const dirs = ['uploads/temp', 'uploads/payslips'];
+  for (const dir of dirs) {
+    try {
+      await fs.mkdir(dir, { recursive: true });
+    } catch (err) {
+      console.error(`Error creating directory ${dir}:`, err);
+    }
+  }
+};
+ensureDirectories();
 
 /* ---------------------------------------------------------
    BULK USER CREATION
@@ -312,6 +335,158 @@ router.post('/payslips',
       await transaction.rollback();
       console.error('Bulk payslip creation error:', err);
       res.status(500).json({ error: 'Failed to create payslips', details: err.message });
+    }
+  }
+);
+
+/* ---------------------------------------------------------
+   BULK PAYSLIP PDF UPLOAD (ZIP FILE)
+--------------------------------------------------------- */
+router.post('/payslips/zip',
+  authenticateToken,
+  authorizeRole('hr', 'manager'),
+  upload.single('zipFile'),
+  async (req, res) => {
+    const pool = await getConnection();
+    
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: 'No ZIP file provided' });
+      }
+
+      const zipBuffer = await fs.readFile(req.file.path);
+      const zip = new JSZip();
+      const zipContent = await zip.loadAsync(zipBuffer);
+
+      // Get all PDF files
+      const pdfFiles = Object.keys(zipContent.files).filter(
+        name => name.toLowerCase().endsWith('.pdf') && !zipContent.files[name].dir
+      );
+
+      if (pdfFiles.length === 0) {
+        await fs.unlink(req.file.path);
+        return res.status(400).json({ error: 'No PDF files found in ZIP' });
+      }
+
+      // Get all employees
+      const employeesResult = await pool.request()
+        .query('SELECT employee_id, full_name, email FROM profiles');
+      const employees = employeesResult.recordset;
+
+      let successCount = 0;
+      let failedCount = 0;
+      const failures = [];
+      const uploadedPayslips = [];
+
+      // Process each PDF
+      for (const fileName of pdfFiles) {
+        try {
+          // Parse filename: "IST Salary Slip Month Of Apr-2024_Singamsetty Prasanna Kumar.pdf"
+          const match = fileName.match(/Month Of (.+?)-(\d{4})_(.+)\.pdf/i);
+          
+          if (!match) {
+            failures.push({ fileName, reason: 'Invalid filename format' });
+            failedCount++;
+            continue;
+          }
+
+          const [, monthStr, yearStr, employeeName] = match;
+          const month = monthStr.trim();
+          const year = parseInt(yearStr);
+          const name = employeeName.trim();
+
+          // Find employee by name (case-insensitive)
+          const employee = employees.find(
+            e => e.full_name.toLowerCase() === name.toLowerCase()
+          );
+
+          if (!employee) {
+            failures.push({ fileName, reason: `Employee "${name}" not found` });
+            failedCount++;
+            continue;
+          }
+
+          // Get PDF buffer
+          const pdfBuffer = await zipContent.files[fileName].async('nodebuffer');
+          
+          // Save PDF to local storage
+          const employeeDir = path.join('uploads/payslips', employee.employee_id.toString());
+          await fs.mkdir(employeeDir, { recursive: true });
+          
+          const pdfFileName = `${year}-${month}.pdf`;
+          const pdfPath = path.join(employeeDir, pdfFileName);
+          await fs.writeFile(pdfPath, pdfBuffer);
+
+          // Create file URL (relative path)
+          const fileUrl = `/uploads/payslips/${employee.employee_id}/${pdfFileName}`;
+
+          // Check if payslip exists
+          const existingPayslip = await pool.request()
+            .input('employee_id', sql.Int, employee.employee_id)
+            .input('month', sql.NVarChar, month)
+            .input('year', sql.Int, year)
+            .query('SELECT id FROM payslips WHERE employee_id = @employee_id AND month = @month AND year = @year');
+
+          if (existingPayslip.recordset.length > 0) {
+            // Update existing payslip
+            await pool.request()
+              .input('id', sql.Int, existingPayslip.recordset[0].id)
+              .input('file_url', sql.NVarChar, fileUrl)
+              .query('UPDATE payslips SET file_url = @file_url WHERE id = @id');
+          } else {
+            // Create new payslip record with default values
+            await pool.request()
+              .input('employee_id', sql.Int, employee.employee_id)
+              .input('month', sql.NVarChar, month)
+              .input('year', sql.Int, year)
+              .input('basic_salary', sql.Decimal(10, 2), 0)
+              .input('allowances', sql.Decimal(10, 2), 0)
+              .input('deductions', sql.Decimal(10, 2), 0)
+              .input('net_salary', sql.Decimal(10, 2), 0)
+              .input('file_url', sql.NVarChar, fileUrl)
+              .query(`
+                INSERT INTO payslips (employee_id, month, year, basic_salary, allowances, deductions, net_salary, file_url, created_at)
+                VALUES (@employee_id, @month, @year, @basic_salary, @allowances, @deductions, @net_salary, @file_url, GETDATE())
+              `);
+          }
+
+          successCount++;
+          uploadedPayslips.push({ 
+            employeeId: employee.employee_id,
+            email: employee.email,
+            month, 
+            year 
+          });
+
+        } catch (error) {
+          console.error(`Error processing ${fileName}:`, error);
+          failures.push({ fileName, reason: error.message });
+          failedCount++;
+        }
+      }
+
+      // Clean up temp ZIP file
+      await fs.unlink(req.file.path);
+
+      res.status(200).json({
+        success: true,
+        uploaded: successCount,
+        failed: failedCount,
+        uploadedPayslips,
+        failures
+      });
+
+    } catch (err) {
+      console.error('Bulk payslip ZIP upload error:', err);
+      // Clean up temp file on error
+      if (req.file) {
+        try {
+          await fs.unlink(req.file.path);
+        } catch (unlinkErr) {
+          console.error('Error deleting temp file:', unlinkErr);
+        }
+      }
+      res.status(500).json({ error: 'Failed to process ZIP file', details: err.message });
     }
   }
 );
