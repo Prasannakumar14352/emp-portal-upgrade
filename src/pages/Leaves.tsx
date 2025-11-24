@@ -12,7 +12,6 @@ import { Calendar, Plus, CheckCircle, XCircle, Clock, Trash2, Eye, Edit, AlertTr
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { useSignalR } from "@/hooks/useSignalR";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { leaveService, type Leave, type LeaveBalance, type LeaveConflict } from "@/services/leaveService";
 import { leaveTypeService, type LeaveType } from "@/services/leaveTypeService";
 import { managerService, type Manager } from "@/services/managerService";
@@ -533,7 +532,7 @@ export default function Leaves() {
                       <Eye className="h-4 w-4 mr-1" />
                       Details
                     </Button>
-                    {leave.status === "Pending" ? (
+                    {leave.status === "Pending" && (
                       <>
                         <Button
                           variant="outline"
@@ -555,27 +554,6 @@ export default function Leaves() {
                           Cancel
                         </Button>
                       </>
-                    ) : (
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                disabled
-                                className="opacity-50 cursor-not-allowed"
-                              >
-                                <Edit className="h-4 w-4 mr-1" />
-                                Edit
-                              </Button>
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>Cannot edit {leave.status.toLowerCase()} leave requests</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
                     )}
                   </div>
                 </div>
