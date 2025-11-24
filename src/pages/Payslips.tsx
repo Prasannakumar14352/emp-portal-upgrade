@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Download, FileText, Search, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
@@ -13,6 +14,7 @@ export default function Payslips() {
   const [payslips, setPayslips] = useState<Payslip[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [previewPayslip, setPreviewPayslip] = useState<Payslip | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -43,9 +45,9 @@ export default function Payslips() {
 
   const handleView = (payslip: Payslip) => {
     if (payslip.file_url) {
-      window.open(payslip.file_url, '_blank');
+      setPreviewPayslip(payslip);
     } else {
-      toast.info(`Viewing payslip for ${payslip.month} ${payslip.year}`);
+      toast.info(`No PDF available for ${payslip.month} ${payslip.year}`);
     }
   };
 
@@ -172,6 +174,35 @@ export default function Payslips() {
           </div>
         </CardContent>
       </Card>
+
+      {/* PDF Preview Dialog */}
+      <Dialog open={!!previewPayslip} onOpenChange={() => setPreviewPayslip(null)}>
+        <DialogContent className="max-w-4xl h-[90vh]">
+          <DialogHeader>
+            <DialogTitle>
+              Payslip - {previewPayslip?.month} {previewPayslip?.year}
+            </DialogTitle>
+          </DialogHeader>
+          {previewPayslip?.file_url && (
+            <div className="flex-1 overflow-hidden">
+              <iframe
+                src={previewPayslip.file_url}
+                className="w-full h-full border-0"
+                title="Payslip PDF"
+              />
+            </div>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setPreviewPayslip(null)}>
+              Close
+            </Button>
+            <Button onClick={() => previewPayslip && handleDownload(previewPayslip)}>
+              <Download className="mr-2 h-4 w-4" />
+              Download
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
