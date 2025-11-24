@@ -1,8 +1,21 @@
 const express = require('express');
 const { getConnection, sql } = require('../config/database');
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
+const nodemailer = require('nodemailer');
+const { shouldSendEmail } = require('../utils/emailHelper');
 
 const router = express.Router();
+
+// Email transporter configuration
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: process.env.SMTP_PORT,
+  secure: false,
+  auth: {
+    user: process.env.GMAIL_USER,
+    pass: process.env.GMAIL_APP_PASSWORD
+  }
+});
 
 // GET /api/payslips/user/:userId - Get user's payslips
 router.get('/user/:userId', authenticateToken, async (req, res) => {
@@ -225,6 +238,92 @@ router.delete('/:id', authenticateToken, authorizeRole('hr'), async (req, res) =
   } catch (err) {
     console.error('Delete payslip error:', err);
     res.status(500).json({ error: 'Failed to delete payslip' });
+  }
+});
+
+// POST /api/payslips/notify - Send payslip notification email (HR only)
+router.post('/notify', authenticateToken, authorizeRole('hr'), async (req, res) => {
+  try {
+    const { employeeIds, month, year } = req.body;
+    
+    if (!employeeIds || !Array.isArray(employeeIds) || employeeIds.length === 0) {
+      return res.status(400).json({ error: 'Employee IDs are required' });
+    }
+    
+    const pool = await getConnection();
+    const sentEmails = [];
+    const failedEmails = [];
+    
+    for (const employeeId of employeeIds) {
+      try {
+        // Check if user has email notifications enabled
+        const shouldSend = await shouldSendEmail(employeeId);
+        
+        if (!shouldSend) {
+          console.log(`Skipping email for employee ${employeeId} - notifications disabled`);
+          continue;
+        }
+        
+        // Get employee details
+        const result = await pool.request()
+          .input('employee_id', sql.Int, employeeId)
+          .query('SELECT full_name, email FROM profiles WHERE employee_id = @employee_id');
+        
+        if (result.recordset.length === 0) {
+          failedEmails.push({ employeeId, reason: 'Employee not found' });
+          continue;
+        }
+        
+        const employee = result.recordset[0];
+        
+        // Send email
+        await transporter.sendMail({
+          from: `"HR Team" <${process.env.GMAIL_USER}>`,
+          to: employee.email,
+          subject: `Payslip Available - ${month} ${year}`,
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2 style="color: #2563eb;">New Payslip Available</h2>
+              <p>Dear ${employee.full_name},</p>
+              <p>Your payslip for <strong>${month} ${year}</strong> is now available in the employee portal.</p>
+              <p>Please log in to view and download your payslip:</p>
+              <div style="margin: 30px 0;">
+                <a href="${process.env.FRONTEND_URL}/payslips" 
+                   style="background-color: #2563eb; color: white; padding: 12px 24px; 
+                          text-decoration: none; border-radius: 6px; display: inline-block;">
+                  View Payslip
+                </a>
+              </div>
+              <p style="color: #666; font-size: 14px;">
+                If you have any questions about your payslip, please contact HR.
+              </p>
+              <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+              <p style="color: #999; font-size: 12px;">
+                This is an automated message. Please do not reply to this email.
+              </p>
+            </div>
+          `
+        });
+        
+        sentEmails.push({ employeeId, email: employee.email });
+        console.log(`Payslip notification sent to ${employee.email}`);
+        
+      } catch (emailError) {
+        console.error(`Failed to send email to employee ${employeeId}:`, emailError);
+        failedEmails.push({ employeeId, reason: emailError.message });
+      }
+    }
+    
+    res.json({
+      success: true,
+      sent: sentEmails.length,
+      failed: failedEmails.length,
+      details: { sentEmails, failedEmails }
+    });
+    
+  } catch (err) {
+    console.error('Send payslip notification error:', err);
+    res.status(500).json({ error: 'Failed to send notifications' });
   }
 });
 

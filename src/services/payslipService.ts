@@ -29,8 +29,8 @@ class PayslipService {
     return apiClient.get<Payslip[]>(`/payslips/user/${userId}`);
   }
 
-  async getAllPayslips(): Promise<Payslip[]> {
-    return apiClient.get<Payslip[]>('/payslips');
+  async getAllPayslips(): Promise<any[]> {
+    return apiClient.get<any[]>('/payslips');
   }
 
   async getPayslipById(id: string): Promise<Payslip> {

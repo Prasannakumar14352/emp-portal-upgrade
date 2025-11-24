@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { useUserRole } from "@/hooks/useUserRole";
 import { Navigate } from "react-router-dom";
 import { bulkService } from "@/services/bulkService";
+import { apiClient } from "@/services/apiClient";
 import * as XLSX from "xlsx";
 import JSZip from "jszip";
 import { supabase } from "@/integrations/supabase/client";
@@ -205,6 +206,7 @@ export default function BulkOperations() {
       let successCount = 0;
       let failedCount = 0;
       const failures: string[] = [];
+      const uploadedPayslips: { employeeId: string; month: string; year: number }[] = [];
 
       // Process each PDF
       for (const fileName of pdfFiles) {
@@ -272,6 +274,7 @@ export default function BulkOperations() {
           if (insertError) throw insertError;
 
           successCount++;
+          uploadedPayslips.push({ employeeId: employee.id, month, year });
         } catch (error: any) {
           console.error(`Error processing ${fileName}:`, error);
           failures.push(`${fileName}: ${error.message}`);
@@ -290,6 +293,27 @@ export default function BulkOperations() {
         );
       } else {
         toast.success(`Successfully uploaded ${successCount} payslips`);
+        
+        // Send email notifications to employees
+        if (uploadedPayslips.length > 0) {
+          try {
+            const uniqueEmployeeIds = Array.from(new Set(uploadedPayslips.map(p => p.employeeId)));
+            const firstPayslip = uploadedPayslips[0];
+            
+            const notifyResponse: any = await apiClient.post('/payslips/notify', {
+              employeeIds: uniqueEmployeeIds,
+              month: firstPayslip.month,
+              year: firstPayslip.year
+            });
+            
+            if (notifyResponse?.sent > 0) {
+              toast.success(`Email notifications sent to ${notifyResponse.sent} employees`);
+            }
+          } catch (emailError) {
+            console.error('Email notification error:', emailError);
+            toast.warning('Payslips uploaded but some email notifications failed');
+          }
+        }
       }
 
       setPayslipZipFile(null);
