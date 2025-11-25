@@ -38,6 +38,7 @@ const mainItems = [
   { title: "Holidays", url: "/holidays", icon: CalendarClock },
   { title: "Employees", url: "/employees", icon: Users },
   { title: "Attendance", url: "/attendance", icon: Clock },
+  { title: "Attendance Summary", url: "/attendance-summary", icon: BarChart3 },
   { title: "Performance Review", url: "/performance-review", icon: TrendingUp },
 ];
 

@@ -29,6 +29,7 @@ import LeaveTypes from "./pages/LeaveTypes";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import Attendance from "./pages/Attendance";
+import AttendanceSummary from "./pages/AttendanceSummary";
 import PerformanceReview from "./pages/PerformanceReview";
 import AttendanceReports from "./pages/AttendanceReports";
 import AttendanceAnalytics from "./pages/AttendanceAnalytics";
@@ -72,6 +73,7 @@ const App = () => (
           <Route path="/team-time-tracking" element={<ProtectedRoute><DashboardLayout><TeamTimeTracking /></DashboardLayout></ProtectedRoute>} />
           <Route path="/leave-types" element={<ProtectedRoute><DashboardLayout><LeaveTypes /></DashboardLayout></ProtectedRoute>} />
           <Route path="/attendance" element={<ProtectedRoute><DashboardLayout><Attendance /></DashboardLayout></ProtectedRoute>} />
+          <Route path="/attendance-summary" element={<ProtectedRoute><DashboardLayout><AttendanceSummary /></DashboardLayout></ProtectedRoute>} />
           <Route path="/attendance-reports" element={<ProtectedRoute><DashboardLayout><AttendanceReports /></DashboardLayout></ProtectedRoute>} />
           <Route path="/attendance-analytics" element={<ProtectedRoute><DashboardLayout><AttendanceAnalytics /></DashboardLayout></ProtectedRoute>} />
           <Route path="/performance-review" element={<ProtectedRoute><DashboardLayout><PerformanceReview /></DashboardLayout></ProtectedRoute>} />
