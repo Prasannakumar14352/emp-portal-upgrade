@@ -6,16 +6,20 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Download, Filter, Loader2, Search, FileText } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Calendar, Download, Filter, Loader2, Search, FileText, Pencil } from "lucide-react";
 import { apiClient } from "@/services/apiClient";
 import { toast } from "sonner";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
 interface AttendanceReport {
+  id: string;
   employee_id: string;
   employee_name: string;
   department: string;
@@ -24,14 +28,26 @@ interface AttendanceReport {
   check_out_time: string;
   work_hours: number;
   status: 'present' | 'absent' | 'late' | 'half-day';
+  notes?: string;
 }
 
 export default function AttendanceReports() {
   const { role } = useUserRole();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [reports, setReports] = useState<AttendanceReport[]>([]);
   const [filteredReports, setFilteredReports] = useState<AttendanceReport[]>([]);
+  
+  // Edit dialog state
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingRecord, setEditingRecord] = useState<AttendanceReport | null>(null);
+  const [editForm, setEditForm] = useState({
+    checkInTime: '',
+    checkOutTime: '',
+    status: 'present',
+    notes: ''
+  });
 
   // Role access check - show message instead of redirecting
   if (role && role !== 'hr' && role !== 'manager') {
@@ -208,6 +224,41 @@ export default function AttendanceReports() {
     return { total, present, late, absent, halfDay };
   };
 
+  const handleEditClick = (record: AttendanceReport) => {
+    setEditingRecord(record);
+    setEditForm({
+      checkInTime: record.check_in_time ? new Date(record.check_in_time).toISOString().slice(0, 16) : '',
+      checkOutTime: record.check_out_time ? new Date(record.check_out_time).toISOString().slice(0, 16) : '',
+      status: record.status,
+      notes: record.notes || ''
+    });
+    setEditDialogOpen(true);
+  };
+
+  const handleUpdateAttendance = async () => {
+    if (!editingRecord || !user) return;
+
+    try {
+      setLoading(true);
+      await apiClient.put(`/attendance/${editingRecord.id}`, {
+        userId: user.id,
+        checkInTime: editForm.checkInTime ? new Date(editForm.checkInTime).toISOString() : null,
+        checkOutTime: editForm.checkOutTime ? new Date(editForm.checkOutTime).toISOString() : null,
+        status: editForm.status,
+        notes: editForm.notes
+      });
+
+      toast.success('Attendance updated successfully');
+      setEditDialogOpen(false);
+      loadReports(); // Reload the reports
+    } catch (error: any) {
+      console.error('Failed to update attendance:', error);
+      toast.error(error.message || 'Failed to update attendance');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const stats = calculateStats();
 
   return (
@@ -372,6 +423,7 @@ export default function AttendanceReports() {
                     <TableHead>Check Out</TableHead>
                     <TableHead>Work Hours</TableHead>
                     <TableHead>Status</TableHead>
+                    {role === 'hr' && <TableHead>Actions</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -401,6 +453,17 @@ export default function AttendanceReports() {
                         {report.work_hours ? `${report.work_hours.toFixed(2)}h` : '-'}
                       </TableCell>
                       <TableCell>{getStatusBadge(report.status)}</TableCell>
+                      {role === 'hr' && (
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEditClick(report)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>
@@ -409,6 +472,75 @@ export default function AttendanceReports() {
           )}
         </CardContent>
       </Card>
+
+      {/* Edit Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Attendance Record</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Employee</Label>
+              <Input value={editingRecord?.employee_name || ''} disabled />
+            </div>
+            <div className="space-y-2">
+              <Label>Date</Label>
+              <Input 
+                value={editingRecord?.date ? new Date(editingRecord.date).toLocaleDateString() : ''} 
+                disabled 
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Check In Time</Label>
+              <Input
+                type="datetime-local"
+                value={editForm.checkInTime}
+                onChange={(e) => setEditForm({ ...editForm, checkInTime: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Check Out Time</Label>
+              <Input
+                type="datetime-local"
+                value={editForm.checkOutTime}
+                onChange={(e) => setEditForm({ ...editForm, checkOutTime: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Status</Label>
+              <Select value={editForm.status} onValueChange={(value) => setEditForm({ ...editForm, status: value })}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="present">Present</SelectItem>
+                  <SelectItem value="late">Late</SelectItem>
+                  <SelectItem value="absent">Absent</SelectItem>
+                  <SelectItem value="half-day">Half Day</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Notes</Label>
+              <Textarea
+                value={editForm.notes}
+                onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+                placeholder="Add any notes about this attendance record..."
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpdateAttendance} disabled={loading}>
+              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Update
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

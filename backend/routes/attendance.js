@@ -598,6 +598,7 @@ router.get('/reports', authenticateToken, async (req, res) => {
       .input('endDate', sql.Date, endDate)
       .query(`
         SELECT 
+          ar.id,
           e.employee_id,
           e.full_name as employee_name,
           e.department,
@@ -605,7 +606,8 @@ router.get('/reports', authenticateToken, async (req, res) => {
           ar.check_in_time,
           ar.check_out_time,
           ar.work_hours,
-          ar.status
+          ar.status,
+          ar.notes
         FROM attendance_records ar
         JOIN profiles e ON ar.employee_id = e.employee_id
         WHERE ar.date >= @startDate AND ar.date <= @endDate
