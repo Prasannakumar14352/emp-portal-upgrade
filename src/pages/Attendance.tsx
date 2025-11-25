@@ -52,6 +52,8 @@ export default function Attendance() {
   const [editCheckOut, setEditCheckOut] = useState("");
   const [editNotes, setEditNotes] = useState("");
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [checkoutConfirmOpen, setCheckoutConfirmOpen] = useState(false);
+  const [calculatedHours, setCalculatedHours] = useState<number>(0);
 
   useEffect(() => {
     if (user) {
@@ -112,10 +114,24 @@ export default function Attendance() {
   };
 
   const handleCheckOut = async () => {
+    if (!user || !todayRecord?.check_in_time) return;
+    
+    // Calculate work hours
+    const checkInTime = new Date(todayRecord.check_in_time);
+    const currentTime = new Date();
+    const hoursDiff = (currentTime.getTime() - checkInTime.getTime()) / (1000 * 60 * 60);
+    setCalculatedHours(hoursDiff);
+    
+    // Show confirmation dialog
+    setCheckoutConfirmOpen(true);
+  };
+
+  const confirmCheckOut = async () => {
     if (!user) return;
     
     try {
       setActionLoading(true);
+      setCheckoutConfirmOpen(false);
       await apiClient.post(`/attendance/checkout`, { userId: user.id });
       toast.success('Checked out successfully!');
       await loadAttendanceData();
@@ -124,6 +140,13 @@ export default function Attendance() {
       toast.error(error.message || 'Failed to check out');
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const cancelCheckOut = () => {
+    setCheckoutConfirmOpen(false);
+    if (todayRecord) {
+      handleEditClick(todayRecord);
     }
   };
 
@@ -404,6 +427,41 @@ export default function Attendance() {
                 </>
               ) : (
                 "Update"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={checkoutConfirmOpen} onOpenChange={setCheckoutConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Check Out</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 p-4 bg-accent/10 rounded-lg">
+              <Clock className="h-8 w-8 text-accent" />
+              <div>
+                <p className="text-sm text-muted-foreground">Total Work Hours</p>
+                <p className="text-2xl font-bold">{calculatedHours.toFixed(2)} hours</p>
+              </div>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Do you want to check out now? Click Cancel if you need to edit your check-in time.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={cancelCheckOut}>
+              Cancel & Edit
+            </Button>
+            <Button onClick={confirmCheckOut} disabled={actionLoading}>
+              {actionLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Checking Out...
+                </>
+              ) : (
+                "Confirm Check Out"
               )}
             </Button>
           </DialogFooter>
