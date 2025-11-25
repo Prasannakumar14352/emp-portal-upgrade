@@ -38,7 +38,7 @@ export default function AttendanceReports() {
   const [loading, setLoading] = useState(false);
   const [reports, setReports] = useState<AttendanceReport[]>([]);
   const [filteredReports, setFilteredReports] = useState<AttendanceReport[]>([]);
-  
+
   // Edit dialog state
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<AttendanceReport | null>(null);
@@ -57,7 +57,7 @@ export default function AttendanceReports() {
       </div>
     );
   }
-  
+
   // Filters
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -125,7 +125,7 @@ export default function AttendanceReports() {
 
     // Filter by search term
     if (searchTerm) {
-      filtered = filtered.filter(r => 
+      filtered = filtered.filter(r =>
         r.employee_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         r.employee_id.includes(searchTerm)
       );
@@ -152,19 +152,19 @@ export default function AttendanceReports() {
   const exportToPDF = () => {
     try {
       const doc = new jsPDF();
-      
+
       // Add title
       doc.setFontSize(16);
       doc.text('Attendance Report', 14, 15);
-      
+
       // Add date range
       doc.setFontSize(10);
       doc.text(`Period: ${startDate} to ${endDate}`, 14, 22);
-      
+
       // Add stats
       const stats = calculateStats();
       doc.text(`Total Records: ${stats.total} | Present: ${stats.present} | Late: ${stats.late} | Absent: ${stats.absent}`, 14, 28);
-      
+
       // Prepare table data
       const tableData = filteredReports.map(r => [
         r.employee_id,
@@ -176,7 +176,7 @@ export default function AttendanceReports() {
         r.work_hours?.toFixed(2) || '-',
         r.status
       ]);
-      
+
       // Add table
       autoTable(doc, {
         head: [['ID', 'Name', 'Department', 'Date', 'Check In', 'Check Out', 'Hours', 'Status']],
@@ -185,7 +185,7 @@ export default function AttendanceReports() {
         styles: { fontSize: 8 },
         headStyles: { fillColor: [66, 139, 202] }
       });
-      
+
       // Save PDF
       doc.save(`attendance-report-${startDate}-to-${endDate}.pdf`);
       toast.success('PDF exported successfully');
@@ -220,32 +220,43 @@ export default function AttendanceReports() {
     const late = filteredReports.filter(r => r.status === 'late').length;
     const absent = filteredReports.filter(r => r.status === 'absent').length;
     const halfDay = filteredReports.filter(r => r.status === 'half-day').length;
-    
+
     return { total, present, late, absent, halfDay };
   };
 
   const handleEditClick = (record: AttendanceReport) => {
     setEditingRecord(record);
     setEditForm({
-      checkInTime: record.check_in_time ? new Date(record.check_in_time).toISOString().slice(0, 16) : '',
-      checkOutTime: record.check_out_time ? new Date(record.check_out_time).toISOString().slice(0, 16) : '',
+      checkInTime: record.check_in_time ? new Date(record.check_in_time).toLocaleString('sv-SE').slice(0, 16).replace(' ', 'T') : '',
+      checkOutTime: record.check_out_time ? new Date(record.check_out_time).toLocaleString('sv-SE').slice(0, 16).replace(' ', 'T') : '',
       status: record.status,
       notes: record.notes || ''
     });
     setEditDialogOpen(true);
   };
 
+  function toDateTimeLocal(dateString?: string) {
+    if (!dateString) return '';
+    const d = new Date(dateString);
+    const pad = (n: number) => String(n).padStart(2, "0");
+
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+      + `T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
   const handleUpdateAttendance = async () => {
     if (!editingRecord || !user) return;
 
     try {
       setLoading(true);
-      await apiClient.put(`/attendance/${editingRecord.id}`, {
-        userId: user.id,
-        checkInTime: editForm.checkInTime ? new Date(editForm.checkInTime).toISOString() : null,
-        checkOutTime: editForm.checkOutTime ? new Date(editForm.checkOutTime).toISOString() : null,
+      const checkintime = editForm.checkInTime ? new Date(editForm.checkInTime).toISOString() : null;
+      const checkouttime = editForm.checkOutTime ? new Date(editForm.checkOutTime).toISOString() : null;
+      const res = await apiClient.put(`/attendance/${editingRecord.id}`, {
+        checkInTime: checkintime,
+        checkOutTime: checkouttime,
         status: editForm.status,
-        notes: editForm.notes
+        notes: editForm.notes,
+        userId: user.id
       });
 
       toast.success('Attendance updated successfully');
@@ -260,6 +271,7 @@ export default function AttendanceReports() {
   };
 
   const stats = calculateStats();
+
 
   return (
     <div className="space-y-6 p-6">
@@ -434,19 +446,13 @@ export default function AttendanceReports() {
                       <TableCell>{report.department}</TableCell>
                       <TableCell>{new Date(report.date).toLocaleDateString()}</TableCell>
                       <TableCell>
-                        {report.check_in_time 
-                          ? new Date(report.check_in_time).toLocaleTimeString('en-US', { 
-                              hour: '2-digit', 
-                              minute: '2-digit' 
-                            })
+                        {report.check_in_time
+                          ? new Date(report.check_in_time).toLocaleTimeString('en-US', { hour12: true })
                           : '-'}
                       </TableCell>
                       <TableCell>
-                        {report.check_out_time 
-                          ? new Date(report.check_out_time).toLocaleTimeString('en-US', { 
-                              hour: '2-digit', 
-                              minute: '2-digit' 
-                            })
+                        {report.check_out_time
+                          ? new Date(report.check_out_time).toLocaleTimeString('en-US', { hour12: true })
                           : '-'}
                       </TableCell>
                       <TableCell>
@@ -486,9 +492,9 @@ export default function AttendanceReports() {
             </div>
             <div className="space-y-2">
               <Label>Date</Label>
-              <Input 
-                value={editingRecord?.date ? new Date(editingRecord.date).toLocaleDateString() : ''} 
-                disabled 
+              <Input
+                value={editingRecord?.date ? new Date(editingRecord.date).toLocaleDateString() : ''}
+                disabled
               />
             </div>
             <div className="space-y-2">

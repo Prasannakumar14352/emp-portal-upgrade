@@ -40,6 +40,11 @@ class DashboardService {
     return apiClient.get<MonthlyTrend[]>(`/dashboard/hr/trends${yearParam}`);
   }
 
+  async getHRInsights(year?: number): Promise<any> {
+    const yearParam = year ? `?year=${year}` : '';
+    return apiClient.get(`/dashboard/hr/insights${yearParam}`);
+  }
+
   async getLeaveTypeDistribution(year?: number): Promise<LeaveTypeDistribution[]> {
     const yearParam = year ? `?year=${year}` : '';
     return apiClient.get<LeaveTypeDistribution[]>(`/dashboard/hr/leave-types${yearParam}`);

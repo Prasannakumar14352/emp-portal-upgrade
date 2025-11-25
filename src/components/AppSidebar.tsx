@@ -72,7 +72,8 @@ export function AppSidebar() {
 
   const isActive = (path: string) => {
     if (path === "/") return currentPath === "/";
-    return currentPath.startsWith(path);
+    // return currentPath.startsWith(path);
+    return currentPath === path;
   };
 
   const isHROrManager = role === "hr" || role === "manager";

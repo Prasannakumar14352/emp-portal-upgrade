@@ -378,13 +378,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
     // Check if requesting user has HR/Manager role using auth token
     const userRoles = Array.isArray(req.user.roles) ? req.user.roles : (req.user.role ? [req.user.role] : ['employee']);
     const isHROrManager = userRoles.some(role => role === 'hr' || role === 'manager');
-    
-    console.log('[Attendance Update] Auth check:', { 
-      requestingUserRoles: userRoles, 
-      isHROrManager,
-      recordEmployeeId: record.employee_id,
-      requestUserId: userId
-    });
+  
     
     // Get the date difference
     const recordDate = new Date(record.date);
@@ -758,7 +752,7 @@ router.get('/summary/:userId', authenticateToken, async (req, res) => {
     
     // Get daily attendance for the month
     const dailyResult = await pool.request()
-      .input('userId', sql.VarChar, userId)
+      .input('userId', sql.Int, userId)
       .input('month', sql.Int, targetMonth)
       .input('year', sql.Int, targetYear)
       .query(`
@@ -769,7 +763,7 @@ router.get('/summary/:userId', authenticateToken, async (req, res) => {
           check_in_time,
           check_out_time
         FROM attendance_records
-        WHERE user_id = @userId
+        WHERE employee_id = @userId
           AND MONTH(date) = @month
           AND YEAR(date) = @year
         ORDER BY date ASC
@@ -777,7 +771,7 @@ router.get('/summary/:userId', authenticateToken, async (req, res) => {
 
     // Get status breakdown
     const statusResult = await pool.request()
-      .input('userId', sql.VarChar, userId)
+      .input('userId', sql.Int, userId)
       .input('month', sql.Int, targetMonth)
       .input('year', sql.Int, targetYear)
       .query(`
@@ -785,7 +779,7 @@ router.get('/summary/:userId', authenticateToken, async (req, res) => {
           status,
           COUNT(*) as count
         FROM attendance_records
-        WHERE user_id = @userId
+        WHERE employee_id = @userId
           AND MONTH(date) = @month
           AND YEAR(date) = @year
         GROUP BY status
@@ -793,14 +787,14 @@ router.get('/summary/:userId', authenticateToken, async (req, res) => {
 
     // Get average work hours per day
     const avgHoursResult = await pool.request()
-      .input('userId', sql.VarChar, userId)
+      .input('userId', sql.Int, userId)
       .input('month', sql.Int, targetMonth)
       .input('year', sql.Int, targetYear)
       .query(`
         SELECT 
           AVG(CAST(work_hours AS FLOAT)) as avg_hours
         FROM attendance_records
-        WHERE user_id = @userId
+        WHERE employee_id = @userId
           AND MONTH(date) = @month
           AND YEAR(date) = @year
           AND work_hours IS NOT NULL
@@ -808,14 +802,14 @@ router.get('/summary/:userId', authenticateToken, async (req, res) => {
 
     // Get total work hours
     const totalHoursResult = await pool.request()
-      .input('userId', sql.VarChar, userId)
+      .input('userId', sql.Int, userId)
       .input('month', sql.Int, targetMonth)
       .input('year', sql.Int, targetYear)
       .query(`
         SELECT 
           SUM(CAST(work_hours AS FLOAT)) as total_hours
         FROM attendance_records
-        WHERE user_id = @userId
+        WHERE employee_id = @userId
           AND MONTH(date) = @month
           AND YEAR(date) = @year
           AND work_hours IS NOT NULL
@@ -823,11 +817,11 @@ router.get('/summary/:userId', authenticateToken, async (req, res) => {
 
     // Get user info
     const userResult = await pool.request()
-      .input('userId', sql.VarChar, userId)
+      .input('userId', sql.Int, userId)
       .query(`
         SELECT full_name, email, department, position
         FROM profiles
-        WHERE id = @userId
+        WHERE employee_id = @userId
       `);
 
     res.json({

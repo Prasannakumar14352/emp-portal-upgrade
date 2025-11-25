@@ -9,16 +9,16 @@ router.get('/employee/:userId', authenticateToken, async (req, res) => {
   try {
     const { userId } = req.params;
     const userIdInt = parseInt(userId);
-    
+
     console.log(`[Dashboard] Getting employee dashboard for user ${userId}`);
-    
+
     // Users can only view their own dashboard unless HR/manager
     if (parseInt(req.user.id) !== userIdInt && !['hr', 'manager'].includes(req.user.role)) {
       return res.status(403).json({ error: 'Not authorized' });
     }
 
     const pool = await getConnection();
-    
+
     // Get leave balance
     console.log('[Dashboard] Querying leave_balances table');
     const leaveBalanceResult = await pool.request()
@@ -29,7 +29,7 @@ router.get('/employee/:userId', authenticateToken, async (req, res) => {
         FROM leave_balances
         WHERE employee_id = @employee_id AND year = @year
       `);
-    
+
     // Get pending approvals count
     console.log('[Dashboard] Querying leaves table for pending count');
     const pendingResult = await pool.request()
@@ -39,7 +39,7 @@ router.get('/employee/:userId', authenticateToken, async (req, res) => {
         FROM leaves
         WHERE employee_id = @employee_id AND status = 'Pending'
       `);
-    
+
     // Get payslips count
     console.log('[Dashboard] Querying payslips table');
     const payslipsResult = await pool.request()
@@ -66,7 +66,7 @@ router.get('/employee/:userId', authenticateToken, async (req, res) => {
       lineNumber: err.lineNumber,
       state: err.state
     });
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to get dashboard stats',
       details: err.message
     });
@@ -77,7 +77,7 @@ router.get('/employee/:userId', authenticateToken, async (req, res) => {
 router.get('/hr/stats', authenticateToken, authorizeRole('hr', 'manager'), async (req, res) => {
   try {
     const pool = await getConnection();
-    
+
     const result = await pool.request()
       .query(`
         SELECT 
@@ -91,8 +91,8 @@ router.get('/hr/stats', authenticateToken, authorizeRole('hr', 'manager'), async
     const stats = result.recordset[0];
     const approved = stats.approved_requests || 0;
     const rejected = stats.rejected_requests || 0;
-    const approvalRate = (approved + rejected) > 0 
-      ? Math.round((approved / (approved + rejected)) * 100) 
+    const approvalRate = (approved + rejected) > 0
+      ? Math.round((approved / (approved + rejected)) * 100)
       : 0;
 
     res.json({
@@ -108,14 +108,74 @@ router.get('/hr/stats', authenticateToken, authorizeRole('hr', 'manager'), async
   }
 });
 
-// GET /api/dashboard/hr/trends - Get monthly leave trends
+router.get('/hr/insights', authenticateToken, authorizeRole('hr', 'manager'), async (req, res) => {
+  try {
+    const year = req.query.year || new Date().getFullYear();
+    const pool = await getConnection();
+
+    // 1. Average Processing Time (in days)
+    const avgTimeResult = await pool.request()
+      .input("year", sql.Int, year)
+      .query(`
+        SELECT 
+          AVG(DATEDIFF(day, created_at, updated_at)) AS avg_processing_time
+        FROM leaves
+        WHERE status IN ('Approved', 'Rejected')
+          AND YEAR(created_at) = @year
+      `);
+
+    const avgProcessingTime = avgTimeResult.recordset[0]?.avg_processing_time || 0;
+
+    // 2. Most Common Leave Type
+    const leaveTypeResult = await pool.request()
+      .input("year", sql.Int, year)
+      .query(`
+        SELECT TOP 1 
+          leave_type,
+          COUNT(*) AS count
+        FROM leaves
+        WHERE YEAR(created_at) = @year
+        GROUP BY leave_type
+        ORDER BY count DESC
+      `);
+
+    const mostCommonLeaveType = leaveTypeResult.recordset[0]?.leave_type || "N/A";
+
+    // 3. Peak Request Month
+    const peakMonthResult = await pool.request()
+      .input("year", sql.Int, year)
+      .query(`
+        SELECT TOP 1 
+          DATENAME(MONTH, created_at) AS month,
+          COUNT(*) AS total
+        FROM leaves
+        WHERE YEAR(created_at) = @year
+        GROUP BY MONTH(created_at), DATENAME(MONTH, created_at)
+        ORDER BY total DESC
+      `);
+
+    const peakMonth = peakMonthResult.recordset[0]?.month || "N/A";
+
+    res.json({
+      avg_processing_time: Number(avgProcessingTime).toFixed(1),
+      most_common_leave_type: mostCommonLeaveType,
+      peak_month: peakMonth
+    });
+
+  } catch (err) {
+    console.error("Get HR insights error:", err);
+    res.status(500).json({ error: "Failed to get HR insights" });
+  }
+});
+
+// GET /api/dashboard/hr/trends - Get monthly leave request trends
 router.get('/hr/trends', authenticateToken, authorizeRole('hr', 'manager'), async (req, res) => {
   try {
     const { year } = req.query;
     const targetYear = year || new Date().getFullYear();
-    
+
     const pool = await getConnection();
-    
+
     const result = await pool.request()
       .input('year', sql.Int, targetYear)
       .query(`
@@ -141,9 +201,9 @@ router.get('/hr/leave-types', authenticateToken, authorizeRole('hr', 'manager'),
   try {
     const { year } = req.query;
     const targetYear = year || new Date().getFullYear();
-    
+
     const pool = await getConnection();
-    
+
     const result = await pool.request()
       .input('year', sql.Int, targetYear)
       .query(`
