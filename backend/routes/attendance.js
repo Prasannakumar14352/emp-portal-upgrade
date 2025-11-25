@@ -739,4 +739,110 @@ router.get('/analytics/department-comparison', authenticateToken, async (req, re
   }
 });
 
+// Get monthly attendance summary with trends
+router.get('/summary/:userId', authenticateToken, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { month, year } = req.query;
+    
+    const targetMonth = month ? parseInt(month) : new Date().getMonth() + 1;
+    const targetYear = year ? parseInt(year) : new Date().getFullYear();
+
+    // Check authorization
+    const isHROrManager = req.user.role === 'hr' || req.user.role === 'manager';
+    if (userId !== req.user.id.toString() && !isHROrManager) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const pool = await getConnection();
+    
+    // Get daily attendance for the month
+    const dailyResult = await pool.request()
+      .input('userId', sql.VarChar, userId)
+      .input('month', sql.Int, targetMonth)
+      .input('year', sql.Int, targetYear)
+      .query(`
+        SELECT 
+          CAST(date AS DATE) as date,
+          status,
+          work_hours,
+          check_in_time,
+          check_out_time
+        FROM attendance_records
+        WHERE user_id = @userId
+          AND MONTH(date) = @month
+          AND YEAR(date) = @year
+        ORDER BY date ASC
+      `);
+
+    // Get status breakdown
+    const statusResult = await pool.request()
+      .input('userId', sql.VarChar, userId)
+      .input('month', sql.Int, targetMonth)
+      .input('year', sql.Int, targetYear)
+      .query(`
+        SELECT 
+          status,
+          COUNT(*) as count
+        FROM attendance_records
+        WHERE user_id = @userId
+          AND MONTH(date) = @month
+          AND YEAR(date) = @year
+        GROUP BY status
+      `);
+
+    // Get average work hours per day
+    const avgHoursResult = await pool.request()
+      .input('userId', sql.VarChar, userId)
+      .input('month', sql.Int, targetMonth)
+      .input('year', sql.Int, targetYear)
+      .query(`
+        SELECT 
+          AVG(CAST(work_hours AS FLOAT)) as avg_hours
+        FROM attendance_records
+        WHERE user_id = @userId
+          AND MONTH(date) = @month
+          AND YEAR(date) = @year
+          AND work_hours IS NOT NULL
+      `);
+
+    // Get total work hours
+    const totalHoursResult = await pool.request()
+      .input('userId', sql.VarChar, userId)
+      .input('month', sql.Int, targetMonth)
+      .input('year', sql.Int, targetYear)
+      .query(`
+        SELECT 
+          SUM(CAST(work_hours AS FLOAT)) as total_hours
+        FROM attendance_records
+        WHERE user_id = @userId
+          AND MONTH(date) = @month
+          AND YEAR(date) = @year
+          AND work_hours IS NOT NULL
+      `);
+
+    // Get user info
+    const userResult = await pool.request()
+      .input('userId', sql.VarChar, userId)
+      .query(`
+        SELECT full_name, email, department, position
+        FROM profiles
+        WHERE id = @userId
+      `);
+
+    res.json({
+      user: userResult.recordset[0],
+      month: targetMonth,
+      year: targetYear,
+      dailyAttendance: dailyResult.recordset,
+      statusBreakdown: statusResult.recordset,
+      averageWorkHours: avgHoursResult.recordset[0]?.avg_hours || 0,
+      totalWorkHours: totalHoursResult.recordset[0]?.total_hours || 0
+    });
+  } catch (error) {
+    logError(error, req);
+    res.status(500).json({ error: 'Failed to fetch attendance summary' });
+  }
+});
+
 module.exports = router;
