@@ -182,11 +182,12 @@ export default function BulkOperations() {
       const formData = new FormData();
       formData.append('zipFile', payslipZipFile);
 
-      const response: any = await apiClient.post('/bulk/payslips/zip', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      });
+      // const response: any = await apiClient.post('/bulk/payslips/zip', formData, {
+      //   headers: {
+      //     'Content-Type': 'multipart/form-data'
+      //   }
+      // });
+      const response: any = await apiClient.post('/bulk/payslips/zip', formData);
 
       if (response.failed > 0) {
         toast.warning(

@@ -343,8 +343,7 @@ router.get('/user/:userId', authenticateToken, async (req, res) => {
       .input('employee_id', sql.Int, userIdInt)
       .query(`
         SELECT 
-          l.id, l.employee_id, l.leave_type, l.start_date, l.end_date,
-          l.days, l.reason, l.status, l.approved_by, l.created_at, l.updated_at
+          *
         FROM leaves l
         WHERE l.employee_id = @employee_id
         ORDER BY l.created_at DESC

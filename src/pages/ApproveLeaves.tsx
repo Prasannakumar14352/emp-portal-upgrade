@@ -543,7 +543,7 @@ export default function ApproveLeaves() {
           onClose={() => setModalOpen(false)}
           employeeId={selectedEmployee.employee_id ? selectedEmployee.employee_id : selectedEmployee.id}
           employeeName={selectedEmployee.user_name ? selectedEmployee.user_name : selectedEmployee.employeeName ? selectedEmployee.employeeName : "Unknown"}
-          employeeEmail={`${selectedEmployee.user_name ? selectedEmployee.user_name : selectedEmployee.employeeName ? selectedEmployee.employeeName : "Unknown"}.toLowerCase().replace(/\s+/g, '.')}@company.com`}
+          employeeEmail={`${selectedEmployee.user_email ? selectedEmployee.user_email : selectedEmployee.email ? selectedEmployee.email : ""}`}
         />
       )}
 

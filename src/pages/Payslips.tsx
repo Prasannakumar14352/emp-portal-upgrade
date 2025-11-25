@@ -186,7 +186,7 @@ export default function Payslips() {
           {previewPayslip?.file_url && (
             <div className="flex-1 overflow-hidden">
               <iframe
-                src={previewPayslip.file_url}
+                src={`${import.meta.env.API_BASE_URL}${previewPayslip.file_url}`}
                 className="w-full h-full border-0"
                 title="Payslip PDF"
               />

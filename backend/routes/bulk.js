@@ -7,11 +7,13 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs').promises;
 const JSZip = require('jszip');
+const pdfExtract = require("pdf-extraction");
+
 
 const router = express.Router();
 
 // Configure multer for file uploads
-const upload = multer({ 
+const upload = multer({
   dest: 'uploads/temp/',
   limits: { fileSize: 100 * 1024 * 1024 } // 100MB limit
 });
@@ -29,11 +31,72 @@ const ensureDirectories = async () => {
 };
 ensureDirectories();
 
+function extractAmount(line) {
+  // Extract ₹ and number
+  const match = line.match(/₹\s*([\d,]+\.\d{2})/);
+  return match ? parseFloat(match[1].replace(/,/g, "")) : 0;
+}
+
+async function extractPdfText(buffer) {
+  const data = await pdfExtract(buffer);
+  return data.text;
+}
+
+async function extractPayslipData(pdfBuffer) {
+  const text = await extractPdfText(pdfBuffer);
+  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+
+  console.log("======== PDF CONTENT START ========");
+  console.log(text);
+  console.log("======== PDF CONTENT END ==========");
+
+  let basic_salary = 0;
+  let allowances = 0;
+  let deductions = 0;
+  let net_salary = 0;
+
+  for (let line of lines) {
+
+    // BASIC
+    if (/^1Basic/i.test(line)) {
+      basic_salary = extractAmount(line);
+    }
+
+    // ALLOWANCES (all except Basic)
+    if (
+      /^(2|3|4|5|6)/.test(line) &&  // row numbers 2–6
+      !line.includes("Deduction") &&
+      !line.includes("Provident") &&
+      !line.includes("Professional") &&
+      !line.includes("Income Tax")
+    ) {
+      allowances += extractAmount(line);
+    }
+
+    // TOTAL DEDUCTIONS
+    if (/Total Deduction/i.test(line)) {
+      deductions = extractAmount(line);
+    }
+
+    // NET PAY
+    if (/Net Pay/i.test(line)) {
+      net_salary = extractAmount(line);
+    }
+  }
+
+  return {
+    basic_salary,
+    allowances,
+    deductions,
+    net_salary
+  };
+}
+
 /* ---------------------------------------------------------
    BULK USER CREATION
 --------------------------------------------------------- */
-router.post('/users', 
-  authenticateToken, 
+router.post('/users',
+  authenticateToken,
   authorizeRole('hr', 'manager'),
   [
     body('users').isArray({ min: 1 }),
@@ -47,7 +110,7 @@ router.post('/users',
   async (req, res) => {
     const pool = await getConnection();
     const transaction = pool.transaction();
-    
+
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
@@ -63,7 +126,7 @@ router.post('/users',
       for (const userData of users) {
         try {
           const { email, full_name, department, position, phone, role, password } = userData;
-          
+
           // Check if user exists
           const existingUser = await transaction.request()
             .input('email', sql.NVarChar, email)
@@ -125,9 +188,9 @@ router.post('/users',
 
         } catch (userError) {
           console.error(`Failed to create user ${userData.email}:`, userError);
-          failedUsers.push({ 
-            email: userData.email, 
-            reason: userError.message 
+          failedUsers.push({
+            email: userData.email,
+            reason: userError.message
           });
         }
       }
@@ -348,7 +411,7 @@ router.post('/payslips/zip',
   upload.single('zipFile'),
   async (req, res) => {
     const pool = await getConnection();
-    
+
     try {
       if (!req.file) {
         return res.status(400).json({ error: 'No ZIP file provided' });
@@ -383,7 +446,7 @@ router.post('/payslips/zip',
         try {
           // Parse filename: "IST Salary Slip Month Of Apr-2024_Singamsetty Prasanna Kumar.pdf"
           const match = fileName.match(/Month Of (.+?)-(\d{4})_(.+)\.pdf/i);
-          
+
           if (!match) {
             failures.push({ fileName, reason: 'Invalid filename format' });
             failedCount++;
@@ -406,19 +469,19 @@ router.post('/payslips/zip',
             continue;
           }
 
-          // Get PDF buffer
-          const pdfBuffer = await zipContent.files[fileName].async('nodebuffer');
-          
+          const pdfBuffer = await zipContent.files[fileName].async("nodebuffer");
+          const { basic_salary, allowances, deductions, net_salary } = await extractPayslipData(pdfBuffer);
+
           // Save PDF to local storage
           const employeeDir = path.join('uploads/payslips', employee.employee_id.toString());
           await fs.mkdir(employeeDir, { recursive: true });
-          
+
           const pdfFileName = `${year}-${month}.pdf`;
           const pdfPath = path.join(employeeDir, pdfFileName);
           await fs.writeFile(pdfPath, pdfBuffer);
 
           // Create file URL (relative path)
-          const fileUrl = `/uploads/payslips/${employee.employee_id}/${pdfFileName}`;
+          const fileUrl = `/uploads/payslips/${employee.employee_id}/${year}/${pdfFileName}`;
 
           // Check if payslip exists
           const existingPayslip = await pool.request()
@@ -439,10 +502,10 @@ router.post('/payslips/zip',
               .input('employee_id', sql.Int, employee.employee_id)
               .input('month', sql.NVarChar, month)
               .input('year', sql.Int, year)
-              .input('basic_salary', sql.Decimal(10, 2), 0)
-              .input('allowances', sql.Decimal(10, 2), 0)
-              .input('deductions', sql.Decimal(10, 2), 0)
-              .input('net_salary', sql.Decimal(10, 2), 0)
+              .input('basic_salary', sql.Decimal(10, 2), basic_salary)
+              .input('allowances', sql.Decimal(10, 2), allowances)
+              .input('deductions', sql.Decimal(10, 2), deductions)
+              .input('net_salary', sql.Decimal(10, 2), net_salary)
               .input('file_url', sql.NVarChar, fileUrl)
               .query(`
                 INSERT INTO payslips (employee_id, month, year, basic_salary, allowances, deductions, net_salary, file_url, created_at)
@@ -451,11 +514,11 @@ router.post('/payslips/zip',
           }
 
           successCount++;
-          uploadedPayslips.push({ 
+          uploadedPayslips.push({
             employeeId: employee.employee_id,
             email: employee.email,
-            month, 
-            year 
+            month,
+            year
           });
 
         } catch (error) {
