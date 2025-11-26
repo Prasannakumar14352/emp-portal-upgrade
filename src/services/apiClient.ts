@@ -93,7 +93,11 @@ class APIClient {
     return this.request<T>(endpoint, {
       ...options,
       method: 'PUT',
-      body: JSON.stringify(data)
+      body: JSON.stringify(data),
+      headers: {
+        ...(options?.headers || {}),
+        'Content-Type': 'application/json'
+      }
     });
   }
 }
