@@ -17,7 +17,7 @@ import { useAuth } from "@/hooks/useAuth";
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { supabase } from "@/integrations/supabase/client";
+
 
 interface AttendanceReport {
   id: string;
@@ -113,29 +113,34 @@ export default function AttendanceReports() {
 
   const loadEmployees = async () => {
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('employee_id, full_name')
-        .order('full_name');
-      
-      if (error) throw error;
-      setEmployees(data || []);
+      const response = await apiClient.get<Array<{ employee_id: number; full_name: string }>>('/employees');
+      const employeeList = response.map((emp: any) => ({
+        employee_id: emp.employee_id,
+        full_name: emp.full_name
+      }));
+      setEmployees(employeeList);
     } catch (error) {
       console.error('Failed to load employees:', error);
+      toast.error('Failed to load employees list');
     }
   };
 
   const loadUserEmployeeId = async () => {
     try {
-      if (!user?.id) return;
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('employee_id')
-        .eq('id', user.id)
-        .single();
+      const storedUser = localStorage.getItem('user');
+      if (!storedUser) {
+        console.error('No user found in localStorage');
+        return;
+      }
       
-      if (error) throw error;
-      setUserEmployeeId(data?.employee_id || null);
+      const userData = JSON.parse(storedUser);
+      if (!userData?.id) {
+        console.error('User ID not found');
+        return;
+      }
+
+      const profile = await apiClient.get<{ employee_id: number }>(`/users/${userData.id}/profile`);
+      setUserEmployeeId(profile.employee_id || null);
     } catch (error) {
       console.error('Failed to load user employee ID:', error);
     }
