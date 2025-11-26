@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Calendar, Download, Filter, Loader2, Search, FileText, Pencil } from "lucide-react";
+import { Calendar, Download, Filter, Loader2, Search, FileText, Pencil, Plus } from "lucide-react";
 import { apiClient } from "@/services/apiClient";
 import { toast } from "sonner";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -17,6 +17,7 @@ import { useAuth } from "@/hooks/useAuth";
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { supabase } from "@/integrations/supabase/client";
 
 interface AttendanceReport {
   id: string;
@@ -49,6 +50,19 @@ export default function AttendanceReports() {
     notes: ''
   });
 
+  // Create dialog state
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [employees, setEmployees] = useState<Array<{ employee_id: number; full_name: string }>>([]);
+  const [createForm, setCreateForm] = useState({
+    employeeId: '',
+    date: new Date().toISOString().split('T')[0],
+    checkInTime: '',
+    checkOutTime: '',
+    status: 'present',
+    notes: ''
+  });
+  const [userEmployeeId, setUserEmployeeId] = useState<number | null>(null);
+
   // Role access check - show message instead of redirecting
   if (role && role !== 'hr' && role !== 'manager') {
     return (
@@ -69,6 +83,8 @@ export default function AttendanceReports() {
 
   useEffect(() => {
     loadDepartments();
+    loadEmployees();
+    loadUserEmployeeId();
     // Set default date range (current month)
     const today = new Date();
     const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -92,6 +108,36 @@ export default function AttendanceReports() {
       setDepartments(response.departments || []);
     } catch (error) {
       console.error('Failed to load departments:', error);
+    }
+  };
+
+  const loadEmployees = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('employee_id, full_name')
+        .order('full_name');
+      
+      if (error) throw error;
+      setEmployees(data || []);
+    } catch (error) {
+      console.error('Failed to load employees:', error);
+    }
+  };
+
+  const loadUserEmployeeId = async () => {
+    try {
+      if (!user?.id) return;
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('employee_id')
+        .eq('id', user.id)
+        .single();
+      
+      if (error) throw error;
+      setUserEmployeeId(data?.employee_id || null);
+    } catch (error) {
+      console.error('Failed to load user employee ID:', error);
     }
   };
 
@@ -245,26 +291,66 @@ export default function AttendanceReports() {
   }
 
   const handleUpdateAttendance = async () => {
-    if (!editingRecord || !user) return;
+    if (!editingRecord || !userEmployeeId) return;
 
     try {
       setLoading(true);
       const checkintime = editForm.checkInTime ? new Date(editForm.checkInTime).toISOString() : null;
       const checkouttime = editForm.checkOutTime ? new Date(editForm.checkOutTime).toISOString() : null;
-      const res = await apiClient.put(`/attendance/${editingRecord.id}`, {
+      
+      await apiClient.put(`/attendance/${editingRecord.id}`, {
         checkInTime: checkintime,
         checkOutTime: checkouttime,
         status: editForm.status,
         notes: editForm.notes,
-        userId: user.id
+        userId: userEmployeeId
       });
 
       toast.success('Attendance updated successfully');
       setEditDialogOpen(false);
-      loadReports(); // Reload the reports
+      loadReports();
     } catch (error: any) {
       console.error('Failed to update attendance:', error);
       toast.error(error.message || 'Failed to update attendance');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateAttendance = async () => {
+    if (!createForm.employeeId || !createForm.date) {
+      toast.error('Please select an employee and date');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const checkintime = createForm.checkInTime ? new Date(createForm.checkInTime).toISOString() : null;
+      const checkouttime = createForm.checkOutTime ? new Date(createForm.checkOutTime).toISOString() : null;
+
+      await apiClient.post('/attendance', {
+        userId: parseInt(createForm.employeeId),
+        date: createForm.date,
+        checkInTime: checkintime,
+        checkOutTime: checkouttime,
+        status: createForm.status,
+        notes: createForm.notes
+      });
+
+      toast.success('Attendance record created successfully');
+      setCreateDialogOpen(false);
+      setCreateForm({
+        employeeId: '',
+        date: new Date().toISOString().split('T')[0],
+        checkInTime: '',
+        checkOutTime: '',
+        status: 'present',
+        notes: ''
+      });
+      loadReports();
+    } catch (error: any) {
+      console.error('Failed to create attendance:', error);
+      toast.error(error.message || 'Failed to create attendance');
     } finally {
       setLoading(false);
     }
@@ -281,6 +367,12 @@ export default function AttendanceReports() {
           <p className="text-muted-foreground">View and analyze attendance data</p>
         </div>
         <div className="flex gap-2">
+          {role === 'hr' && (
+            <Button onClick={() => setCreateDialogOpen(true)} variant="default">
+              <Plus className="h-4 w-4 mr-2" />
+              Create Attendance
+            </Button>
+          )}
           <Button onClick={exportToPDF} variant="outline" disabled={filteredReports.length === 0}>
             <FileText className="h-4 w-4 mr-2" />
             Export to PDF
@@ -543,6 +635,87 @@ export default function AttendanceReports() {
             <Button onClick={handleUpdateAttendance} disabled={loading}>
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Update
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Dialog */}
+      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create Attendance Record</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Employee *</Label>
+              <Select value={createForm.employeeId} onValueChange={(value) => setCreateForm({ ...createForm, employeeId: value })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select employee" />
+                </SelectTrigger>
+                <SelectContent>
+                  {employees.map((emp) => (
+                    <SelectItem key={emp.employee_id} value={emp.employee_id.toString()}>
+                      {emp.full_name} (ID: {emp.employee_id})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Date *</Label>
+              <Input
+                type="date"
+                value={createForm.date}
+                onChange={(e) => setCreateForm({ ...createForm, date: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Check In Time</Label>
+              <Input
+                type="datetime-local"
+                value={createForm.checkInTime}
+                onChange={(e) => setCreateForm({ ...createForm, checkInTime: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Check Out Time</Label>
+              <Input
+                type="datetime-local"
+                value={createForm.checkOutTime}
+                onChange={(e) => setCreateForm({ ...createForm, checkOutTime: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Status</Label>
+              <Select value={createForm.status} onValueChange={(value) => setCreateForm({ ...createForm, status: value })}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="present">Present</SelectItem>
+                  <SelectItem value="late">Late</SelectItem>
+                  <SelectItem value="absent">Absent</SelectItem>
+                  <SelectItem value="half-day">Half Day</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Notes</Label>
+              <Textarea
+                value={createForm.notes}
+                onChange={(e) => setCreateForm({ ...createForm, notes: e.target.value })}
+                placeholder="Add any notes about this attendance record..."
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateAttendance} disabled={loading}>
+              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Create
             </Button>
           </DialogFooter>
         </DialogContent>
