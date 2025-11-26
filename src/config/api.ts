@@ -7,7 +7,7 @@ export const API_CONFIG = {
   
   // Local backend endpoint
   local: {
-    baseURL: 'http://localhost:3000/api',
+    baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api',
   },
   
   // Cloud backend endpoint (Lovable Cloud/Supabase)
