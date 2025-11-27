@@ -3,8 +3,13 @@ const { getConnection, sql } = require('../config/database');
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
 const nodemailer = require('nodemailer');
 const { shouldSendEmail } = require('../utils/emailHelper');
+const path = require('path');
+const fs = require('fs').promises;
 
 const router = express.Router();
+
+// Network share path from environment variable
+const NETWORK_SHARE_PATH = process.env.NETWORK_SHARE_PATH || path.join(__dirname, '../uploads/payslips');
 
 // Email transporter configuration
 const transporter = nodemailer.createTransport({
@@ -14,6 +19,43 @@ const transporter = nodemailer.createTransport({
   auth: {
     user: process.env.GMAIL_USER,
     pass: process.env.GMAIL_APP_PASSWORD
+  }
+});
+
+// GET /api/payslips/download/:employeeId/:year/:month - Download payslip file from network share
+router.get('/download/:employeeId/:year/:month', authenticateToken, async (req, res) => {
+  try {
+    const { employeeId, year, month } = req.params;
+    const employeeIdInt = parseInt(employeeId);
+    
+    // Users can only download their own payslips unless HR/manager
+    if (parseInt(req.user.id) !== employeeIdInt && !['hr', 'manager'].includes(req.user.role)) {
+      return res.status(403).json({ error: 'Not authorized' });
+    }
+
+    // Construct file path from network share
+    const filePath = path.join(NETWORK_SHARE_PATH, employeeId, year, `${month}.pdf`);
+    
+    try {
+      // Check if file exists
+      await fs.access(filePath);
+      
+      // Read file from network share
+      const fileBuffer = await fs.readFile(filePath);
+      
+      // Set headers for PDF download
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="Payslip_${month}_${year}.pdf"`);
+      
+      // Send file
+      res.send(fileBuffer);
+    } catch (fileError) {
+      console.error('File not found:', filePath, fileError);
+      return res.status(404).json({ error: 'Payslip file not found' });
+    }
+  } catch (err) {
+    console.error('Download payslip error:', err);
+    res.status(500).json({ error: 'Failed to download payslip' });
   }
 });
 
