@@ -84,7 +84,7 @@ export default function HRAttendanceDashboard() {
       setLoading(true);
       const year = currentDate.getFullYear();
       const month = currentDate.getMonth() + 1;
-      
+
       const response = await apiClient.get<EmployeeAttendance[]>(
         `/attendance/calendar?year=${year}&month=${month}${department !== 'all' ? `&department=${department}` : ''}`
       );
@@ -121,7 +121,7 @@ export default function HRAttendanceDashboard() {
   const handleEditClick = (employee: EmployeeAttendance, date: number) => {
     const dateStr = getDateString(date);
     const attendanceRecord = employee.attendance[dateStr];
-    
+
     setEditData({
       employeeId: employee.employee_id,
       employeeName: employee.full_name,
@@ -139,52 +139,52 @@ export default function HRAttendanceDashboard() {
 
   const handleSaveAttendance = async () => {
     if (!editData) return;
-    
+
     try {
       setSaving(true);
-      
+
       // Extract original time components
-      const originalCheckInTimeStr = editData.originalCheckInTime 
+      const originalCheckInTimeStr = editData.originalCheckInTime
         ? new Date(editData.originalCheckInTime).toTimeString().slice(0, 5)
         : '';
-      const originalCheckOutTimeStr = editData.originalCheckOutTime 
+      const originalCheckOutTimeStr = editData.originalCheckOutTime
         ? new Date(editData.originalCheckOutTime).toTimeString().slice(0, 5)
         : '';
-      
+
       // Get the final check-in and check-out times (either edited or original)
       const finalCheckInTime = editData.checkInTime || originalCheckInTimeStr;
       const finalCheckOutTime = editData.checkOutTime || originalCheckOutTimeStr;
-      
+
       // Validate 9-hour work requirement for present status
       if (editData.status === 'present' && finalCheckInTime && finalCheckOutTime) {
         const [checkInHours, checkInMinutes] = finalCheckInTime.split(':').map(Number);
         const [checkOutHours, checkOutMinutes] = finalCheckOutTime.split(':').map(Number);
-        
+
         const checkInDate = new Date();
         checkInDate.setHours(checkInHours, checkInMinutes, 0, 0);
-        
+
         const checkOutDate = new Date();
         checkOutDate.setHours(checkOutHours, checkOutMinutes, 0, 0);
-        
+
         const diffInMs = checkOutDate.getTime() - checkInDate.getTime();
         const diffInHours = diffInMs / (1000 * 60 * 60);
-        
+
         if (diffInHours < 9) {
           toast.error(`Work hours must be at least 9 hours for present status. Current: ${diffInHours.toFixed(2)} hours`);
           setSaving(false);
           return;
         }
       }
-      
+
       // Only format times that were actually changed
       const checkInTime = editData.checkInTime && editData.checkInTime !== originalCheckInTimeStr
-        ? `${editData.date}T${editData.checkInTime}:00` 
+        ? `${editData.date}T${editData.checkInTime}:00`
         : editData.originalCheckInTime || null;
-      
+
       const checkOutTime = editData.checkOutTime && editData.checkOutTime !== originalCheckOutTimeStr
-        ? `${editData.date}T${editData.checkOutTime}:00` 
+        ? `${editData.date}T${editData.checkOutTime}:00`
         : editData.originalCheckOutTime || null;
-      
+
       if (editData.recordId) {
         // Update existing record - only send changed fields
         const updateData: any = {
@@ -192,7 +192,7 @@ export default function HRAttendanceDashboard() {
           status: editData.status,
           notes: editData.notes
         };
-        
+
         // Only include times if they were changed
         if (editData.checkInTime !== originalCheckInTimeStr) {
           updateData.checkInTime = checkInTime;
@@ -200,7 +200,7 @@ export default function HRAttendanceDashboard() {
         if (editData.checkOutTime !== originalCheckOutTimeStr) {
           updateData.checkOutTime = checkOutTime;
         }
-        
+
         await apiClient.put(`/attendance/${editData.recordId}`, updateData);
       } else {
         // Create new record
@@ -213,7 +213,7 @@ export default function HRAttendanceDashboard() {
           notes: editData.notes
         });
       }
-      
+
       toast.success('Attendance updated successfully');
       setEditDialog(false);
       setEditData(null);
@@ -229,8 +229,8 @@ export default function HRAttendanceDashboard() {
   const getStatusBadge = (status?: string, onClick?: () => void) => {
     if (!status) {
       return (
-        <Badge 
-          variant="outline" 
+        <Badge
+          variant="outline"
           className="w-8 justify-center cursor-pointer hover:bg-accent"
           onClick={onClick}
         >
@@ -238,7 +238,7 @@ export default function HRAttendanceDashboard() {
         </Badge>
       );
     }
-    
+
     const variants = {
       present: "default",
       late: "secondary",
@@ -254,8 +254,8 @@ export default function HRAttendanceDashboard() {
     } as const;
 
     return (
-      <Badge 
-        variant={variants[status as keyof typeof variants] || "outline"} 
+      <Badge
+        variant={variants[status as keyof typeof variants] || "outline"}
         className="w-8 justify-center cursor-pointer hover:opacity-80"
         onClick={onClick}
       >
@@ -275,22 +275,22 @@ export default function HRAttendanceDashboard() {
           <p className="text-muted-foreground">Calendar view of employee attendance</p>
         </div>
         <div className="flex gap-2">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={() => navigate('/attendance-reports')}
             className="flex items-center gap-2"
           >
             <FileText className="h-4 w-4" />
             Reports
           </Button>
-          <Button 
-            variant="outline" 
+          {/* <Button
+            variant="outline"
             onClick={() => navigate('/leave-calendar')}
             className="flex items-center gap-2"
           >
             <CalendarDays className="h-4 w-4" />
             Leave Calendar
-          </Button>
+          </Button> */}
         </div>
       </div>
 
@@ -332,7 +332,7 @@ export default function HRAttendanceDashboard() {
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="max-h-[60vh] overflow-auto border rounded-md">
               <table className="w-full border-collapse">
                 <thead>
                   <tr className="border-b">
@@ -420,19 +420,19 @@ export default function HRAttendanceDashboard() {
           <DialogHeader>
             <DialogTitle>Edit Attendance</DialogTitle>
           </DialogHeader>
-          
+
           {editData && (
             <div className="space-y-4 py-4">
               <div className="space-y-2">
                 <Label>Employee</Label>
                 <Input value={editData.employeeName} disabled />
               </div>
-              
+
               <div className="space-y-2">
                 <Label>Date</Label>
                 <Input value={editData.date} disabled />
               </div>
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="checkIn">Check In Time</Label>
@@ -443,7 +443,7 @@ export default function HRAttendanceDashboard() {
                     onChange={(e) => setEditData({ ...editData, checkInTime: e.target.value })}
                   />
                 </div>
-                
+
                 <div className="space-y-2">
                   <Label htmlFor="checkOut">Check Out Time</Label>
                   <Input
@@ -454,11 +454,11 @@ export default function HRAttendanceDashboard() {
                   />
                 </div>
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="status">Status</Label>
-                <Select 
-                  value={editData.status} 
+                <Select
+                  value={editData.status}
                   onValueChange={(value) => setEditData({ ...editData, status: value })}
                 >
                   <SelectTrigger id="status">
@@ -472,7 +472,7 @@ export default function HRAttendanceDashboard() {
                   </SelectContent>
                 </Select>
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="notes">Notes (Optional)</Label>
                 <Textarea
@@ -485,7 +485,7 @@ export default function HRAttendanceDashboard() {
               </div>
             </div>
           )}
-          
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditDialog(false)} disabled={saving}>
               Cancel

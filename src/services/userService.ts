@@ -46,7 +46,7 @@ class UserService {
     formData.append('avatar', imageFile);
 
     const token = localStorage.getItem('auth_token');
-    const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
+    const baseURL = import.meta.env.VITE_API_BASE_URL;
     
     const response = await fetch(`${baseURL}/users/${userId}/avatar`, {
       method: 'POST',

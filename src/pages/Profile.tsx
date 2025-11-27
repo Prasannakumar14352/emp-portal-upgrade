@@ -90,7 +90,7 @@ export default function Profile() {
       const response = await userService.uploadAvatar(user.id, blob);
       
       // Update local profile state with the backend URL
-      const baseURL = 'http://localhost:3000';
+      const baseURL = import.meta.env.VITE_API_BASE_URL;
       const fullAvatarUrl = `${baseURL}${response.avatar_url}`;
       
       setProfile(prev => prev ? { ...prev, avatar_url: fullAvatarUrl } : null);

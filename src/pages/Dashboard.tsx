@@ -37,6 +37,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (user) {
+      localStorage.setItem('user', JSON.stringify(user));
       loadDashboardData();
     }
   }, [user]);

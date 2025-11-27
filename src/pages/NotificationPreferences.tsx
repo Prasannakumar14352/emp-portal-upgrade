@@ -109,7 +109,7 @@ export default function NotificationPreferences() {
 
   const testSound = () => {
     try {
-      const audio = new Audio(`/sounds/${preferences.notification_sound}.mp3`);
+      const audio = new Audio(`/sounds/${preferences.notification_sound}.wav`);
       audio.volume = preferences.notification_volume / 100;
       audio.play().catch(err => {
         console.warn('Failed to play test sound:', err);

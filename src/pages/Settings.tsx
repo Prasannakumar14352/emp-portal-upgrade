@@ -288,7 +288,7 @@ export default function Settings() {
               />
             </div>
 
-            <div className="flex items-center justify-between">
+            {/* <div className="flex items-center justify-between">
               <div className="space-y-0.5">
                 <Label>Compact View</Label>
                 <p className="text-sm text-muted-foreground">Use compact layout for better space utilization</p>
@@ -297,7 +297,7 @@ export default function Settings() {
                 checked={preferences.compact_view}
                 onCheckedChange={(checked) => updatePreference('compact_view', checked)}
               />
-            </div>
+            </div> */}
           </CardContent>
         </Card>
 

@@ -9,7 +9,7 @@ router.get('/today', authenticateToken, async (req, res) => {
   try {
     const { userId } = req.query;
     const today = new Date().toISOString().split('T')[0];
-    
+
     const pool = await getConnection();
     const result = await pool.request()
       .input('userId', sql.Int, userId)
@@ -30,10 +30,10 @@ router.get('/today', authenticateToken, async (req, res) => {
 router.get('/stats', authenticateToken, async (req, res) => {
   try {
     const { userId, month, year } = req.query;
-    
+
     const startDate = new Date(year, month - 1, 1);
     const endDate = new Date(year, month, 0);
-    
+
     const pool = await getConnection();
     const result = await pool.request()
       .input('userId', sql.Int, userId)
@@ -52,7 +52,7 @@ router.get('/stats', authenticateToken, async (req, res) => {
       `);
 
     const stats = result.recordset[0];
-    const attendanceRate = stats.totalDays > 0 
+    const attendanceRate = stats.totalDays > 0
       ? Math.round(((stats.present + stats.late) / stats.totalDays) * 100)
       : 0;
 
@@ -73,15 +73,15 @@ router.get('/stats', authenticateToken, async (req, res) => {
 router.get('/', authenticateToken, async (req, res) => {
   try {
     const { userId, month, year } = req.query;
-    
+
     const pool = await getConnection();
     let query = `
       SELECT * FROM attendance_records 
       WHERE employee_id = @userId
     `;
-    
+
     const request = pool.request().input('userId', sql.Int, userId);
-    
+
     if (month && year) {
       const startDate = new Date(year, month - 1, 1);
       const endDate = new Date(year, month, 0);
@@ -89,9 +89,9 @@ router.get('/', authenticateToken, async (req, res) => {
       request.input('startDate', sql.Date, startDate);
       request.input('endDate', sql.Date, endDate);
     }
-    
+
     query += ` ORDER BY date DESC`;
-    
+
     const result = await request.query(query);
     res.json(result.recordset);
   } catch (error) {
@@ -104,17 +104,30 @@ router.get('/', authenticateToken, async (req, res) => {
 router.post('/', authenticateToken, async (req, res) => {
   try {
     const { userId, date, checkInTime, checkOutTime, status, notes } = req.body;
-    
+    console.log('[Attendance Create/Update] Request received:', { userId, date, checkInTime, checkOutTime, status });
+
     // Check if requesting user has HR/Manager role using auth token
-    const userRoles = Array.isArray(req.user.roles) ? req.user.roles : (req.user.role ? [req.user.role] : ['employee']);
-    const isHROrManager = userRoles.some(role => role === 'hr' || role === 'manager');
-    
+    const pool = await getConnection();
+    // Fetch user role from database
+    const roleResult = await pool.request()
+      .input('userId', sql.Int, userId)
+      .query('SELECT role FROM user_roles WHERE employee_id = @userId');  // change table/column if needed
+
+    if (roleResult.recordset.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const dbUserRole = roleResult.recordset[0].role.toLowerCase();
+    const isHROrManager = dbUserRole === 'hr' || dbUserRole === 'manager';
+
+    console.log('[Attendance Update] User roles:', dbUserRole, 'Is HR/Manager:', isHROrManager);
+
     if (!isHROrManager) {
       return res.status(403).json({ error: 'Access denied. HR/Manager role required.' });
     }
-    
-    const pool = await getConnection();
-    
+
+
+
     // Check if record exists
     const existing = await pool.request()
       .input('userId', sql.Int, userId)
@@ -123,7 +136,7 @@ router.post('/', authenticateToken, async (req, res) => {
         SELECT id FROM attendance_records 
         WHERE employee_id = @userId AND date = @date
       `);
-    
+
     // Calculate work hours if both times provided
     let workHours = null;
     if (checkInTime && checkOutTime) {
@@ -131,7 +144,7 @@ router.post('/', authenticateToken, async (req, res) => {
       const checkOut = new Date(checkOutTime);
       workHours = (checkOut - checkIn) / (1000 * 60 * 60);
     }
-    
+
     if (existing.recordset[0]) {
       // Update existing record
       await pool.request()
@@ -166,7 +179,7 @@ router.post('/', authenticateToken, async (req, res) => {
           VALUES (@userId, @date, @checkInTime, @checkOutTime, @status, @notes, @workHours)
         `);
     }
-    
+
     res.json({ message: 'Attendance record saved successfully' });
   } catch (error) {
     logError(error, req, { context: 'Error creating/updating attendance' });
@@ -180,9 +193,9 @@ router.post('/checkin', authenticateToken, async (req, res) => {
     const { userId, notes } = req.body;
     const today = new Date().toISOString().split('T')[0];
     const now = new Date();
-    
+
     const pool = await getConnection();
-    
+
     // Check if already checked in
     const existing = await pool.request()
       .input('userId', sql.Int, userId)
@@ -200,7 +213,7 @@ router.post('/checkin', authenticateToken, async (req, res) => {
     const userResult = await pool.request()
       .input('userId', sql.Int, userId)
       .query('SELECT full_name FROM profiles WHERE employee_id = @userId');
-    
+
     const userName = userResult.recordset[0]?.full_name || 'Unknown User';
 
     if (existing.recordset[0]) {
@@ -252,9 +265,9 @@ router.post('/checkout', authenticateToken, async (req, res) => {
     const { userId } = req.body;
     const today = new Date().toISOString().split('T')[0];
     const now = new Date();
-    
+
     const pool = await getConnection();
-    
+
     const existing = await pool.request()
       .input('userId', sql.Int, userId)
       .input('date', sql.Date, today)
@@ -275,7 +288,7 @@ router.post('/checkout', authenticateToken, async (req, res) => {
     const userResult = await pool.request()
       .input('userId', sql.Int, userId)
       .query('SELECT full_name FROM profiles WHERE employee_id = @userId');
-    
+
     const userName = userResult.recordset[0]?.full_name || 'Unknown User';
 
     await pool.request()
@@ -310,9 +323,9 @@ router.post('/checkout', authenticateToken, async (req, res) => {
 router.get('/analytics/stats', authenticateToken, async (req, res) => {
   try {
     const today = new Date().toISOString().split('T')[0];
-    
+
     const pool = await getConnection();
-    
+
     // Get today's stats
     const todayStats = await pool.request()
       .input('date', sql.Date, today)
@@ -325,7 +338,7 @@ router.get('/analytics/stats', authenticateToken, async (req, res) => {
         FROM attendance_records 
         WHERE date = @date
       `);
-    
+
     // Get average attendance rate for the month
     const avgStats = await pool.request()
       .query(`
@@ -360,51 +373,64 @@ router.put('/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const { userId, checkInTime, checkOutTime, notes, status } = req.body;
-    
+
     const pool = await getConnection();
-    
+
     console.log('[Attendance Update] Request received:', { id, userId, checkInTime, checkOutTime, status });
-    
+
     // Get the attendance record
     const recordResult = await pool.request()
       .input('id', sql.UniqueIdentifier, id)
       .query('SELECT * FROM attendance_records WHERE id = @id');
-    
+
+    console.log('[Attendance Update] Fetched record:', recordResult);
+
     const record = recordResult.recordset[0];
     if (!record) {
       return res.status(404).json({ error: 'Attendance record not found' });
     }
-    
-    // Check if requesting user has HR/Manager role using auth token
-    const userRoles = Array.isArray(req.user.roles) ? req.user.roles : (req.user.role ? [req.user.role] : ['employee']);
-    const isHROrManager = userRoles.some(role => role === 'hr' || role === 'manager');
-  
-    
+
+    // Fetch user role from database
+    const roleResult = await pool.request()
+      .input('userId', sql.Int, userId)
+      .query('SELECT role FROM user_roles WHERE employee_id = @userId');  // change table/column if needed
+
+    if (roleResult.recordset.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const dbUserRole = roleResult.recordset[0].role.toLowerCase();
+    const isHROrManager = dbUserRole === 'hr' || dbUserRole === 'manager';
+
+    console.log('[Attendance Update] User roles:', dbUserRole, 'Is HR/Manager:', isHROrManager);
     // Get the date difference
     const recordDate = new Date(record.date);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     recordDate.setHours(0, 0, 0, 0);
-    
+    console.log('[Attendance Update] Date comparison - Today:', today, 'Record Date:', recordDate);
     const daysDifference = Math.floor((today - recordDate) / (1000 * 60 * 60 * 24));
-    
+
     // Business logic: 
     // - HR/Manager can update any attendance anytime
     // - Employee can update only their own attendance for the previous day
     const recordEmployeeId = parseInt(record.employee_id);
     const requestUserId = parseInt(userId);
-    
+    console.log('[Attendance Update] Record Employee ID:', recordEmployeeId, 'Request User ID:', requestUserId, 'Days Difference:', daysDifference);
+
     if (!isHROrManager && recordEmployeeId !== requestUserId) {
       console.log('[Attendance Update] Permission denied - not own record');
       return res.status(403).json({ error: 'You can only update your own attendance' });
     }
-    
+
     if (!isHROrManager && daysDifference > 1) {
-      return res.status(403).json({ 
-        error: 'You can only update attendance for the previous day. Please contact HR for older records.' 
+      console.log('[Attendance Update] Permission denied - record too old');
+      return res.status(403).json({
+        error: 'You can only update attendance for the previous day. Please contact HR for older records.'
       });
     }
-    
+
+    console.log('[Attendance Update] Permission granted - proceeding with update');
     // Calculate work hours if both times provided
     let workHours = null;
     if (checkInTime && checkOutTime) {
@@ -412,7 +438,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
       const checkOut = new Date(checkOutTime);
       workHours = (checkOut - checkIn) / (1000 * 60 * 60); // hours
     }
-    
+
     // Update the record
     const updateRequest = pool.request()
       .input('id', sql.UniqueIdentifier, id)
@@ -420,7 +446,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
       .input('checkOutTime', sql.DateTime2, checkOutTime ? new Date(checkOutTime) : null)
       .input('notes', sql.NVarChar, notes || null)
       .input('workHours', sql.Decimal(5, 2), workHours);
-    
+
     let updateQuery = `
       UPDATE attendance_records 
       SET 
@@ -430,19 +456,20 @@ router.put('/:id', authenticateToken, async (req, res) => {
         work_hours = @workHours,
         updated_at = GETDATE()
     `;
-    
+
     // Allow HR/Manager to update status
     if (isHROrManager && status) {
       updateRequest.input('status', sql.NVarChar, status);
       updateQuery += ', status = @status';
     }
-    
+
     updateQuery += ' WHERE id = @id';
-    
+
     await updateRequest.query(updateQuery);
-    
+
     res.json({ message: 'Attendance updated successfully' });
   } catch (error) {
+    console.error('[Attendance Update] Error:', error);
     logError(error, req, { context: 'Error updating attendance' });
     res.status(500).json({ error: error.message });
   }
@@ -451,7 +478,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
 router.get('/analytics/departments', authenticateToken, async (req, res) => {
   try {
     const today = new Date().toISOString().split('T')[0];
-    
+
     const pool = await getConnection();
     const result = await pool.request()
       .input('date', sql.Date, today)
@@ -484,7 +511,7 @@ router.get('/analytics/trends', authenticateToken, async (req, res) => {
   try {
     const { days = 7 } = req.query;
     const daysNum = parseInt(days, 10);
-    
+
     const pool = await getConnection();
     const result = await pool.request()
       .input('days', sql.Int, daysNum)
@@ -516,25 +543,25 @@ router.get('/analytics/trends', authenticateToken, async (req, res) => {
 router.get('/calendar', authenticateToken, async (req, res) => {
   try {
     const { year, month, department } = req.query;
-    
+
     const pool = await getConnection();
-    
+
     // Get all employees with optional department filter
     let employeeQuery = 'SELECT employee_id, full_name, department FROM profiles WHERE status = \'Active\'';
     const request = pool.request();
-    
+
     if (department && department !== 'all') {
       employeeQuery += ' AND department = @department';
       request.input('department', sql.NVarChar, department);
     }
-    
+
     const employeesResult = await request.query(employeeQuery);
     const employees = employeesResult.recordset;
-    
+
     // Get attendance records for the month
     const startDate = new Date(parseInt(year), parseInt(month) - 1, 1);
     const endDate = new Date(parseInt(year), parseInt(month), 0);
-    
+
     const attendanceResult = await pool.request()
       .input('startDate', sql.Date, startDate)
       .input('endDate', sql.Date, endDate)
@@ -550,7 +577,7 @@ router.get('/calendar', authenticateToken, async (req, res) => {
         FROM attendance_records
         WHERE date >= @startDate AND date <= @endDate
       `);
-    
+
     // Organize attendance by user and date
     const attendanceMap = {};
     attendanceResult.recordset.forEach(record => {
@@ -565,7 +592,7 @@ router.get('/calendar', authenticateToken, async (req, res) => {
         id: record.id
       };
     });
-    
+
     // Combine employee and attendance data
     const result = employees.map(emp => ({
       employee_id: emp.employee_id,
@@ -573,7 +600,7 @@ router.get('/calendar', authenticateToken, async (req, res) => {
       department: emp.department,
       attendance: attendanceMap[emp.employee_id] || {}
     }));
-    
+
     res.json(result);
   } catch (error) {
     logError(error, req, { context: 'Error fetching calendar attendance', year, month, department });
@@ -585,7 +612,7 @@ router.get('/calendar', authenticateToken, async (req, res) => {
 router.get('/reports', authenticateToken, async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
-    
+
     const pool = await getConnection();
     const result = await pool.request()
       .input('startDate', sql.Date, startDate)
@@ -607,7 +634,7 @@ router.get('/reports', authenticateToken, async (req, res) => {
         WHERE ar.date >= @startDate AND ar.date <= @endDate
         ORDER BY ar.date DESC, e.full_name
       `);
-    
+
     res.json(result.recordset);
   } catch (error) {
     logError(error, req, { context: 'Error fetching attendance reports', startDate, endDate });
@@ -620,9 +647,9 @@ router.get('/analytics/late-patterns', authenticateToken, async (req, res) => {
   try {
     const { days = 30 } = req.query;
     const daysNum = parseInt(days, 10);
-    
+
     const pool = await getConnection();
-    
+
     // Get employees with most late arrivals
     const lateEmployees = await pool.request()
       .input('days', sql.Int, daysNum)
@@ -639,7 +666,7 @@ router.get('/analytics/late-patterns', authenticateToken, async (req, res) => {
         GROUP BY e.full_name, e.department
         ORDER BY late_count DESC
       `);
-    
+
     // Get late patterns by hour
     const hourlyPattern = await pool.request()
       .input('days', sql.Int, daysNum)
@@ -654,7 +681,7 @@ router.get('/analytics/late-patterns', authenticateToken, async (req, res) => {
         GROUP BY DATEPART(HOUR, check_in_time)
         ORDER BY hour
       `);
-    
+
     // Get late patterns by day of week
     const weekdayPattern = await pool.request()
       .input('days', sql.Int, daysNum)
@@ -670,7 +697,7 @@ router.get('/analytics/late-patterns', authenticateToken, async (req, res) => {
         GROUP BY DATENAME(WEEKDAY, date), DATEPART(WEEKDAY, date)
         ORDER BY day_number
       `);
-    
+
     // Get department-wise late statistics
     const departmentLate = await pool.request()
       .input('days', sql.Int, daysNum)
@@ -687,7 +714,7 @@ router.get('/analytics/late-patterns', authenticateToken, async (req, res) => {
         GROUP BY e.department
         ORDER BY late_count DESC
       `);
-    
+
     res.json({
       topLateEmployees: lateEmployees.recordset,
       hourlyPattern: hourlyPattern.recordset,
@@ -705,7 +732,7 @@ router.get('/analytics/department-comparison', authenticateToken, async (req, re
   try {
     const { days = 30 } = req.query;
     const daysNum = parseInt(days, 10);
-    
+
     const pool = await getConnection();
     const result = await pool.request()
       .input('days', sql.Int, daysNum)
@@ -725,7 +752,7 @@ router.get('/analytics/department-comparison', authenticateToken, async (req, re
         GROUP BY e.department
         ORDER BY attendance_rate DESC
       `);
-    
+
     res.json(result.recordset);
   } catch (error) {
     logError(error, req, { context: 'Error fetching department comparison', days });
@@ -738,7 +765,7 @@ router.get('/summary/:userId', authenticateToken, async (req, res) => {
   try {
     const { userId } = req.params;
     const { month, year } = req.query;
-    
+
     const targetMonth = month ? parseInt(month) : new Date().getMonth() + 1;
     const targetYear = year ? parseInt(year) : new Date().getFullYear();
 
@@ -749,7 +776,7 @@ router.get('/summary/:userId', authenticateToken, async (req, res) => {
     }
 
     const pool = await getConnection();
-    
+
     // Get daily attendance for the month
     const dailyResult = await pool.request()
       .input('userId', sql.Int, userId)
