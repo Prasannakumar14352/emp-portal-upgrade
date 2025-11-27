@@ -12,6 +12,9 @@ const pdfExtract = require("pdf-extraction");
 
 const router = express.Router();
 
+// Network share path from environment variable (fallback to local uploads)
+const NETWORK_SHARE_PATH = process.env.NETWORK_SHARE_PATH || path.join(__dirname, '../uploads/payslips');
+
 // Configure multer for file uploads
 const upload = multer({
   dest: 'uploads/temp/',
@@ -20,7 +23,7 @@ const upload = multer({
 
 // Ensure directories exist
 const ensureDirectories = async () => {
-  const dirs = ['uploads/temp', 'uploads/payslips'];
+  const dirs = ['uploads/temp', NETWORK_SHARE_PATH];
   for (const dir of dirs) {
     try {
       await fs.mkdir(dir, { recursive: true });
@@ -472,16 +475,16 @@ router.post('/payslips/zip',
           const pdfBuffer = await zipContent.files[fileName].async("nodebuffer");
           const { basic_salary, allowances, deductions, net_salary } = await extractPayslipData(pdfBuffer);
 
-          // Save PDF to local storage
-          const employeeDir = path.join('uploads/payslips', employee.employee_id.toString());
+          // Save PDF to network share
+          const employeeDir = path.join(NETWORK_SHARE_PATH, employee.employee_id.toString(), year.toString());
           await fs.mkdir(employeeDir, { recursive: true });
 
-          const pdfFileName = `${year}-${month}.pdf`;
+          const pdfFileName = `${month}.pdf`;
           const pdfPath = path.join(employeeDir, pdfFileName);
           await fs.writeFile(pdfPath, pdfBuffer);
 
-          // Create file URL (relative path)
-          const fileUrl = `/uploads/payslips/${employee.employee_id}/${year}/${pdfFileName}`;
+          // Store relative path in database (employee_id/year/month.pdf)
+          const fileUrl = `${employee.employee_id}/${year}/${pdfFileName}`;
 
           // Check if payslip exists
           const existingPayslip = await pool.request()

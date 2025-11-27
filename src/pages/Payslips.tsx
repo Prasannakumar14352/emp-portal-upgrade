@@ -14,7 +14,7 @@ export default function Payslips() {
   const [payslips, setPayslips] = useState<Payslip[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [previewPayslip, setPreviewPayslip] = useState<Payslip | null>(null);
+  const [previewPayslip, setPreviewPayslip] = useState<(Payslip & { previewUrl?: string }) | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -35,17 +35,52 @@ export default function Payslips() {
     }
   };
 
-  const handleDownload = (payslip: Payslip) => {
+  const handleDownload = async (payslip: Payslip) => {
     if (payslip.file_url) {
-      window.open(payslip.file_url, '_blank');
+      try {
+        const blob = await payslipService.downloadPayslip(
+          payslip.employee_id, 
+          payslip.year, 
+          payslip.month
+        );
+        
+        // Create download link
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Payslip_${payslip.month}_${payslip.year}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        
+        toast.success('Payslip downloaded successfully');
+      } catch (error) {
+        console.error('Failed to download payslip:', error);
+        toast.error('Failed to download payslip');
+      }
     } else {
-      toast.info(`Downloading payslip for ${payslip.month} ${payslip.year}`);
+      toast.info(`No PDF available for ${payslip.month} ${payslip.year}`);
     }
   };
 
-  const handleView = (payslip: Payslip) => {
+  const handleView = async (payslip: Payslip) => {
     if (payslip.file_url) {
-      setPreviewPayslip(payslip);
+      try {
+        const blob = await payslipService.downloadPayslip(
+          payslip.employee_id, 
+          payslip.year, 
+          payslip.month
+        );
+        
+        // Create object URL for preview
+        const url = window.URL.createObjectURL(blob);
+        const payslipWithUrl = { ...payslip, previewUrl: url };
+        setPreviewPayslip(payslipWithUrl as any);
+      } catch (error) {
+        console.error('Failed to load payslip preview:', error);
+        toast.error('Failed to load payslip preview');
+      }
     } else {
       toast.info(`No PDF available for ${payslip.month} ${payslip.year}`);
     }
@@ -176,17 +211,22 @@ export default function Payslips() {
       </Card>
 
       {/* PDF Preview Dialog */}
-      <Dialog open={!!previewPayslip} onOpenChange={() => setPreviewPayslip(null)}>
+      <Dialog open={!!previewPayslip} onOpenChange={() => {
+        if (previewPayslip?.previewUrl) {
+          window.URL.revokeObjectURL(previewPayslip.previewUrl);
+        }
+        setPreviewPayslip(null);
+      }}>
         <DialogContent className="max-w-4xl h-[90vh]">
           <DialogHeader>
             <DialogTitle>
               Payslip - {previewPayslip?.month} {previewPayslip?.year}
             </DialogTitle>
           </DialogHeader>
-          {previewPayslip?.file_url && (
+          {previewPayslip?.previewUrl && (
             <div className="flex-1 overflow-hidden">
               <iframe
-                src={`${import.meta.env.API_BASE_URL}${previewPayslip.file_url}`}
+                src={previewPayslip.previewUrl}
                 className="w-full h-full border-0"
                 title="Payslip PDF"
               />

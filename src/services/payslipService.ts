@@ -48,6 +48,20 @@ class PayslipService {
   async deletePayslip(id: string): Promise<void> {
     return apiClient.delete(`/payslips/${id}`);
   }
+
+  async downloadPayslip(employeeId: string, year: number, month: string): Promise<Blob> {
+    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/payslips/download/${employeeId}/${year}/${month}`, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to download payslip');
+    }
+    
+    return response.blob();
+  }
 }
 
 export const payslipService = new PayslipService();
