@@ -6,6 +6,7 @@ const socketIO = require('socket.io');
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./config/swagger');
 const { logError, logInfo, logWarning, clearOldLogs } = require('./utils/logger');
+const { ensureNetworkShareStructure, logValidationResult } = require('./utils/networkShareValidator');
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
 const leaveRoutes = require('./routes/leaves');
@@ -200,9 +201,35 @@ app.get('/', (req, res) => {
   });
 });
 
-// Health check endpoint
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', message: 'Backend server is running' });
+// Health check endpoint with network share status
+app.get('/api/health', async (req, res) => {
+  const health = {
+    status: 'ok',
+    message: 'Backend server is running',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  };
+  
+  // Include network share status if configured
+  const networkSharePath = process.env.NETWORK_SHARE_PATH;
+  if (networkSharePath && networkSharePath.trim() !== '') {
+    const { ensureNetworkShareStructure } = require('./utils/networkShareValidator');
+    const validation = await ensureNetworkShareStructure(networkSharePath);
+    
+    health.networkShare = {
+      configured: true,
+      path: networkSharePath,
+      accessible: validation.success,
+      message: validation.message
+    };
+  } else {
+    health.networkShare = {
+      configured: false,
+      message: 'Network share path not configured'
+    };
+  }
+  
+  res.json(health);
 });
 
 // Error handling middleware
@@ -224,8 +251,48 @@ app.use((req, res) => {
   res.status(404).json({ error: 'Endpoint not found' });
 });
 
+// Validate network share on startup
+async function validateNetworkShareOnStartup() {
+  const networkSharePath = process.env.NETWORK_SHARE_PATH;
+  
+  if (!networkSharePath || networkSharePath.trim() === '') {
+    console.warn('\n⚠️  WARNING: NETWORK_SHARE_PATH not configured in .env');
+    console.warn('   Payslips will be saved to local backend folder instead.');
+    console.warn('   Set NETWORK_SHARE_PATH in .env to use network storage.\n');
+    
+    logWarning('Network share path not configured', {
+      env: 'NETWORK_SHARE_PATH',
+      fallback: 'local backend folder'
+    });
+    
+    return;
+  }
+  
+  console.log('\nValidating network share connection...');
+  const result = await ensureNetworkShareStructure(networkSharePath);
+  
+  logValidationResult(result);
+  
+  if (result.success) {
+    logInfo('Network share validation successful', result.details);
+  } else {
+    logError(new Error('Network share validation failed'), null, {
+      message: result.message,
+      details: result.details
+    });
+    
+    console.error('\n❌ CRITICAL: Network share validation failed!');
+    console.error('   Payslip uploads may fail until this is resolved.');
+    console.error('   Please check:');
+    console.error('   1. Network share path in .env is correct');
+    console.error('   2. Network share is accessible from this server');
+    console.error('   3. Server has read/write permissions');
+    console.error('   4. Network connection is stable\n');
+  }
+}
+
 // Start server
-server.listen(PORT, () => {
+server.listen(PORT, async () => {
   logInfo('Server started', {
     port: PORT,
     environment: process.env.NODE_ENV || 'development',
@@ -240,6 +307,11 @@ server.listen(PORT, () => {
   
   // Clear old logs on startup (keep last 30 days)
   clearOldLogs(30);
+  
+  // Validate network share configuration
+  await validateNetworkShareOnStartup();
+  
+  console.log(`\n✓ Server initialization complete\n`);
 });
 
 module.exports = app;
