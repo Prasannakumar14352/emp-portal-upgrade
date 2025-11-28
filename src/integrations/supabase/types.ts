@@ -487,6 +487,9 @@ export type Database = {
           full_name: string
           hire_date: string | null
           id: string
+          latitude: number | null
+          location_address: string | null
+          longitude: number | null
           phone: string | null
           position: string | null
           two_factor_backup_codes: string | null
@@ -503,6 +506,9 @@ export type Database = {
           full_name: string
           hire_date?: string | null
           id: string
+          latitude?: number | null
+          location_address?: string | null
+          longitude?: number | null
           phone?: string | null
           position?: string | null
           two_factor_backup_codes?: string | null
@@ -519,6 +525,9 @@ export type Database = {
           full_name?: string
           hire_date?: string | null
           id?: string
+          latitude?: number | null
+          location_address?: string | null
+          longitude?: number | null
           phone?: string | null
           position?: string | null
           two_factor_backup_codes?: string | null
