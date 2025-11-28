@@ -36,9 +36,11 @@ export default function NotificationPreferences() {
   }, [user]);
 
   const loadPreferences = async () => {
+    if (!user?.employee_id) return;
+    
     try {
       setLoading(true);
-      const prefs = await settingsService.getUserPreferences(parseInt(user!.id));
+      const prefs = await settingsService.getUserPreferences(user.employee_id);
       if (prefs) {
         setPreferences({
           email_notifications: prefs.email_notifications,
@@ -57,11 +59,11 @@ export default function NotificationPreferences() {
   };
 
   const handleSave = async () => {
-    if (!user) return;
+    if (!user?.employee_id) return;
     
     try {
       setSaving(true);
-      await settingsService.createOrUpdatePreferences(parseInt(user.id), preferences);
+      await settingsService.createOrUpdatePreferences(user.employee_id, preferences);
       toast.success("Notification preferences saved successfully!");
     } catch (error) {
       console.error('Failed to save preferences:', error);

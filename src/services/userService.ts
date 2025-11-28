@@ -11,6 +11,9 @@ export interface UserProfile {
   position?: string;
   avatar_url?: string;
   hire_date?: string;
+  latitude?: number;
+  longitude?: number;
+  location_address?: string;
   created_at?: string;
   updated_at?: string;
   gender?: string;
@@ -37,6 +40,18 @@ class UserService {
 
   async getAllUsers(): Promise<UserProfile[]> {
     return apiClient.get<UserProfile[]>('/users');
+  }
+
+  async getProfile(userId: string): Promise<UserProfile> {
+    return apiClient.get<UserProfile>(`/users/${userId}/profile`);
+  }
+
+  async updateLocation(userId: string, latitude: number, longitude: number, address: string): Promise<UserProfile> {
+    return apiClient.patch<UserProfile>(`/users/${userId}/profile`, {
+      latitude,
+      longitude,
+      location_address: address,
+    });
   }
 
   async uploadAvatar(userId: string, file: Blob): Promise<{ avatar_url: string }> {
