@@ -2,10 +2,14 @@ import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Calendar, CheckCircle, XCircle, Clock } from "lucide-react";
+import { Calendar, CheckCircle, XCircle, Clock, MapPin, Edit } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { leaveService, type Leave, type LeaveBalance } from "@/services/leaveService";
+import { userService, type UserProfile } from "@/services/userService";
 import { toast } from "sonner";
+import { useUserRole } from "@/hooks/useUserRole";
+import LocationPicker from "./LocationPicker";
 
 interface EmployeeDetailModalProps {
   isOpen: boolean;
@@ -28,7 +32,10 @@ export function EmployeeDetailModal({
 }: EmployeeDetailModalProps) {
   const [leaveHistory, setLeaveHistory] = useState<Leave[]>([]);
   const [leaveBalances, setLeaveBalances] = useState<LeaveBalance[]>([]);
+  const [employeeProfile, setEmployeeProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(false);
+  const [locationPickerOpen, setLocationPickerOpen] = useState(false);
+  const { role } = useUserRole();
 
   useEffect(() => {
     if (isOpen && employeeId && employeeId !== 'unknown') {
@@ -44,17 +51,30 @@ export function EmployeeDetailModal({
     
     try {
       setLoading(true);
-      const [leaves, balances] = await Promise.all([
+      const [leaves, balances, profile] = await Promise.all([
         leaveService.getUserLeaves(employeeId),
-        leaveService.getUserLeaveBalances(employeeId)
+        leaveService.getUserLeaveBalances(employeeId),
+        userService.getProfile(employeeId)
       ]);
       setLeaveHistory(leaves.filter(l => l.status !== 'Pending'));
       setLeaveBalances(balances);
+      setEmployeeProfile(profile);
     } catch (error) {
       console.error('Failed to load employee data:', error);
       toast.error('Failed to load employee details');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleLocationUpdate = async (latitude: number, longitude: number, address: string) => {
+    try {
+      await userService.updateLocation(employeeId, latitude, longitude, address);
+      toast.success('Location updated successfully');
+      loadEmployeeData();
+    } catch (error) {
+      console.error('Failed to update location:', error);
+      toast.error('Failed to update location');
     }
   };
 
@@ -118,6 +138,52 @@ export function EmployeeDetailModal({
                 </div>
               </div>
             </div>
+
+            {/* Location Information - HR Only */}
+            {role === 'hr' && (
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2">
+                      <MapPin className="h-5 w-5" />
+                      Location Information
+                    </CardTitle>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setLocationPickerOpen(true)}
+                    >
+                      <Edit className="h-4 w-4 mr-2" />
+                      Update Location
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {employeeProfile?.latitude && employeeProfile?.longitude ? (
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground">Latitude</p>
+                          <p className="text-sm">{employeeProfile.latitude.toFixed(6)}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground">Longitude</p>
+                          <p className="text-sm">{employeeProfile.longitude.toFixed(6)}</p>
+                        </div>
+                      </div>
+                      {employeeProfile.location_address && (
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground">Address</p>
+                          <p className="text-sm">{employeeProfile.location_address}</p>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No location data available</p>
+                  )}
+                </CardContent>
+              </Card>
+            )}
 
             {/* Leave Balance Cards */}
             <div className="grid gap-4 md:grid-cols-3">
@@ -240,6 +306,23 @@ export function EmployeeDetailModal({
               </CardContent>
             </Card>
           </div>
+        )}
+
+        {role === 'hr' && (
+          <LocationPicker
+            isOpen={locationPickerOpen}
+            onClose={() => setLocationPickerOpen(false)}
+            onLocationSelect={handleLocationUpdate}
+            currentLocation={
+              employeeProfile?.latitude && employeeProfile?.longitude
+                ? {
+                    latitude: employeeProfile.latitude,
+                    longitude: employeeProfile.longitude,
+                    address: employeeProfile.location_address || '',
+                  }
+                : undefined
+            }
+          />
         )}
       </DialogContent>
     </Dialog>

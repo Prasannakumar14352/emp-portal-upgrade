@@ -60,9 +60,11 @@ export default function Settings() {
   }, [user]);
 
   const loadPreferences = async () => {
+    if (!user?.employee_id) return;
+    
     try {
       setLoading(true);
-      const prefs = await settingsService.getUserPreferences(parseInt(user!.id));
+      const prefs = await settingsService.getUserPreferences(user.employee_id);
       if (prefs) {
         setPreferences({
           dark_mode: prefs.dark_mode,
@@ -96,11 +98,11 @@ export default function Settings() {
   };
 
   const handleSave = async () => {
-    if (!user) return;
+    if (!user?.employee_id) return;
     
     try {
       setSaving(true);
-      await settingsService.createOrUpdatePreferences(parseInt(user.id), preferences);
+      await settingsService.createOrUpdatePreferences(user.employee_id, preferences);
       toast.success("Settings saved successfully!");
     } catch (error) {
       console.error('Failed to save preferences:', error);
@@ -153,7 +155,7 @@ export default function Settings() {
   };
 
   const handlePasswordChange = async () => {
-    if (!user) return;
+    if (!user?.employee_id) return;
 
     if (passwordData.newPassword !== passwordData.confirmPassword) {
       toast.error("New passwords don't match");
@@ -167,7 +169,7 @@ export default function Settings() {
 
     try {
       setChangingPassword(true);
-      await settingsService.changePassword(parseInt(user.id), {
+      await settingsService.changePassword(user.employee_id, {
         currentPassword: passwordData.currentPassword,
         newPassword: passwordData.newPassword,
       });

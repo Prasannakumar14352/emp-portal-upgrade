@@ -124,7 +124,8 @@ router.post('/signup', [
         access_token: tokens.accessToken,
         refresh_token: tokens.refreshToken,
         user: {
-          id: newUser.employee_id,
+          id: newUser.employee_id.toString(),
+          employee_id: newUser.employee_id,
           email: newUser.email,
           full_name: newUser.full_name
         }
@@ -195,7 +196,8 @@ router.post('/login', [
         access_token: tokens.accessToken,
         refresh_token: tokens.refreshToken,
         user: {
-          id: user.employee_id,
+          id: user.employee_id.toString(),
+          employee_id: user.employee_id,
           email: user.email,
           full_name: user.full_name
         }
@@ -260,7 +262,8 @@ router.get('/session', authenticateToken, async (req, res) => {
 
     // Map employee_id to id for frontend compatibility
     const sessionUser = {
-      id: user.employee_id,
+      id: user.employee_id.toString(),
+      employee_id: user.employee_id,
       email: user.email,
       full_name: user.full_name,
       department: user.department,
@@ -333,7 +336,8 @@ router.post('/refresh', async (req, res) => {
         access_token: tokens.accessToken,
         refresh_token: tokens.refreshToken,
         user: {
-          id: user.employee_id,
+          id: user.employee_id.toString(),
+          employee_id: user.employee_id,
           email: user.email,
           full_name: user.full_name
         }
