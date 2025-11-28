@@ -173,7 +173,7 @@ router.post('/:userId/avatar', authenticateToken, upload.single('avatar'), async
 router.patch('/:userId/profile', authenticateToken, async (req, res) => {
   try {
     const { userId } = req.params;
-    
+    console.log(`Received profile update request for user ${userId}:`, req.body);
     // Verify user can only update their own profile or is HR/manager
     // Convert both to numbers for proper comparison
     if (parseInt(req.user.id) !== parseInt(userId) && !['hr', 'manager'].includes(req.user.role)) {
@@ -182,6 +182,8 @@ router.patch('/:userId/profile', authenticateToken, async (req, res) => {
 
     const { full_name, phone, department, position, avatar_url, hire_date } = req.body;
     const pool = await getConnection();
+
+    console.log(`Updating profile for user ${userId} with data:`, req.body);
 
     // Update the profile (without OUTPUT due to trigger conflict)
     await pool.request()

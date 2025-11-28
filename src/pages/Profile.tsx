@@ -205,6 +205,17 @@ export default function Profile() {
                     </div>
                   </div>
                 )}
+                {profile.phone && (
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                      <Phone className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Phone</p>
+                      <p className="font-medium">{profile.phone}</p>
+                    </div>
+                  </div>
+                )}
                 {profile.gender && (
                   <div className="flex items-center gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
