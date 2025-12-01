@@ -7,6 +7,9 @@
 @import url("https://fonts.googleapis.com/css2?family=Work+Sans:wght@400;500;600;700&display=swap");
 @import url("https://fonts.googleapis.com/css2?family=Lora:wght@400;500;600;700&display=swap");
 @import url("https://fonts.googleapis.com/css2?family=Inconsolata:wght@400;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Work+Sans&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Lora&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inconsolata&display=swap");
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -24,7 +27,7 @@ All colors MUST be HSL.
     --card-foreground: 0 0% 9%;
 
     --popover: 0 0% 89%;
-    --popover-foreground: 0 0% 9%;
+    --popover-foreground: 213 26.8293% 83.9216%;
 
     --primary: 161 93% 30%;
     --primary-foreground: 151 80% 95%;
