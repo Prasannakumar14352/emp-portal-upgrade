@@ -12,7 +12,8 @@ import {
   TrendingUp,
   Upload,
   Clock,
-  Shield
+  Shield,
+  Building2
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -55,6 +56,7 @@ const hrManagerItems = [
   // { title: "Employee Import", url: "/employee-import", icon: Upload },
   // { title: "Team Time Tracking", url: "/team-time-tracking", icon: Clock },
   { title: "Leave Types", url: "/leave-types", icon: Calendar },
+  { title: "Department Management", url: "/department-management", icon: Building2 },
   { title: "Role Management", url: "/role-management", icon: Shield },
 ];
 
