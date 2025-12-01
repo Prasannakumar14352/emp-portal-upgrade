@@ -180,7 +180,7 @@ router.patch('/:userId/profile', authenticateToken, async (req, res) => {
       return res.status(403).json({ error: 'Not authorized to update this profile' });
     }
 
-    const { full_name, phone, department, position, avatar_url, hire_date } = req.body;
+    const { full_name, phone, department, position, avatar_url, hire_date, latitude, longitude, location_address } = req.body;
     const pool = await getConnection();
 
     console.log(`Updating profile for user ${userId} with data:`, req.body);
@@ -194,6 +194,9 @@ router.patch('/:userId/profile', authenticateToken, async (req, res) => {
       .input('position', sql.NVarChar, position)
       .input('avatar_url', sql.NVarChar, avatar_url)
       .input('hire_date', sql.Date, hire_date)
+      .input('latitude', sql.Decimal(10, 8), latitude)
+      .input('longitude', sql.Decimal(11, 8), longitude)
+      .input('location_address', sql.NVarChar, location_address)
       .query(`
         UPDATE profiles
         SET 
@@ -203,6 +206,9 @@ router.patch('/:userId/profile', authenticateToken, async (req, res) => {
           position = COALESCE(@position, position),
           avatar_url = COALESCE(@avatar_url, avatar_url),
           hire_date = COALESCE(@hire_date, hire_date),
+          latitude = COALESCE(@latitude, latitude),
+          longitude = COALESCE(@longitude, longitude),
+          location_address = COALESCE(@location_address, location_address),
           updated_at = GETDATE()
         WHERE employee_id = @employee_id
       `);
