@@ -9,7 +9,7 @@ import { leaveService, type Leave, type LeaveBalance } from "@/services/leaveSer
 import { userService, type UserProfile } from "@/services/userService";
 import { toast } from "sonner";
 import { useUserRole } from "@/hooks/useUserRole";
-import LocationPicker from "./LocationPicker";
+import { EmployeeEditModal } from "./EmployeeEditModal";
 
 interface EmployeeDetailModalProps {
   isOpen: boolean;
@@ -34,7 +34,7 @@ export function EmployeeDetailModal({
   const [leaveBalances, setLeaveBalances] = useState<LeaveBalance[]>([]);
   const [employeeProfile, setEmployeeProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(false);
-  const [locationPickerOpen, setLocationPickerOpen] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
   const { role } = useUserRole();
 
   useEffect(() => {
@@ -67,16 +67,6 @@ export function EmployeeDetailModal({
     }
   };
 
-  const handleLocationUpdate = async (latitude: number, longitude: number, address: string) => {
-    try {
-      await userService.updateLocation(employeeId, latitude, longitude, address);
-      toast.success('Location updated successfully');
-      loadEmployeeData();
-    } catch (error) {
-      console.error('Failed to update location:', error);
-      toast.error('Failed to update location');
-    }
-  };
 
   const getInitials = (name: string) => {
     return name
@@ -115,7 +105,19 @@ export function EmployeeDetailModal({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Employee Details</DialogTitle>
+          <div className="flex items-center justify-between">
+            <DialogTitle>Employee Details</DialogTitle>
+            {role === 'hr' && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setEditModalOpen(true)}
+              >
+                <Edit className="h-4 w-4 mr-2" />
+                Edit Profile
+              </Button>
+            )}
+          </div>
         </DialogHeader>
 
         {loading ? (
@@ -143,20 +145,10 @@ export function EmployeeDetailModal({
             {role === 'hr' && (
               <Card>
                 <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="flex items-center gap-2">
-                      <MapPin className="h-5 w-5" />
-                      Location Information
-                    </CardTitle>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setLocationPickerOpen(true)}
-                    >
-                      <Edit className="h-4 w-4 mr-2" />
-                      Update Location
-                    </Button>
-                  </div>
+                  <CardTitle className="flex items-center gap-2">
+                    <MapPin className="h-5 w-5" />
+                    Location Information
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
                   {employeeProfile?.latitude && employeeProfile?.longitude ? (
@@ -308,22 +300,12 @@ export function EmployeeDetailModal({
           </div>
         )}
 
-        {role === 'hr' && (
-          <LocationPicker
-            isOpen={locationPickerOpen}
-            onClose={() => setLocationPickerOpen(false)}
-            onLocationSelect={handleLocationUpdate}
-            currentLocation={
-              employeeProfile?.latitude && employeeProfile?.longitude
-                ? {
-                    latitude: employeeProfile.latitude,
-                    longitude: employeeProfile.longitude,
-                    address: employeeProfile.location_address || '',
-                  }
-                : undefined
-            }
-          />
-        )}
+        <EmployeeEditModal
+          isOpen={editModalOpen}
+          onClose={() => setEditModalOpen(false)}
+          employeeId={employeeId}
+          onSuccess={loadEmployeeData}
+        />
       </DialogContent>
     </Dialog>
   );
