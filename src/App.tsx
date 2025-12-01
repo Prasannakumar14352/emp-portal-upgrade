@@ -39,6 +39,7 @@ import EmployeeImport from "./pages/EmployeeImport";
 import NotificationPreferences from "./pages/NotificationPreferences";
 import PayslipManagement from "./pages/PayslipManagement";
 import PayslipNotificationHistory from "./pages/PayslipNotificationHistory";
+import DepartmentManagement from "./pages/DepartmentManagement";
 
 const queryClient = new QueryClient();
 
@@ -81,6 +82,7 @@ const App = () => (
           <Route path="/attendance-analytics" element={<ProtectedRoute><DashboardLayout><AttendanceAnalytics /></DashboardLayout></ProtectedRoute>} />
           <Route path="/hr-attendance-dashboard" element={<ProtectedRoute><DashboardLayout><HRAttendanceDashboard /></DashboardLayout></ProtectedRoute>} />
           <Route path="/role-management" element={<ProtectedRoute><DashboardLayout><RoleManagement /></DashboardLayout></ProtectedRoute>} />
+          <Route path="/department-management" element={<ProtectedRoute><DashboardLayout><DepartmentManagement /></DashboardLayout></ProtectedRoute>} />
           <Route path="/auth/callback" element={<OAuthCallback />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
