@@ -176,7 +176,8 @@ router.patch('/:userId/profile', authenticateToken, async (req, res) => {
     console.log(`Received profile update request for user ${userId}:`, req.body);
     // Verify user can only update their own profile or is HR/manager
     // Convert both to numbers for proper comparison
-    if (parseInt(req.user.id) !== parseInt(userId) && !['hr', 'manager'].includes(req.user.role)) {
+    if (parseInt(req.user.id) !== parseInt(userId) && !['hr', 'manager'].includes(req.user.roles[0])) {
+      console.log(`User ${req.user.id} with role ${req.user.roles[0]} is not authorized to update profile of user ${userId}`);
       return res.status(403).json({ error: 'Not authorized to update this profile' });
     }
 

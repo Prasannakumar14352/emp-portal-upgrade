@@ -48,7 +48,7 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh]">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-auto">
         <DialogHeader>
           <DialogTitle>Select Location</DialogTitle>
           <DialogDescription>

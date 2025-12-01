@@ -46,12 +46,9 @@ class UserService {
     return apiClient.get<UserProfile>(`/users/${userId}/profile`);
   }
 
-  async updateLocation(userId: string, latitude: number, longitude: number, address: string): Promise<UserProfile> {
-    return apiClient.patch<UserProfile>(`/users/${userId}/profile`, {
-      latitude,
-      longitude,
-      location_address: address,
-    });
+  async updateLocation(userId: string, Location: { latitude: number; longitude: number; address: string }): Promise<UserProfile> {
+    console.log(`Updating location for user ${userId} to lat: ${Location.latitude}, lng: ${Location.longitude}, address: ${Location.address}`);
+    return apiClient.patch<UserProfile>(`/users/${userId}/profile`, Location);
   }
 
   async uploadAvatar(userId: string, file: Blob): Promise<{ avatar_url: string }> {

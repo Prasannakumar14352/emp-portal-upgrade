@@ -593,6 +593,9 @@ export default function Leaves() {
                   </Button>
                 </div>
               ))}
+              {leaveHistory.filter(l => l.status === "Approved").length === 0 && (
+                <p className="text-center text-muted-foreground py-8">No approved leave requests found</p>
+              )}
             </TabsContent>
             <TabsContent value="pending" className="space-y-4 mt-4">
               {leaveHistory.filter(l => l.status === "Pending").map((leave) => (
@@ -645,6 +648,9 @@ export default function Leaves() {
                   </div>
                 </div>
               ))}
+              {leaveHistory.filter(l => l.status === "Pending").length === 0 && (
+                <p className="text-center text-muted-foreground py-8">No pending leave requests found</p>
+              )}
             </TabsContent>
             <TabsContent value="rejected" className="space-y-4 mt-4">
               {leaveHistory.filter(l => l.status === "Rejected").map((leave) => (
@@ -676,6 +682,9 @@ export default function Leaves() {
                   </Button>
                 </div>
               ))}
+              {leaveHistory.filter(l => l.status === "Rejected").length === 0 && (
+                <p className="text-center text-muted-foreground py-8">No rejected leave requests found</p>
+              )}
             </TabsContent>
           </Tabs>
         </CardContent>

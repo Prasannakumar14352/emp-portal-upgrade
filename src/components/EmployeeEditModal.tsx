@@ -32,6 +32,8 @@ export function EmployeeEditModal({
     department: "",
     position: "",
     hire_date: "",
+    role: "",
+    avatar_url: "",
   });
 
   const [locationData, setLocationData] = useState({
@@ -50,6 +52,8 @@ export function EmployeeEditModal({
     try {
       setLoading(true);
       const data = await userService.getProfile(employeeId);
+      const getrole = await userService.getUserRole(employeeId);
+      data.role = getrole;
       setProfile(data);
       setFormData({
         full_name: data.full_name || "",
@@ -57,6 +61,8 @@ export function EmployeeEditModal({
         department: data.department || "",
         position: data.position || "",
         hire_date: data.hire_date || "",
+        role: data.role || "",
+        avatar_url: data.avatar_url || "",
       });
       setLocationData({
         latitude: data.latitude || null,

@@ -160,7 +160,7 @@ export default function Holidays() {
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">This Month</span>
-                  <span className="text-2xl font-bold text-accent">
+                  <span className="text-2xl font-bold text-primary">
                     {holidays.filter(h => 
                       new Date(h.date).getMonth() === new Date().getMonth() &&
                       new Date(h.date).getFullYear() === new Date().getFullYear()
