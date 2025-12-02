@@ -57,6 +57,9 @@ export default function HRDashboard() {
   const loadDashboardData = async () => {
     try {
       setLoading(true);
+      
+      console.log("🚀 [HRDashboard] Starting data fetch...");
+      
       const [hrStats, trends, leaveTypes, insights, empStats] = await Promise.all([
         dashboardService.getHRDashboardStats(),
         dashboardService.getMonthlyTrends(),
@@ -65,34 +68,38 @@ export default function HRDashboard() {
         dashboardService.getEmployeeStats(),
       ]);
 
-      console.log("Employee Stats Response:", empStats);
+      console.log("✅ [HRDashboard] Employee Stats Response:", empStats);
+      console.log("✅ [HRDashboard] HR Stats Response:", hrStats);
 
       setStats({
-        total: hrStats.total_requests,
-        pending: hrStats.pending_requests,
-        approved: hrStats.approved_requests,
-        rejected: hrStats.rejected_requests,
-        approvalRate: hrStats.approval_rate,
+        total: hrStats.total_requests || 0,
+        pending: hrStats.pending_requests || 0,
+        approved: hrStats.approved_requests || 0,
+        rejected: hrStats.rejected_requests || 0,
+        approvalRate: hrStats.approval_rate || 0,
       });
+      
       setEmployeeStats({
         activeEmployees: empStats.active_employees || 0,
         activeDepartments: empStats.active_departments || 0,
       });
       
-      console.log("Set Employee Stats:", {
+      console.log("✅ [HRDashboard] State updated with employee stats:", {
         activeEmployees: empStats.active_employees || 0,
         activeDepartments: empStats.active_departments || 0,
       });
 
-      setMonthlyTrends(trends);
-      setLeaveTypeData(leaveTypes);
+      setMonthlyTrends(trends || []);
+      setLeaveTypeData(leaveTypes || []);
       setInsights({
-        avgProcessingTime: insights.avg_processing_time,
-        mostCommonLeaveType: insights.most_common_leave_type,
-        peakRequestMonth: insights.peak_month,
+        avgProcessingTime: insights.avg_processing_time || 0,
+        mostCommonLeaveType: insights.most_common_leave_type || "N/A",
+        peakRequestMonth: insights.peak_month || "N/A",
       });
+      
+      console.log("✅ [HRDashboard] All data loaded successfully");
     } catch (error) {
-      console.error("Failed to load HR dashboard data:", error);
+      console.error("❌ [HRDashboard] Failed to load HR dashboard data:", error);
       toast.error("Failed to load dashboard data");
     } finally {
       setLoading(false);
@@ -102,8 +109,15 @@ export default function HRDashboard() {
   const COLORS = ["hsl(var(--primary))", "hsl(var(--secondary))", "hsl(var(--accent))", "hsl(var(--muted))"];
 
   if (loading || roleLoading) {
-    return <div className="space-y-6">Loading...</div>;
+    return <div className="flex items-center justify-center min-h-screen">
+      <div className="text-center space-y-4">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+        <p className="text-muted-foreground">Loading dashboard...</p>
+      </div>
+    </div>;
   }
+
+  console.log("🎨 [HRDashboard] Rendering with employee stats:", employeeStats);
 
   return (
     <div className="space-y-6">
@@ -118,25 +132,26 @@ export default function HRDashboard() {
           title="Active Employees"
           value={employeeStats.activeEmployees}
           icon={Users}
-          className="bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800"
+          className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 border-blue-300 dark:border-blue-700"
         />
         <StatCard
           title="Active Departments"
           value={employeeStats.activeDepartments}
           icon={Building2}
-          className="bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800"
+          className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950 dark:to-green-900 border-green-300 dark:border-green-700"
         />
         <StatCard
           title="Total Requests"
           value={stats.total}
           icon={TrendingUp}
           trend={{ value: "12% from last month", positive: true }}
+          className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950 dark:to-purple-900 border-purple-300 dark:border-purple-700"
         />
         <StatCard
           title="Pending Requests"
           value={stats.pending}
           icon={Clock}
-          className="border-warning/20"
+          className="bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-950 dark:to-yellow-900 border-yellow-300 dark:border-yellow-700"
         />
       </div>
 
