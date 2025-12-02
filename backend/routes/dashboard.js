@@ -222,4 +222,35 @@ router.get('/hr/leave-types', authenticateToken, authorizeRole('hr', 'manager'),
   }
 });
 
+// GET /api/dashboard/hr/employee-stats - Get employee and department statistics
+router.get('/hr/employee-stats', authenticateToken, authorizeRole('hr', 'manager'), async (req, res) => {
+  try {
+    const pool = await getConnection();
+
+    // Get active employees count
+    const employeesResult = await pool.request()
+      .query(`
+        SELECT COUNT(*) as active_employees
+        FROM users
+        WHERE status = 'active'
+      `);
+
+    // Get active departments count
+    const departmentsResult = await pool.request()
+      .query(`
+        SELECT COUNT(*) as active_departments
+        FROM departments
+        WHERE is_active = 1
+      `);
+
+    res.json({
+      active_employees: employeesResult.recordset[0]?.active_employees || 0,
+      active_departments: departmentsResult.recordset[0]?.active_departments || 0,
+    });
+  } catch (err) {
+    console.error('Get employee stats error:', err);
+    res.status(500).json({ error: 'Failed to get employee statistics' });
+  }
+});
+
 module.exports = router;
