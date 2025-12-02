@@ -1,5 +1,5 @@
-import { apiClient } from './apiClient';
-import { supabase } from '@/integrations/supabase/client';
+
+import { apiClient } from "./apiClient";
 
 export interface Department {
   id: string;
@@ -36,7 +36,7 @@ export interface UpdateDepartmentRequest {
 
 class DepartmentService {
   async getAllDepartments(): Promise<Department[]> {
-    return apiClient.get<Department[]>('/departments');
+    return apiClient.get<Department[]>("/departments");
   }
 
   async getDepartmentById(id: string): Promise<Department> {
@@ -44,7 +44,7 @@ class DepartmentService {
   }
 
   async createDepartment(data: CreateDepartmentRequest): Promise<Department> {
-    return apiClient.post<Department>('/departments', data);
+    return apiClient.post<Department>("/departments", data);
   }
 
   async updateDepartment(id: string, data: UpdateDepartmentRequest): Promise<Department> {
@@ -67,23 +67,13 @@ class DepartmentService {
     employeeEmail: string,
     assignedBy: string
   ): Promise<void> {
-    await apiClient.post(`/departments/${departmentId}/employees`, { employee_id: parseInt(employeeId, 10) });
-    
-    // Send notification via edge function
-    try {
-      await supabase.functions.invoke('send-department-notification', {
-        body: {
-          employeeId: parseInt(employeeId, 10),
-          employeeEmail,
-          employeeName,
-          departmentName,
-          action: 'assigned',
-          assignedBy,
-        },
-      });
-    } catch (error) {
-      console.error('Failed to send department notification:', error);
-    }
+    await apiClient.post(`/departments/${departmentId}/employees`, { 
+      employee_id: parseInt(employeeId, 10),
+      department_name: departmentName,
+      employee_name: employeeName,
+      employee_email: employeeEmail,
+      assigned_by: assignedBy,
+    });
   }
 
   async removeEmployeeFromDepartment(
@@ -94,23 +84,12 @@ class DepartmentService {
     employeeEmail: string,
     removedBy: string
   ): Promise<void> {
-    await apiClient.delete(`/departments/${departmentId}/employees/${employeeId}`);
-    
-    // Send notification via edge function
-    try {
-      await supabase.functions.invoke('send-department-notification', {
-        body: {
-          employeeId: parseInt(employeeId, 10),
-          employeeEmail,
-          employeeName,
-          departmentName,
-          action: 'removed',
-          assignedBy: removedBy,
-        },
-      });
-    } catch (error) {
-      console.error('Failed to send department notification:', error);
-    }
+    await apiClient.delete(`/departments/${departmentId}/employees/${employeeId}`, {
+      department_name: departmentName,
+      employee_name: employeeName,
+      employee_email: employeeEmail,
+      removed_by: removedBy,
+    });
   }
 }
 

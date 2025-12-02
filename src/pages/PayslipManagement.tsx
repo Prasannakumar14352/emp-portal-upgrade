@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,7 +10,6 @@ import { Badge } from "@/components/ui/badge";
 import { Edit, Trash2, Upload, Search, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { payslipService } from "@/services/payslipService";
-import { supabase } from "@/integrations/supabase/client";
 
 interface PayslipWithEmployee {
   id: string;
@@ -48,8 +48,8 @@ export default function PayslipManagement() {
       const data = await payslipService.getAllPayslips();
       setPayslips(data);
     } catch (error) {
-      console.error('Failed to load payslips:', error);
-      toast.error('Failed to load payslips');
+      console.error("Failed to load payslips:", error);
+      toast.error("Failed to load payslips");
     } finally {
       setLoading(false);
     }
@@ -69,25 +69,25 @@ export default function PayslipManagement() {
 
     try {
       await payslipService.updatePayslip(editingPayslip.id, editForm);
-      toast.success('Payslip updated successfully');
+      toast.success("Payslip updated successfully");
       setEditingPayslip(null);
       loadPayslips();
     } catch (error) {
-      console.error('Failed to update payslip:', error);
-      toast.error('Failed to update payslip');
+      console.error("Failed to update payslip:", error);
+      toast.error("Failed to update payslip");
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this payslip?')) return;
+    if (!confirm("Are you sure you want to delete this payslip?")) return;
 
     try {
       await payslipService.deletePayslip(id);
-      toast.success('Payslip deleted successfully');
+      toast.success("Payslip deleted successfully");
       loadPayslips();
     } catch (error) {
-      console.error('Failed to delete payslip:', error);
-      toast.error('Failed to delete payslip');
+      console.error("Failed to delete payslip:", error);
+      toast.error("Failed to delete payslip");
     }
   };
 
@@ -95,39 +95,44 @@ export default function PayslipManagement() {
     try {
       setUploadingFile(true);
       
-      // Upload to Supabase Storage
-      const fileName = `${payslip.employee_id}/${payslip.month}_${payslip.year}_${Date.now()}.pdf`;
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('payslips')
-        .upload(fileName, file, {
-          contentType: 'application/pdf',
-          upsert: false,
-        });
+      // Upload file to SQL Server backend
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("employee_id", payslip.employee_id);
+      formData.append("month", payslip.month);
+      formData.append("year", payslip.year.toString());
 
-      if (uploadError) throw uploadError;
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/payslips/${payslip.id}/upload`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+        body: formData,
+      });
 
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('payslips')
-        .getPublicUrl(fileName);
+      if (!response.ok) {
+        throw new Error("Failed to upload file");
+      }
 
-      // Update payslip with new file URL
-      await payslipService.updatePayslip(payslip.id, { file_url: publicUrl });
+      const data = await response.json();
       
-      toast.success('PDF uploaded successfully');
+      // Update payslip with new file URL
+      await payslipService.updatePayslip(payslip.id, { file_url: data.file_url });
+      
+      toast.success("PDF uploaded successfully");
       loadPayslips();
     } catch (error) {
-      console.error('Failed to upload PDF:', error);
-      toast.error('Failed to upload PDF');
+      console.error("Failed to upload PDF:", error);
+      toast.error("Failed to upload PDF");
     } finally {
       setUploadingFile(false);
     }
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
+    return new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
       maximumFractionDigits: 0,
     }).format(amount);
   };
@@ -221,15 +226,16 @@ export default function PayslipManagement() {
                             size="sm"
                             variant="outline"
                             onClick={() => {
-                              const input = document.createElement('input');
-                              input.type = 'file';
-                              input.accept = '.pdf';
+                              const input = document.createElement("input");
+                              input.type = "file";
+                              input.accept = ".pdf";
                               input.onchange = (e) => {
                                 const file = (e.target as HTMLInputElement).files?.[0];
                                 if (file) handleFileUpload(payslip, file);
                               };
                               input.click();
                             }}
+                            disabled={uploadingFile}
                           >
                             <Upload className="h-4 w-4" />
                           </Button>
@@ -257,7 +263,6 @@ export default function PayslipManagement() {
         </CardContent>
       </Card>
 
-      {/* Edit Dialog */}
       <Dialog open={!!editingPayslip} onOpenChange={() => setEditingPayslip(null)}>
         <DialogContent>
           <DialogHeader>
