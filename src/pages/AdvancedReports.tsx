@@ -13,6 +13,11 @@ import { toast } from "sonner";
 import jsPDF from "jspdf";
 import { useUserRole } from "@/hooks/useUserRole";
 
+interface ChartLabelProps {
+  name: string;
+  percent: number;
+}
+
 export default function AdvancedReports() {
   const { role } = useUserRole();
   const [reportType, setReportType] = useState<"monthly" | "quarterly">("monthly");
@@ -159,7 +164,7 @@ export default function AdvancedReports() {
           <div className="flex flex-wrap gap-4">
             <div className="flex-1 min-w-[200px]">
               <label className="text-sm font-medium mb-2 block">Report Type</label>
-              <Select value={reportType} onValueChange={(value: any) => setReportType(value)}>
+              <Select value={reportType} onValueChange={(value: "monthly" | "quarterly") => setReportType(value)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -280,7 +285,7 @@ export default function AdvancedReports() {
                   cx="50%"
                   cy="50%"
                   labelLine={false}
-                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                  label={({ name, percent }: ChartLabelProps) => `${name}: ${(percent * 100).toFixed(0)}%`}
                   outerRadius={80}
                   fill="#8884d8"
                   dataKey="value"
@@ -336,15 +341,14 @@ export default function AdvancedReports() {
               </thead>
               <tbody>
                 {(reportType === "monthly" ? monthlyData : quarterlyData).map((row, index) => {
-                  const period = reportType === "monthly" ? row.month : (row as any).quarter;
+                  const period = 'month' in row ? row.month : row.quarter;
                   const leaves = row.leaves;
                   const approved = row.approved;
                   const rejected = row.rejected;
-                  const rate = ((approved / leaves) * 100).toFixed(1);
-                  const prevLeaves = index > 0 
-                    ? (reportType === "monthly" ? monthlyData[index - 1].leaves : quarterlyData[index - 1].leaves)
-                    : leaves;
-                  const change = ((leaves - prevLeaves) / prevLeaves * 100).toFixed(1);
+                  const rate = leaves > 0 ? ((approved / leaves) * 100).toFixed(1) : "0.0";
+                  const prevRow = (reportType === "monthly" ? monthlyData[index - 1] : quarterlyData[index - 1]);
+                  const prevLeaves = index > 0 && prevRow ? prevRow.leaves : leaves;
+                  const change = prevLeaves > 0 ? (((leaves - prevLeaves) / prevLeaves) * 100).toFixed(1) : "0.0";
                   
                   return (
                     <tr key={index} className="border-b hover:bg-muted/50">

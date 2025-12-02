@@ -102,17 +102,17 @@ export default function ApproveLeaves() {
 
       console.log(`Successfully loaded ${data.length} leave requests`);
       setRequests(data);
-    } catch (err: any) {
+    } catch (err) {
       console.error("Failed to load leave requests:", err);
-
+      const error = err as { status?: number; message?: string };
       // Show specific error message based on response
-      if (err.status === 403) {
+      if (error.status === 403) {
         toast.error("You don't have permission to view leave requests. Please contact your administrator to grant you HR or Manager role.");
-      } else if (err.status === 401) {
+      } else if (error.status === 401) {
         toast.error("Session expired. Please log in again.");
         navigate("/auth");
       } else {
-        toast.error(`Failed to load leave requests: ${err.message || 'Unknown error'}`);
+        toast.error(`Failed to load leave requests: ${error.message || 'Unknown error'}`);
       }
     }
   };
@@ -139,8 +139,9 @@ export default function ApproveLeaves() {
       setActionComment("");
 
       toast.success("Leave request approved and email notification sent");
-    } catch (error: any) {
-      toast.error(error.message || "Failed to approve leave request");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to approve leave request";
+      toast.error(message);
       console.error("Approval error:", error);
     }
   };
@@ -166,8 +167,9 @@ export default function ApproveLeaves() {
       setActionComment("");
 
       toast.success("Leave request rejected and email notification sent");
-    } catch (error: any) {
-      toast.error(error.message || "Failed to reject leave request");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to reject leave request";
+      toast.error(message);
       console.error("Rejection error:", error);
     }
   };
@@ -225,8 +227,9 @@ export default function ApproveLeaves() {
       } else {
         toast.success(`${response.processed} leave requests approved and notifications sent`);
       }
-    } catch (error: any) {
-      toast.error(error.message || "Failed to approve requests");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to approve requests";
+      toast.error(message);
       console.error("Bulk approval error:", error);
     }
   };
@@ -253,8 +256,9 @@ export default function ApproveLeaves() {
       } else {
         toast.success(`${response.processed} leave requests rejected and notifications sent`);
       }
-    } catch (error: any) {
-      toast.error(error.message || "Failed to reject requests");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to reject requests";
+      toast.error(message);
       console.error("Bulk rejection error:", error);
     }
   };
@@ -303,7 +307,7 @@ export default function ApproveLeaves() {
     };
     return <Badge variant={variants[status] || "secondary"}>{status}</Badge>;
   };
-  const formatDate = (d) => {
+  const formatDate = (d: string | Date | null | undefined) => {
     if (!d) return '';
     const date = new Date(d);
     return date.toLocaleDateString('en-GB').replace(/\//g, '-');

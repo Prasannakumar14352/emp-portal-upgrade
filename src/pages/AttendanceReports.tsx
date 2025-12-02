@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,12 +13,9 @@ import { Calendar, Download, Filter, Loader2, Search, FileText, Pencil, Plus } f
 import { apiClient } from "@/services/apiClient";
 import { toast } from "sonner";
 import { useUserRole } from "@/hooks/useUserRole";
-import { useNavigate } from "react-router-dom";
-import { useAuth } from "@/hooks/useAuth";
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-
 
 interface AttendanceReport {
   id: string;
@@ -32,71 +30,58 @@ interface AttendanceReport {
   notes?: string;
 }
 
+interface Employee {
+  employee_id: number;
+  full_name: string;
+}
+
 export default function AttendanceReports() {
   const { role } = useUserRole();
-  const { user } = useAuth();
-  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [reports, setReports] = useState<AttendanceReport[]>([]);
   const [filteredReports, setFilteredReports] = useState<AttendanceReport[]>([]);
-
-  // Edit dialog state
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<AttendanceReport | null>(null);
   const [editForm, setEditForm] = useState({
     checkInTime: '',
     checkOutTime: '',
-    status: 'present',
+    status: 'present' as 'present' | 'absent' | 'late' | 'half-day',
     notes: ''
   });
-
-  // Create dialog state
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [employees, setEmployees] = useState<Array<{ employee_id: number; full_name: string }>>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
   const [createForm, setCreateForm] = useState({
     employeeId: '',
     date: new Date().toISOString().split('T')[0],
     checkInTime: '',
     checkOutTime: '',
-    status: 'present',
+    status: 'present' as 'present' | 'absent' | 'late' | 'half-day',
     notes: ''
   });
   const [userEmployeeId, setUserEmployeeId] = useState<number | null>(null);
-
-  // Role access check - show message instead of redirecting
-  if (role && role !== 'hr' && role !== 'manager') {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <p className="text-muted-foreground">You don't have permission to access this page.</p>
-      </div>
-    );
-  }
-
-  // Filters
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [department, setDepartment] = useState('all');
   const [status, setStatus] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
-
   const [departments, setDepartments] = useState<string[]>([]);
 
   useEffect(() => {
+    if (role && role !== 'hr' && role !== 'manager') return;
     loadDepartments();
     loadEmployees();
     loadUserEmployeeId();
-    // Set default date range (current month)
     const today = new Date();
     const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
     setStartDate(firstDay.toISOString().split('T')[0]);
     setEndDate(today.toISOString().split('T')[0]);
-  }, []);
+  }, [role]);
 
   useEffect(() => {
-    if (startDate && endDate) {
+    if (role && (role === 'hr' || role === 'manager') && startDate && endDate) {
       loadReports();
     }
-  }, [startDate, endDate]);
+  }, [startDate, endDate, role]);
 
   useEffect(() => {
     applyFilters();
@@ -113,12 +98,8 @@ export default function AttendanceReports() {
 
   const loadEmployees = async () => {
     try {
-      const response = await apiClient.get<Array<{ employee_id: number; full_name: string }>>('/employees');
-      const employeeList = response.map((emp: any) => ({
-        employee_id: emp.employee_id,
-        full_name: emp.full_name
-      }));
-      setEmployees(employeeList);
+      const response = await apiClient.get<Employee[]>('/employees');
+      setEmployees(response);
     } catch (error) {
       console.error('Failed to load employees:', error);
       toast.error('Failed to load employees list');
@@ -133,7 +114,7 @@ export default function AttendanceReports() {
         return;
       }
       
-      const userData = JSON.parse(storedUser);
+      const userData = JSON.parse(storedUser) as { id?: string };
       if (!userData?.id) {
         console.error('User ID not found');
         return;
@@ -153,7 +134,7 @@ export default function AttendanceReports() {
         `/attendance/reports?startDate=${startDate}&endDate=${endDate}`
       );
       setReports(response);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to load reports:', error);
       toast.error('Failed to load attendance reports');
     } finally {
@@ -163,25 +144,18 @@ export default function AttendanceReports() {
 
   const applyFilters = () => {
     let filtered = [...reports];
-
-    // Filter by department
     if (department !== 'all') {
       filtered = filtered.filter(r => r.department === department);
     }
-
-    // Filter by status
     if (status !== 'all') {
       filtered = filtered.filter(r => r.status === status);
     }
-
-    // Filter by search term
     if (searchTerm) {
       filtered = filtered.filter(r =>
         r.employee_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         r.employee_id.includes(searchTerm)
       );
     }
-
     setFilteredReports(filtered);
   };
 
@@ -192,7 +166,6 @@ export default function AttendanceReports() {
       absent: "destructive",
       "half-day": "outline",
     } as const;
-
     return (
       <Badge variant={variants[status as keyof typeof variants] || "default"}>
         {status === "half-day" ? "Half Day" : status.charAt(0).toUpperCase() + status.slice(1)}
@@ -203,20 +176,12 @@ export default function AttendanceReports() {
   const exportToPDF = () => {
     try {
       const doc = new jsPDF();
-
-      // Add title
       doc.setFontSize(16);
       doc.text('Attendance Report', 14, 15);
-
-      // Add date range
       doc.setFontSize(10);
       doc.text(`Period: ${startDate} to ${endDate}`, 14, 22);
-
-      // Add stats
       const stats = calculateStats();
       doc.text(`Total Records: ${stats.total} | Present: ${stats.present} | Late: ${stats.late} | Absent: ${stats.absent}`, 14, 28);
-
-      // Prepare table data
       const tableData = filteredReports.map(r => [
         r.employee_id,
         r.employee_name,
@@ -227,8 +192,6 @@ export default function AttendanceReports() {
         r.work_hours?.toFixed(2) || '-',
         r.status
       ]);
-
-      // Add table
       autoTable(doc, {
         head: [['ID', 'Name', 'Department', 'Date', 'Check In', 'Check Out', 'Hours', 'Status']],
         body: tableData,
@@ -236,8 +199,6 @@ export default function AttendanceReports() {
         styles: { fontSize: 8 },
         headStyles: { fillColor: [66, 139, 202] }
       });
-
-      // Save PDF
       doc.save(`attendance-report-${startDate}-to-${endDate}.pdf`);
       toast.success('PDF exported successfully');
     } catch (error) {
@@ -257,7 +218,6 @@ export default function AttendanceReports() {
       'Work Hours': report.work_hours?.toFixed(2) || '-',
       'Status': report.status,
     }));
-
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Attendance Report');
@@ -271,7 +231,6 @@ export default function AttendanceReports() {
     const late = filteredReports.filter(r => r.status === 'late').length;
     const absent = filteredReports.filter(r => r.status === 'absent').length;
     const halfDay = filteredReports.filter(r => r.status === 'half-day').length;
-
     return { total, present, late, absent, halfDay };
   };
 
@@ -286,23 +245,12 @@ export default function AttendanceReports() {
     setEditDialogOpen(true);
   };
 
-  function toDateTimeLocal(dateString?: string) {
-    if (!dateString) return '';
-    const d = new Date(dateString);
-    const pad = (n: number) => String(n).padStart(2, "0");
-
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
-      + `T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  }
-
   const handleUpdateAttendance = async () => {
     if (!editingRecord || !userEmployeeId) return;
-
     try {
       setLoading(true);
       const checkintime = editForm.checkInTime ? new Date(editForm.checkInTime).toISOString() : null;
       const checkouttime = editForm.checkOutTime ? new Date(editForm.checkOutTime).toISOString() : null;
-      
       await apiClient.put(`/attendance/${editingRecord.id}`, {
         checkInTime: checkintime,
         checkOutTime: checkouttime,
@@ -310,13 +258,13 @@ export default function AttendanceReports() {
         notes: editForm.notes,
         userId: userEmployeeId
       });
-
       toast.success('Attendance updated successfully');
       setEditDialogOpen(false);
       loadReports();
-    } catch (error: any) {
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to update attendance";
       console.error('Failed to update attendance:', error);
-      toast.error(error.message || 'Failed to update attendance');
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -327,12 +275,10 @@ export default function AttendanceReports() {
       toast.error('Please select an employee and date');
       return;
     }
-
     try {
       setLoading(true);
       const checkintime = createForm.checkInTime ? new Date(createForm.checkInTime).toISOString() : null;
       const checkouttime = createForm.checkOutTime ? new Date(createForm.checkOutTime).toISOString() : null;
-
       await apiClient.post('/attendance', {
         userId: parseInt(createForm.employeeId),
         date: createForm.date,
@@ -341,7 +287,6 @@ export default function AttendanceReports() {
         status: createForm.status,
         notes: createForm.notes
       });
-
       toast.success('Attendance record created successfully');
       setCreateDialogOpen(false);
       setCreateForm({
@@ -353,16 +298,24 @@ export default function AttendanceReports() {
         notes: ''
       });
       loadReports();
-    } catch (error: any) {
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to create attendance";
       console.error('Failed to create attendance:', error);
-      toast.error(error.message || 'Failed to create attendance');
+      toast.error(message);
     } finally {
       setLoading(false);
     }
   };
 
-  const stats = calculateStats();
+  if (role && role !== "hr" && role !== "manager") {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <p className="text-muted-foreground">You don't have permission to access this page.</p>
+      </div>
+    );
+  }
 
+  const stats = calculateStats();
 
   return (
     <div className="space-y-6 p-6">
@@ -388,97 +341,46 @@ export default function AttendanceReports() {
           </Button>
         </div>
       </div>
-
-      {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-5">
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Records</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.total}</div>
-          </CardContent>
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Total Records</CardTitle></CardHeader>
+          <CardContent><div className="text-2xl font-bold">{stats.total}</div></CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Present</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-success">{stats.present}</div>
-          </CardContent>
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Present</CardTitle></CardHeader>
+          <CardContent><div className="text-2xl font-bold text-success">{stats.present}</div></CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Late</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-warning">{stats.late}</div>
-          </CardContent>
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Late</CardTitle></CardHeader>
+          <CardContent><div className="text-2xl font-bold text-warning">{stats.late}</div></CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Absent</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-destructive">{stats.absent}</div>
-          </CardContent>
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Absent</CardTitle></CardHeader>
+          <CardContent><div className="text-2xl font-bold text-destructive">{stats.absent}</div></CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Half Day</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-muted-foreground">{stats.halfDay}</div>
-          </CardContent>
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Half Day</CardTitle></CardHeader>
+          <CardContent><div className="text-2xl font-bold text-muted-foreground">{stats.halfDay}</div></CardContent>
         </Card>
       </div>
-
-      {/* Filters */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Filter className="h-5 w-5" />
-            Filters
-          </CardTitle>
-        </CardHeader>
+        <CardHeader><CardTitle className="flex items-center gap-2"><Filter className="h-5 w-5" />Filters</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-            <div className="space-y-2">
-              <Label>Start Date</Label>
-              <Input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>End Date</Label>
-              <Input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-              />
-            </div>
+            <div className="space-y-2"><Label>Start Date</Label><Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} /></div>
+            <div className="space-y-2"><Label>End Date</Label><Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} /></div>
             <div className="space-y-2">
               <Label>Department</Label>
-              <Select value={department} onValueChange={setDepartment}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
+              <Select value={department} onValueChange={setDepartment}><SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Departments</SelectItem>
-                  {departments.map(dept => (
-                    <SelectItem key={dept} value={dept}>{dept}</SelectItem>
-                  ))}
+                  {departments.map(dept => (<SelectItem key={dept} value={dept}>{dept}</SelectItem>))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
               <Label>Status</Label>
-              <Select value={status} onValueChange={setStatus}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
+              <Select value={status} onValueChange={setStatus}><SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
                   <SelectItem value="present">Present</SelectItem>
@@ -492,49 +394,26 @@ export default function AttendanceReports() {
               <Label>Search Employee</Label>
               <div className="relative">
                 <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Name or ID"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-8"
-                />
+                <Input placeholder="Name or ID" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8" />
               </div>
             </div>
           </div>
         </CardContent>
       </Card>
-
-      {/* Reports Table */}
       <Card>
-        <CardHeader>
-          <CardTitle>Attendance Records</CardTitle>
-        </CardHeader>
+        <CardHeader><CardTitle>Attendance Records</CardTitle></CardHeader>
         <CardContent>
           {loading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-8 w-8 animate-spin" />
-            </div>
+            <div className="flex items-center justify-center py-8"><Loader2 className="h-8 w-8 animate-spin" /></div>
           ) : filteredReports.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>No attendance records found for the selected filters</p>
-            </div>
+            <div className="text-center py-8 text-muted-foreground"><Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" /><p>No attendance records found for the selected filters</p></div>
           ) : (
             <div className="overflow-auto">
               <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Employee ID</TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Department</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Check In</TableHead>
-                    <TableHead>Check Out</TableHead>
-                    <TableHead>Work Hours</TableHead>
-                    <TableHead>Status</TableHead>
-                    {role === 'hr' && <TableHead>Actions</TableHead>}
-                  </TableRow>
-                </TableHeader>
+                <TableHeader><TableRow>
+                  <TableHead>Employee ID</TableHead><TableHead>Name</TableHead><TableHead>Department</TableHead><TableHead>Date</TableHead><TableHead>Check In</TableHead><TableHead>Check Out</TableHead><TableHead>Work Hours</TableHead><TableHead>Status</TableHead>
+                  {role === 'hr' && <TableHead>Actions</TableHead>}
+                </TableRow></TableHeader>
                 <TableBody>
                   {filteredReports.map((report, index) => (
                     <TableRow key={index}>
@@ -542,29 +421,13 @@ export default function AttendanceReports() {
                       <TableCell>{report.employee_name}</TableCell>
                       <TableCell>{report.department}</TableCell>
                       <TableCell>{new Date(report.date).toLocaleDateString()}</TableCell>
-                      <TableCell>
-                        {report.check_in_time
-                          ? new Date(report.check_in_time).toLocaleTimeString('en-US', { hour12: true })
-                          : '-'}
-                      </TableCell>
-                      <TableCell>
-                        {report.check_out_time
-                          ? new Date(report.check_out_time).toLocaleTimeString('en-US', { hour12: true })
-                          : '-'}
-                      </TableCell>
-                      <TableCell>
-                        {report.work_hours ? `${report.work_hours.toFixed(2)}h` : '-'}
-                      </TableCell>
+                      <TableCell>{report.check_in_time ? new Date(report.check_in_time).toLocaleTimeString('en-US', { hour12: true }) : '-'}</TableCell>
+                      <TableCell>{report.check_out_time ? new Date(report.check_out_time).toLocaleTimeString('en-US', { hour12: true }) : '-'}</TableCell>
+                      <TableCell>{report.work_hours ? `${report.work_hours.toFixed(2)}h` : '-'}</TableCell>
                       <TableCell>{getStatusBadge(report.status)}</TableCell>
                       {role === 'hr' && (
                         <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleEditClick(report)}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => handleEditClick(report)}><Pencil className="h-4 w-4" /></Button>
                         </TableCell>
                       )}
                     </TableRow>
@@ -575,89 +438,39 @@ export default function AttendanceReports() {
           )}
         </CardContent>
       </Card>
-
-      {/* Edit Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit Attendance Record</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Edit Attendance Record</DialogTitle></DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Employee</Label>
-              <Input value={editingRecord?.employee_name || ''} disabled />
-            </div>
-            <div className="space-y-2">
-              <Label>Date</Label>
-              <Input
-                value={editingRecord?.date ? new Date(editingRecord.date).toLocaleDateString() : ''}
-                disabled
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Check In Time</Label>
-              <Input
-                type="datetime-local"
-                value={editForm.checkInTime}
-                onChange={(e) => setEditForm({ ...editForm, checkInTime: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Check Out Time</Label>
-              <Input
-                type="datetime-local"
-                value={editForm.checkOutTime}
-                onChange={(e) => setEditForm({ ...editForm, checkOutTime: e.target.value })}
-              />
-            </div>
+            <div className="space-y-2"><Label>Employee</Label><Input value={editingRecord?.employee_name || ''} disabled /></div>
+            <div className="space-y-2"><Label>Date</Label><Input value={editingRecord?.date ? new Date(editingRecord.date).toLocaleDateString() : ''} disabled /></div>
+            <div className="space-y-2"><Label>Check In Time</Label><Input type="datetime-local" value={editForm.checkInTime} onChange={(e) => setEditForm({ ...editForm, checkInTime: e.target.value })} /></div>
+            <div className="space-y-2"><Label>Check Out Time</Label><Input type="datetime-local" value={editForm.checkOutTime} onChange={(e) => setEditForm({ ...editForm, checkOutTime: e.target.value })} /></div>
             <div className="space-y-2">
               <Label>Status</Label>
-              <Select value={editForm.status} onValueChange={(value) => setEditForm({ ...editForm, status: value })}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
+              <Select value={editForm.status} onValueChange={(value) => setEditForm({ ...editForm, status: value as 'present' | 'absent' | 'late' | 'half-day' })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="present">Present</SelectItem>
-                  <SelectItem value="late">Late</SelectItem>
-                  <SelectItem value="absent">Absent</SelectItem>
-                  <SelectItem value="half-day">Half Day</SelectItem>
+                  <SelectItem value="present">Present</SelectItem><SelectItem value="late">Late</SelectItem><SelectItem value="absent">Absent</SelectItem><SelectItem value="half-day">Half Day</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label>Notes</Label>
-              <Textarea
-                value={editForm.notes}
-                onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
-                placeholder="Add any notes about this attendance record..."
-              />
-            </div>
+            <div className="space-y-2"><Label>Notes</Label><Textarea value={editForm.notes} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} placeholder="Add any notes about this attendance record..." /></div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleUpdateAttendance} disabled={loading}>
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Update
-            </Button>
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleUpdateAttendance} disabled={loading}>{loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Update</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Create Dialog */}
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Create Attendance Record</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Create Attendance Record</DialogTitle></DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label>Employee *</Label>
               <Select value={createForm.employeeId} onValueChange={(value) => setCreateForm({ ...createForm, employeeId: value })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select employee" />
-                </SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Select employee" /></SelectTrigger>
                 <SelectContent>
                   {employees.map((emp) => (
                     <SelectItem key={emp.employee_id} value={emp.employee_id.toString()}>
@@ -667,61 +480,23 @@ export default function AttendanceReports() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label>Date *</Label>
-              <Input
-                type="date"
-                value={createForm.date}
-                onChange={(e) => setCreateForm({ ...createForm, date: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Check In Time</Label>
-              <Input
-                type="datetime-local"
-                value={createForm.checkInTime}
-                onChange={(e) => setCreateForm({ ...createForm, checkInTime: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Check Out Time</Label>
-              <Input
-                type="datetime-local"
-                value={createForm.checkOutTime}
-                onChange={(e) => setCreateForm({ ...createForm, checkOutTime: e.target.value })}
-              />
-            </div>
+            <div className="space-y-2"><Label>Date *</Label><Input type="date" value={createForm.date} onChange={(e) => setCreateForm({ ...createForm, date: e.target.value })} /></div>
+            <div className="space-y-2"><Label>Check In Time</Label><Input type="datetime-local" value={createForm.checkInTime} onChange={(e) => setCreateForm({ ...createForm, checkInTime: e.target.value })} /></div>
+            <div className="space-y-2"><Label>Check Out Time</Label><Input type="datetime-local" value={createForm.checkOutTime} onChange={(e) => setCreateForm({ ...createForm, checkOutTime: e.target.value })} /></div>
             <div className="space-y-2">
               <Label>Status</Label>
-              <Select value={createForm.status} onValueChange={(value) => setCreateForm({ ...createForm, status: value })}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
+              <Select value={createForm.status} onValueChange={(value) => setCreateForm({ ...createForm, status: value as 'present' | 'absent' | 'late' | 'half-day' })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="present">Present</SelectItem>
-                  <SelectItem value="late">Late</SelectItem>
-                  <SelectItem value="absent">Absent</SelectItem>
-                  <SelectItem value="half-day">Half Day</SelectItem>
+                  <SelectItem value="present">Present</SelectItem><SelectItem value="late">Late</SelectItem><SelectItem value="absent">Absent</SelectItem><SelectItem value="half-day">Half Day</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label>Notes</Label>
-              <Textarea
-                value={createForm.notes}
-                onChange={(e) => setCreateForm({ ...createForm, notes: e.target.value })}
-                placeholder="Add any notes about this attendance record..."
-              />
-            </div>
+            <div className="space-y-2"><Label>Notes</Label><Textarea value={createForm.notes} onChange={(e) => setCreateForm({ ...createForm, notes: e.target.value })} placeholder="Add any notes about this attendance record..." /></div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleCreateAttendance} disabled={loading}>
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Create
-            </Button>
+            <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleCreateAttendance} disabled={loading}>{loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Create</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

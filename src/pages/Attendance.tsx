@@ -111,9 +111,10 @@ export default function Attendance() {
       await apiClient.post(`/attendance/checkin`, { userId: user.id });
       toast.success('Checked in successfully!');
       await loadAttendanceData();
-    } catch (error: any) {
+    } catch (error) {
       console.error('Check-in failed:', error);
-      toast.error(error.message || 'Failed to check in');
+      const message = error instanceof Error ? error.message : "Failed to check in";
+      toast.error(message);
     } finally {
       setActionLoading(false);
     }
@@ -170,8 +171,9 @@ export default function Attendance() {
       });
       toast.success("Checked out successfully!");
       await loadAttendanceData();
-    } catch (error: any) {
-      toast.error(error.message || "Failed to check out");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to check out";
+      toast.error(message);
     } finally {
       setActionLoading(false);
     }
@@ -266,9 +268,10 @@ export default function Attendance() {
       toast.success('Attendance updated successfully!');
       setEditDialogOpen(false);
       await loadAttendanceData();
-    } catch (error: any) {
+    } catch (error) {
       console.error('Update failed:', error);
-      toast.error(error.message || 'Failed to update attendance');
+      const message = error instanceof Error ? error.message : "Failed to update attendance";
+      toast.error(message);
     } finally {
       setActionLoading(false);
     }
@@ -315,9 +318,10 @@ export default function Attendance() {
       toast.success("Attendance updated successfully!");
       setEditDialogOpen(false);
       await loadAttendanceData();
-    } catch (error: any) {
+    } catch (error) {
       console.error("Update failed:", error);
-      toast.error(error.message || "Failed to update attendance");
+      const message = error instanceof Error ? error.message : "Failed to update attendance";
+      toast.error(message);
     } finally {
       setActionLoading(false);
     }
@@ -702,8 +706,9 @@ export default function Attendance() {
                     });
                     toast.success("Checked out successfully!");
                     await loadAttendanceData();
-                  } catch (error: any) {
-                    toast.error(error.message || "Failed to check out");
+                  } catch (error) {
+                    const message = error instanceof Error ? error.message : "Failed to check out";
+                    toast.error(message);
                   } finally {
                     setActionLoading(false);
                     setIsCheckoutFlow(false);
