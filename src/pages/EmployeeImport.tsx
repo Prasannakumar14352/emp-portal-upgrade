@@ -114,17 +114,20 @@ export default function EmployeeImport() {
       const data = await file.arrayBuffer();
       const workbook = XLSX.read(data);
       const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-      const jsonData = XLSX.utils.sheet_to_json(worksheet) as Record<string, any>[];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as unknown[][];
 
       setProgress(30);
 
-      if (jsonData.length === 0) {
+      if (jsonData.length <= 1) {
         toast.error('File is empty');
         setIsProcessing(false);
         return;
       }
 
-      if (jsonData.length > 500) {
+      const header = (jsonData[0] || []).map(h => String(h).trim().toLowerCase().replace(/ /g, '_'));
+      const rows = jsonData.slice(1);
+
+      if (rows.length > 500) {
         toast.error('Maximum 500 employees can be imported at once');
         setIsProcessing(false);
         return;
@@ -132,16 +135,21 @@ export default function EmployeeImport() {
 
       const results: ValidationResult[] = [];
 
-      jsonData.forEach((row, index) => {
-        const rowNumber = index + 2; // +2 because index starts at 0 and row 1 is header
+      rows.forEach((row, index) => {
+        const rowNumber = index + 2; 
+        const rowData: Record<string, unknown> = {};
+        header.forEach((h, i) => {
+          rowData[h] = row[i];
+        });
+
         const employeeData = {
-          email: row.email?.toString().trim() || '',
-          full_name: row.full_name?.toString().trim() || '',
-          department: row.department?.toString().trim() || undefined,
-          position: row.position?.toString().trim() || undefined,
-          phone: row.phone?.toString().trim() || undefined,
-          password: row.password?.toString().trim() || undefined,
-          role: row.role?.toString().trim().toLowerCase() as 'employee' | 'hr' | 'manager' | undefined,
+          email: String(rowData.email || '').trim(),
+          full_name: String(rowData.full_name || '').trim(),
+          department: rowData.department ? String(rowData.department).trim() : undefined,
+          position: rowData.position ? String(rowData.position).trim() : undefined,
+          phone: rowData.phone ? String(rowData.phone).trim() : undefined,
+          password: rowData.password ? String(rowData.password).trim() : undefined,
+          role: String(rowData.role || '').trim().toLowerCase() as 'employee' | 'hr' | 'manager' | undefined,
         };
 
         const validation = employeeSchema.safeParse(employeeData);
@@ -199,9 +207,16 @@ export default function EmployeeImport() {
       } else {
         toast.warning(`Imported ${result.created} employees, ${result.failed} failed`);
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Import error:', error);
-      toast.error(error.response?.data?.error || 'Failed to import employees');
+      if (error instanceof Response) {
+          const data = await error.json().catch(() => ({ error: 'An unknown error occurred' }));
+          toast.error(data.error || 'Failed to import employees');
+      } else if (error instanceof Error) {
+          toast.error(error.message);
+      } else {
+          toast.error('An unknown error occurred during import');
+      }
     } finally {
       setIsProcessing(false);
     }

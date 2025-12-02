@@ -13,6 +13,52 @@ import { bulkService } from "@/services/bulkService";
 import { apiClient } from "@/services/apiClient";
 import * as XLSX from "xlsx";
 
+interface UserExcelRow {
+  email?: string;
+  Email?: string;
+  full_name?: string;
+  "Full Name"?: string;
+  name?: string;
+  Name?: string;
+  department?: string;
+  Department?: string;
+  position?: string;
+  Position?: string;
+  phone?: string;
+  Phone?: string;
+  role?: string;
+  Role?: string;
+  password?: string;
+  Password?: string;
+}
+
+interface HolidayExcelRow {
+  name?: string;
+  Name?: string;
+  date?: string | number;
+  Date?: string | number;
+  type?: string;
+  Type?: string;
+  description?: string;
+  Description?: string;
+}
+
+interface PayslipZipFailure {
+  fileName: string;
+  reason: string;
+}
+
+interface PayslipZipResponse {
+  uploaded: number;
+  failed: number;
+  failures?: PayslipZipFailure[];
+  uploadedPayslips?: { employeeId: number; month: string; year: number }[];
+}
+
+interface NotifyResponse {
+  sent: number;
+}
+
 export default function BulkOperations() {
   const { role, loading } = useUserRole();
   const [usersData, setUsersData] = useState("");
@@ -36,9 +82,9 @@ export default function BulkOperations() {
       const data = await file.arrayBuffer();
       const workbook = XLSX.read(data);
       const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+      const jsonData = XLSX.utils.sheet_to_json(worksheet) as UserExcelRow[];
       
-      const users = jsonData.map((row: any) => ({
+      const users = jsonData.map((row) => ({
         email: row.email || row.Email,
         full_name: row.full_name || row["Full Name"] || row.name || row.Name,
         department: row.department || row.Department,
@@ -60,9 +106,9 @@ export default function BulkOperations() {
       const data = await file.arrayBuffer();
       const workbook = XLSX.read(data);
       const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+      const jsonData = XLSX.utils.sheet_to_json(worksheet) as HolidayExcelRow[];
       
-      const holidays = jsonData.map((row: any) => ({
+      const holidays = jsonData.map((row) => ({
         name: row.name || row.Name,
         date: row.date || row.Date,
         type: row.type || row.Type,
@@ -105,8 +151,9 @@ export default function BulkOperations() {
 
       setUsersData("");
       setUserFile(null);
-    } catch (error: any) {
-      toast.error(error.message || "Failed to create users");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to create users";
+      toast.error(message);
       console.error("Error creating users:", error);
     } finally {
       setUploading(false);
@@ -133,8 +180,9 @@ export default function BulkOperations() {
       }
 
       setHolidaysData("");
-    } catch (error: any) {
-      toast.error(error.message || "Failed to create holidays");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to create holidays";
+      toast.error(message);
       console.error("Error creating holidays:", error);
     } finally {
       setUploading(false);
@@ -161,8 +209,9 @@ export default function BulkOperations() {
       }
 
       setPayslipsData("");
-    } catch (error: any) {
-      toast.error(error.message || "Failed to create payslips");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to create payslips";
+      toast.error(message);
       console.error("Error creating payslips:", error);
     } finally {
       setUploading(false);
@@ -182,18 +231,13 @@ export default function BulkOperations() {
       const formData = new FormData();
       formData.append('zipFile', payslipZipFile);
 
-      // const response: any = await apiClient.post('/bulk/payslips/zip', formData, {
-      //   headers: {
-      //     'Content-Type': 'multipart/form-data'
-      //   }
-      // });
-      const response: any = await apiClient.post('/bulk/payslips/zip', formData);
+      const response = await apiClient.post<PayslipZipResponse>('/bulk/payslips/zip', formData);
 
       if (response.failed > 0) {
         toast.warning(
           `Uploaded ${response.uploaded} payslips. ${response.failed} failed.`,
           {
-            description: response.failures?.slice(0, 3).map((f: any) => `${f.fileName}: ${f.reason}`).join('; ') + (response.failures?.length > 3 ? '...' : ''),
+            description: response.failures?.slice(0, 3).map((f) => `${f.fileName}: ${f.reason}`).join('; ') + (response.failures?.length > 3 ? '...' : ''),
             duration: 10000
           }
         );
@@ -202,12 +246,12 @@ export default function BulkOperations() {
       }
 
       // Send email notifications if any payslips were uploaded
-      if (response.uploadedPayslips?.length > 0) {
+      if (response.uploadedPayslips && response.uploadedPayslips.length > 0) {
         try {
-          const uniqueEmployeeIds = Array.from(new Set(response.uploadedPayslips.map((p: any) => p.employeeId)));
+          const uniqueEmployeeIds = Array.from(new Set(response.uploadedPayslips.map((p) => p.employeeId)));
           const firstPayslip = response.uploadedPayslips[0];
           
-          const notifyResponse: any = await apiClient.post('/payslips/notify', {
+          const notifyResponse = await apiClient.post<NotifyResponse>('/payslips/notify', {
             employeeIds: uniqueEmployeeIds,
             month: firstPayslip.month,
             year: firstPayslip.year
@@ -226,8 +270,9 @@ export default function BulkOperations() {
       const fileInput = document.getElementById('payslip-zip-file') as HTMLInputElement;
       if (fileInput) fileInput.value = '';
 
-    } catch (error: any) {
-      toast.error(error.message || "Failed to process ZIP file");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to process ZIP file";
+      toast.error(message);
       console.error("Error processing ZIP:", error);
     } finally {
       setUploading(false);

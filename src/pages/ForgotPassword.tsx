@@ -8,6 +8,11 @@ import { toast } from "sonner";
 import { apiClient } from "@/services/apiClient";
 import { Loader2, Mail } from "lucide-react";
 
+interface ResetResponse {
+  message: string;
+  resetLink?: string;
+}
+
 export default function ForgotPassword() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
@@ -19,7 +24,7 @@ export default function ForgotPassword() {
     setLoading(true);
 
     try {
-      const response = await apiClient.post("/password-reset/request", {
+      const response = await apiClient.post<ResetResponse>("/password-reset/request", {
         email,
       }, { skipAuth: true });
 
@@ -27,12 +32,13 @@ export default function ForgotPassword() {
       toast.success("Check your email for reset instructions");
 
       // In development, show the reset link
-      if (process.env.NODE_ENV === 'development' && (response as any).resetLink) {
-        console.log('Reset link:', (response as any).resetLink);
+      if (process.env.NODE_ENV === 'development' && response.resetLink) {
+        console.log('Reset link:', response.resetLink);
         toast.info("Check console for reset link (dev mode)");
       }
-    } catch (error: any) {
-      toast.error(error.message || "Failed to send reset email");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to send reset email";
+      toast.error(message);
     } finally {
       setLoading(false);
     }

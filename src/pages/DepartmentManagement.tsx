@@ -95,9 +95,10 @@ export default function DepartmentManagement() {
       setIsCreateDialogOpen(false);
       resetForm();
       loadData();
-    } catch (error: any) {
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to create department";
       console.error("Failed to create department:", error);
-      toast.error(error.message || "Failed to create department");
+      toast.error(message);
     } finally {
       setSaving(false);
     }
@@ -119,9 +120,10 @@ export default function DepartmentManagement() {
       setSelectedDepartment(null);
       resetForm();
       loadData();
-    } catch (error: any) {
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to update department";
       console.error("Failed to update department:", error);
-      toast.error(error.message || "Failed to update department");
+      toast.error(message);
     } finally {
       setSaving(false);
     }
@@ -137,9 +139,10 @@ export default function DepartmentManagement() {
       setIsDeleteDialogOpen(false);
       setSelectedDepartment(null);
       loadData();
-    } catch (error: any) {
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to delete department";
       console.error("Failed to delete department:", error);
-      toast.error(error.message || "Failed to delete department");
+      toast.error(message);
     } finally {
       setSaving(false);
     }
