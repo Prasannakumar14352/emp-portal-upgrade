@@ -10,6 +10,13 @@ import { toast } from "sonner";
 import { payslipNotificationService, type PayslipNotificationWithEmployee } from "@/services/payslipNotificationService";
 import { format } from "date-fns";
 
+interface NotificationStatistics {
+  total: number;
+  sent: number;
+  failed: number;
+  pending: number;
+}
+
 export default function PayslipNotificationHistory() {
   const [notifications, setNotifications] = useState<PayslipNotificationWithEmployee[]>([]);
   const [filteredNotifications, setFilteredNotifications] = useState<PayslipNotificationWithEmployee[]>([]);
@@ -17,7 +24,7 @@ export default function PayslipNotificationHistory() {
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState("all");
   const [retrying, setRetrying] = useState<string | null>(null);
-  const [statistics, setStatistics] = useState({ total: 0, sent: 0, failed: 0, pending: 0 });
+  const [statistics, setStatistics] = useState<NotificationStatistics>({ total: 0, sent: 0, failed: 0, pending: 0 });
 
   useEffect(() => {
     loadNotifications();
@@ -44,7 +51,7 @@ export default function PayslipNotificationHistory() {
     const loadStatistics = async () => {
       try {
         const stats = await payslipNotificationService.getStatistics();
-        setStatistics(stats as { total: number; sent: number; failed: number; pending: number; });
+        setStatistics(stats as NotificationStatistics);
       } catch (error) {
         console.error('Failed to load statistics:', error);
       }
@@ -79,9 +86,10 @@ export default function PayslipNotificationHistory() {
       toast.success('Email sent successfully');
       loadNotifications();
       loadStatistics();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to retry notification:', error);
-      toast.error(error.message || 'Failed to send email');
+      const message = error instanceof Error ? error.message : 'Failed to send email';
+      toast.error(message);
     } finally {
       setRetrying(null);
     }

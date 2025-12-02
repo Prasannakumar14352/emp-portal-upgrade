@@ -121,9 +121,10 @@ export default function PerformanceReview() {
       setCreateDialogOpen(false);
       resetForm();
       await loadData();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to create review:', error);
-      toast.error(error.message || 'Failed to create review');
+      const message = error instanceof Error ? error.message : 'Failed to create review';
+      toast.error(message);
     } finally {
       setSubmitting(false);
     }

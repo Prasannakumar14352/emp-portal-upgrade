@@ -76,7 +76,7 @@ export default function Payslips() {
         // Create object URL for preview
         const url = window.URL.createObjectURL(blob);
         const payslipWithUrl = { ...payslip, previewUrl: url };
-        setPreviewPayslip(payslipWithUrl as any);
+        setPreviewPayslip(payslipWithUrl);
       } catch (error) {
         console.error('Failed to load payslip preview:', error);
         toast.error('Failed to load payslip preview');

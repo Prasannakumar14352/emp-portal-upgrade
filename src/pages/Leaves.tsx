@@ -32,6 +32,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
+type BadgeVariant = "default" | "secondary" | "destructive" | "outline" | null | undefined;
+
 export default function Leaves() {
   const [open, setOpen] = useState(false);
   const { user } = useAuth();
@@ -198,11 +200,12 @@ export default function Leaves() {
       setConflicts([]);
       loadLeaveData();
     } catch (error) {
+      console.error("Failed to submit leave request", error);
       toast.error("Failed to submit leave request");
     }
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string): BadgeVariant => {
     switch (status) {
       case "approved":
         return "default";
@@ -493,7 +496,7 @@ export default function Leaves() {
                     <div className="space-y-1 flex-1">
                       <div className="flex items-center gap-2">
                         <p className="font-medium">{leave.leave_type}</p>
-                        <Badge variant={getStatusColor(leave.status.toLowerCase()) as any} className="gap-1">
+                        <Badge variant={getStatusColor(leave.status.toLowerCase())} className="gap-1">
                           {getStatusIcon(leave.status.toLowerCase())}
                           {leave.status}
                         </Badge>
