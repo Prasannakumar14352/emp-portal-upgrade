@@ -33,6 +33,11 @@ export interface LeaveTypeDistribution {
   value: number;
 }
 
+export interface EmployeeStats {
+  active_employees: number;
+  active_departments: number;
+}
+
 class DashboardService {
   async getEmployeeDashboardStats(userId: string): Promise<DashboardStats> {
     return apiClient.get<DashboardStats>(`/dashboard/employee/${userId}`);
@@ -55,6 +60,10 @@ class DashboardService {
   async getLeaveTypeDistribution(year?: number): Promise<LeaveTypeDistribution[]> {
     const yearParam = year ? `?year=${year}` : '';
     return apiClient.get<LeaveTypeDistribution[]>(`/dashboard/hr/leave-types${yearParam}`);
+  }
+
+  async getEmployeeStats(): Promise<EmployeeStats> {
+    return apiClient.get<EmployeeStats>('/dashboard/hr/employee-stats');
   }
 }
 
