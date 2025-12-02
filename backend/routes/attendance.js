@@ -442,11 +442,20 @@ router.put('/:id', authenticateToken, async (req, res) => {
     // Update the record
     const updateRequest = pool.request()
       .input('id', sql.UniqueIdentifier, id)
-      .input('checkInTime', sql.DateTime2, checkInTime ? new Date(checkInTime) : null)
-      .input('checkOutTime', sql.DateTime2, checkOutTime ? new Date(checkOutTime) : null)
+      .input('checkInTime', checkInTime ? new Date(checkInTime) : null)
+      .input('checkOutTime', checkOutTime ? new Date(checkOutTime) : null)
       .input('notes', sql.NVarChar, notes || null)
-      .input('workHours', sql.Decimal(5, 2), workHours);
+      .input('workHours', sql.Decimal(5, 2), workHours)
+      .input('status', sql.NVarChar, status || null);
 
+      console.log('[Attendance Update] Prepared update inputs:', {
+        id,
+        checkInTime: checkInTime ? new Date(checkInTime) : null,
+        checkOutTime: checkOutTime ? new Date(checkOutTime) : null,
+        notes: notes || null,
+        workHours,
+        status: status || null
+      });
     let updateQuery = `
       UPDATE attendance_records 
       SET 
@@ -454,6 +463,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
         check_out_time = @checkOutTime,
         notes = @notes,
         work_hours = @workHours,
+        status = CASE WHEN @status IS NOT NULL THEN @status ELSE status END,
         updated_at = GETDATE()
     `;
 
