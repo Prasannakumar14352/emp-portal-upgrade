@@ -7,7 +7,7 @@ interface RealtimeNotification {
   title: string;
   message: string;
   timestamp: string;
-  data?: any;
+  data?: unknown;
 }
 
 export const useRealtimeNotifications = () => {

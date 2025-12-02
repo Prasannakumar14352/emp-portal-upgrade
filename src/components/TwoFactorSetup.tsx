@@ -31,8 +31,9 @@ export function TwoFactorSetup({ open, onOpenChange, onSuccess }: TwoFactorSetup
       setSecret(data.secret);
       setBackupCodes(data.backupCodes);
       setStep('verify');
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to setup 2FA');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to setup 2FA';
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -48,8 +49,9 @@ export function TwoFactorSetup({ open, onOpenChange, onSuccess }: TwoFactorSetup
       setLoading(true);
       await twoFactorService.verify(verificationCode);
       setStep('backup');
-    } catch (error: any) {
-      toast.error(error.message || 'Invalid verification code');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Invalid verification code';
+      toast.error(message);
     } finally {
       setLoading(false);
     }

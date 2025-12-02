@@ -1,7 +1,29 @@
+
 import { useEffect } from 'react';
 import { useAuth } from './useAuth';
 import { signalrService } from '@/services/signalrService';
 import { toast } from 'sonner';
+
+interface AttendanceUpdateData {
+  message: string;
+  timestamp: string;
+}
+
+interface PerformanceReviewData {
+  message: string;
+}
+
+interface LeaveStatusUpdateData {
+  status: 'Approved' | 'Rejected' | string;
+  message: string;
+  comments?: string;
+}
+
+interface LeaveRequestSubmittedData {
+  title?: string;
+  message?: string;
+}
+
 
 export const useSignalR = () => {
   const { user } = useAuth();
@@ -13,14 +35,14 @@ export const useSignalR = () => {
     signalrService.connect(user.id);
 
     // Listen for attendance updates
-    const handleAttendanceUpdate = (data: any) => {
+    const handleAttendanceUpdate = (data: AttendanceUpdateData) => {
       toast.info(data.message, {
         description: new Date(data.timestamp).toLocaleString(),
       });
     };
 
     // Listen for performance review notifications
-    const handlePerformanceReview = (data: any) => {
+    const handlePerformanceReview = (data: PerformanceReviewData) => {
       toast.success(data.message, {
         description: 'View your performance reviews',
         action: {
@@ -31,7 +53,7 @@ export const useSignalR = () => {
     };
 
     // Listen for leave status updates
-    const handleLeaveStatusUpdate = (data: any) => {
+    const handleLeaveStatusUpdate = (data: LeaveStatusUpdateData) => {
       const isApproved = data.status === 'Approved';
       const isRejected = data.status === 'Rejected';
       
@@ -58,11 +80,11 @@ export const useSignalR = () => {
       }
 
       // Dispatch custom event to trigger data reload in Leaves page
-      window.dispatchEvent(new CustomEvent('leaveStatusUpdated', { detail: data }));
+      window.dispatchEvent(new CustomEvent<LeaveStatusUpdateData>('leaveStatusUpdated', { detail: data }));
     };
 
     // Listen for new leave request submissions
-    const handleLeaveRequestSubmitted = (data: any) => {
+    const handleLeaveRequestSubmitted = (data: LeaveRequestSubmittedData) => {
       toast.info(data.title || 'New Leave Request', {
         description: data.message || 'A new leave request has been submitted',
         action: {
@@ -72,7 +94,7 @@ export const useSignalR = () => {
       });
 
       // Dispatch custom event to trigger data reload in ApproveLeaves page
-      window.dispatchEvent(new CustomEvent('leaveRequestSubmitted', { detail: data }));
+      window.dispatchEvent(new CustomEvent<LeaveRequestSubmittedData>('leaveRequestSubmitted', { detail: data }));
     };
 
     signalrService.on('attendanceUpdate', handleAttendanceUpdate);

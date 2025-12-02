@@ -117,9 +117,10 @@ export function DepartmentEmployeesDialog({ department, open, onOpenChange, onUp
       toast.success(`${emp.full_name} has been removed from ${department.name}`);
       loadData();
       onUpdate();
-    } catch (error: any) {
+    } catch (error) {
       console.error("Failed to remove employee:", error);
-      toast.error(error.message || "Failed to remove employee");
+      const message = error instanceof Error ? error.message : "Failed to remove employee";
+      toast.error(message);
     } finally {
       setRemoving(null);
     }

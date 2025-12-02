@@ -26,9 +26,10 @@ export function RoleAuditLog() {
       });
       setAuditLog(response.data);
       setPagination(prev => ({ ...prev, total: response.pagination.total }));
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to load audit log:', error);
-      toast.error(error?.message || 'Failed to load audit log');
+      const message = error instanceof Error ? error.message : 'Failed to load audit log';
+      toast.error(message);
     } finally {
       setLoading(false);
     }

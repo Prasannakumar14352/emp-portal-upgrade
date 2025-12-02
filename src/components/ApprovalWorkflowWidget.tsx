@@ -13,6 +13,12 @@ interface WorkflowStats {
   total: number;
 }
 
+interface Leave {
+  manager_status: "Pending" | "Approved" | "Rejected";
+  hr_status: "Pending" | "Approved" | "Rejected";
+  status: "Pending" | "Approved" | "Rejected";
+}
+
 export function ApprovalWorkflowWidget() {
   const [stats, setStats] = useState<WorkflowStats>({
     pendingManager: 0,
@@ -29,7 +35,7 @@ export function ApprovalWorkflowWidget() {
   const loadWorkflowStats = async () => {
     try {
       setLoading(true);
-      const response = await apiClient.get<any[]>('/leaves');
+      const response = await apiClient.get<Leave[]>('/leaves');
       
       // Calculate stats from all leaves
       const pendingManager = response.filter(l => l.manager_status === 'Pending').length;
