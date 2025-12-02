@@ -22,3 +22,11 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Softgen - prevent committing dependencies and build artifacts
+.next/
+build/
+.cache/
+.vercel/
+.turbo/
+out/
