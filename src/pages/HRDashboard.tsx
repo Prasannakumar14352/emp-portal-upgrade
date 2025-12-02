@@ -4,7 +4,7 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { StatCard } from "@/components/StatCard";
-import { CheckCircle, XCircle, Clock, TrendingUp } from "lucide-react";
+import { CheckCircle, XCircle, Clock, TrendingUp, Users, Building2 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, Legend } from "recharts";
 import { dashboardService } from "@/services/dashboardService";
 
@@ -30,6 +30,10 @@ export default function HRDashboard() {
     rejected: 0,
     approvalRate: 0,
   });
+  const [employeeStats, setEmployeeStats] = useState({
+    activeEmployees: 0,
+    activeDepartments: 0,
+  });
   const [insights, setInsights] = useState({
     avgProcessingTime: 0,
     mostCommonLeaveType: "",
@@ -53,11 +57,12 @@ export default function HRDashboard() {
   const loadDashboardData = async () => {
     try {
       setLoading(true);
-      const [hrStats, trends, leaveTypes, insights] = await Promise.all([
+      const [hrStats, trends, leaveTypes, insights, empStats] = await Promise.all([
         dashboardService.getHRDashboardStats(),
         dashboardService.getMonthlyTrends(),
         dashboardService.getLeaveTypeDistribution(),
         dashboardService.getHRInsights(),
+        dashboardService.getEmployeeStats(),
       ]);
 
       setStats({
@@ -67,11 +72,12 @@ export default function HRDashboard() {
         rejected: hrStats.rejected_requests,
         approvalRate: hrStats.approval_rate,
       });
+      setEmployeeStats({
+        activeEmployees: empStats.active_employees,
+        activeDepartments: empStats.active_departments,
+      });
       setMonthlyTrends(trends);
       setLeaveTypeData(leaveTypes);
-      // ----------- DYNAMIC INSIGHTS LOGIC ------------
-
-      // 1. Avg processing time (prefer API, fallback to manual)
       setInsights({
         avgProcessingTime: insights.avg_processing_time,
         mostCommonLeaveType: insights.most_common_leave_type,
@@ -98,30 +104,39 @@ export default function HRDashboard() {
         <p className="text-muted-foreground">Overview of leave requests and approval statistics</p>
       </div>
 
-      {/* Statistics Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      {/* Employee & Department Statistics Cards */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
+        <StatCard
+          title="Active Employees"
+          value={employeeStats.activeEmployees}
+          icon={Users}
+          className="lg:col-span-1"
+        />
+        <StatCard
+          title="Active Departments"
+          value={employeeStats.activeDepartments}
+          icon={Building2}
+          className="lg:col-span-1"
+        />
         <StatCard
           title="Total Requests"
           value={stats.total}
           icon={TrendingUp}
           trend={{ value: "12% from last month", positive: true }}
+          className="lg:col-span-2"
         />
         <StatCard
           title="Pending Requests"
           value={stats.pending}
           icon={Clock}
-          className="border-warning/20"
+          className="border-warning/20 lg:col-span-1"
         />
         <StatCard
-          title="Approved"
-          value={stats.approved}
+          title="Approval Rate"
+          value={`${stats.approvalRate}%`}
           icon={CheckCircle}
-          trend={{ value: `${stats.approvalRate}% approval rate`, positive: true }}
-        />
-        <StatCard
-          title="Rejected"
-          value={stats.rejected}
-          icon={XCircle}
+          trend={{ value: `${stats.approved} approved`, positive: true }}
+          className="lg:col-span-1"
         />
       </div>
 
