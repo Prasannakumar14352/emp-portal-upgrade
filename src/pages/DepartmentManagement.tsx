@@ -40,8 +40,9 @@ import {
 import { departmentService, type Department, type CreateDepartmentRequest } from "@/services/departmentService";
 import { userService, type UserProfile } from "@/services/userService";
 import { toast } from "sonner";
-import { Building2, Plus, Edit, Trash2, Users, Loader2 } from "lucide-react";
+import { Building2, Plus, Edit, Trash2, Users, Loader2, UserPlus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { DepartmentEmployeesDialog } from "@/components/DepartmentEmployeesDialog";
 
 export default function DepartmentManagement() {
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -50,6 +51,7 @@ export default function DepartmentManagement() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isEmployeesDialogOpen, setIsEmployeesDialogOpen] = useState(false);
   const [selectedDepartment, setSelectedDepartment] = useState<Department | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -228,10 +230,19 @@ export default function DepartmentManagement() {
                       )}
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedDepartment(dept);
+                          setIsEmployeesDialogOpen(true);
+                        }}
+                        className="flex items-center gap-2"
+                      >
                         <Users className="h-4 w-4 text-muted-foreground" />
                         <span>{dept.employee_count || 0}</span>
-                      </div>
+                        <UserPlus className="h-3 w-3 ml-1" />
+                      </Button>
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
@@ -429,6 +440,14 @@ export default function DepartmentManagement() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Employees Management Dialog */}
+      <DepartmentEmployeesDialog
+        department={selectedDepartment}
+        open={isEmployeesDialogOpen}
+        onOpenChange={setIsEmployeesDialogOpen}
+        onUpdate={loadData}
+      />
     </div>
   );
 }
