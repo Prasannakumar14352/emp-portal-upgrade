@@ -212,4 +212,134 @@ router.delete('/:id', authenticateToken, authorizeRole('hr'), async (req, res) =
   }
 });
 
+// GET /api/departments/:id/employees - Get employees in a department
+router.get('/:id/employees', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const pool = await getConnection();
+    
+    // Get department name first
+    const dept = await pool.request()
+      .input('id', sql.UniqueIdentifier, id)
+      .query('SELECT name FROM departments WHERE id = @id');
+    
+    if (dept.recordset.length === 0) {
+      return res.status(404).json({ error: 'Department not found' });
+    }
+    
+    const departmentName = dept.recordset[0].name;
+    
+    const result = await pool.request()
+      .input('department', sql.NVarChar, departmentName)
+      .query(`
+        SELECT 
+          p.employee_id, p.full_name, p.email, p.phone, 
+          p.position, p.department, p.avatar_url
+        FROM profiles p
+        WHERE p.department = @department
+        ORDER BY p.full_name ASC
+      `);
+    
+    res.json(result.recordset);
+  } catch (error) {
+    logError(error, req, { context: 'Error fetching department employees' });
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/departments/:id/employees - Add employee to department
+router.post('/:id/employees', authenticateToken, authorizeRole('hr', 'manager'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { employee_id } = req.body;
+    
+    if (!employee_id) {
+      return res.status(400).json({ error: 'Employee ID is required' });
+    }
+    
+    const pool = await getConnection();
+    
+    // Get department
+    const dept = await pool.request()
+      .input('id', sql.UniqueIdentifier, id)
+      .query('SELECT name FROM departments WHERE id = @id');
+    
+    if (dept.recordset.length === 0) {
+      return res.status(404).json({ error: 'Department not found' });
+    }
+    
+    const departmentName = dept.recordset[0].name;
+    
+    // Get employee details before update
+    const employee = await pool.request()
+      .input('employee_id', sql.Int, employee_id)
+      .query('SELECT employee_id, full_name, email, department FROM profiles WHERE employee_id = @employee_id');
+    
+    if (employee.recordset.length === 0) {
+      return res.status(404).json({ error: 'Employee not found' });
+    }
+    
+    const emp = employee.recordset[0];
+    
+    // Update employee's department
+    await pool.request()
+      .input('employee_id', sql.Int, employee_id)
+      .input('department', sql.NVarChar, departmentName)
+      .query('UPDATE profiles SET department = @department, updated_at = GETDATE() WHERE employee_id = @employee_id');
+    
+    // Also update employees table if exists
+    await pool.request()
+      .input('employee_id', sql.Int, employee_id)
+      .input('department', sql.NVarChar, departmentName)
+      .query('UPDATE employees SET department = @department, updated_at = GETDATE() WHERE employee_id = @employee_id');
+    
+    res.json({ 
+      success: true, 
+      message: 'Employee assigned to department',
+      employee: {
+        employee_id: emp.employee_id,
+        full_name: emp.full_name,
+        email: emp.email,
+        department: departmentName
+      }
+    });
+  } catch (error) {
+    logError(error, req, { context: 'Error adding employee to department' });
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// DELETE /api/departments/:id/employees/:employeeId - Remove employee from department
+router.delete('/:id/employees/:employeeId', authenticateToken, authorizeRole('hr', 'manager'), async (req, res) => {
+  try {
+    const { id, employeeId } = req.params;
+    const pool = await getConnection();
+    
+    // Get department
+    const dept = await pool.request()
+      .input('id', sql.UniqueIdentifier, id)
+      .query('SELECT name FROM departments WHERE id = @id');
+    
+    if (dept.recordset.length === 0) {
+      return res.status(404).json({ error: 'Department not found' });
+    }
+    
+    // Update employee's department to unassigned
+    await pool.request()
+      .input('employee_id', sql.Int, employeeId)
+      .input('department', sql.NVarChar, 'Not Assigned')
+      .query('UPDATE profiles SET department = @department, updated_at = GETDATE() WHERE employee_id = @employee_id');
+    
+    await pool.request()
+      .input('employee_id', sql.Int, employeeId)
+      .input('department', sql.NVarChar, 'Not Assigned')
+      .query('UPDATE employees SET department = @department, updated_at = GETDATE() WHERE employee_id = @employee_id');
+    
+    res.json({ success: true, message: 'Employee removed from department' });
+  } catch (error) {
+    logError(error, req, { context: 'Error removing employee from department' });
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;
