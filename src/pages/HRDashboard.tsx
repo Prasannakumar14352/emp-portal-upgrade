@@ -65,6 +65,8 @@ export default function HRDashboard() {
         dashboardService.getEmployeeStats(),
       ]);
 
+      console.log("Employee Stats Response:", empStats);
+
       setStats({
         total: hrStats.total_requests,
         pending: hrStats.pending_requests,
@@ -73,9 +75,15 @@ export default function HRDashboard() {
         approvalRate: hrStats.approval_rate,
       });
       setEmployeeStats({
-        activeEmployees: empStats.active_employees,
-        activeDepartments: empStats.active_departments,
+        activeEmployees: empStats.active_employees || 0,
+        activeDepartments: empStats.active_departments || 0,
       });
+      
+      console.log("Set Employee Stats:", {
+        activeEmployees: empStats.active_employees || 0,
+        activeDepartments: empStats.active_departments || 0,
+      });
+
       setMonthlyTrends(trends);
       setLeaveTypeData(leaveTypes);
       setInsights({
@@ -104,39 +112,48 @@ export default function HRDashboard() {
         <p className="text-muted-foreground">Overview of leave requests and approval statistics</p>
       </div>
 
-      {/* Employee & Department Statistics Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
+      {/* Employee & Department Statistics Cards - Prominent at top */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatCard
           title="Active Employees"
           value={employeeStats.activeEmployees}
           icon={Users}
-          className="lg:col-span-1"
+          className="bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800"
         />
         <StatCard
           title="Active Departments"
           value={employeeStats.activeDepartments}
           icon={Building2}
-          className="lg:col-span-1"
+          className="bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800"
         />
         <StatCard
           title="Total Requests"
           value={stats.total}
           icon={TrendingUp}
           trend={{ value: "12% from last month", positive: true }}
-          className="lg:col-span-2"
         />
         <StatCard
           title="Pending Requests"
           value={stats.pending}
           icon={Clock}
-          className="border-warning/20 lg:col-span-1"
+          className="border-warning/20"
+        />
+      </div>
+
+      {/* Additional Statistics Row */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <StatCard
+          title="Approved"
+          value={stats.approved}
+          icon={CheckCircle}
+          trend={{ value: `${stats.approvalRate}% approval rate`, positive: true }}
+          className="border-success/20"
         />
         <StatCard
-          title="Approval Rate"
-          value={`${stats.approvalRate}%`}
-          icon={CheckCircle}
-          trend={{ value: `${stats.approved} approved`, positive: true }}
-          className="lg:col-span-1"
+          title="Rejected"
+          value={stats.rejected}
+          icon={XCircle}
+          className="border-destructive/20"
         />
       </div>
 
