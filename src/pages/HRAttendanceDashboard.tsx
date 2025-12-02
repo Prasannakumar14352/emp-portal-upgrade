@@ -41,6 +41,14 @@ interface EditDialogData {
   originalCheckOutTime?: string;
 }
 
+interface AttendanceUpdatePayload {
+  userId: string;
+  status: string;
+  notes: string;
+  checkInTime?: string | null;
+  checkOutTime?: string | null;
+}
+
 export default function HRAttendanceDashboard() {
   const { role } = useUserRole();
   const navigate = useNavigate();
@@ -53,22 +61,17 @@ export default function HRAttendanceDashboard() {
   const [editData, setEditData] = useState<EditDialogData | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // Role access check - show message instead of redirecting
-  if (role && role !== 'hr' && role !== 'manager') {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <p className="text-muted-foreground">You don't have permission to access this page.</p>
-      </div>
-    );
-  }
+  useEffect(() => {
+    if (role === "hr" || role === "manager") {
+      loadDepartments();
+    }
+  }, [role]);
 
   useEffect(() => {
-    loadDepartments();
-  }, []);
-
-  useEffect(() => {
-    loadAttendanceData();
-  }, [currentDate, department]);
+    if (role === "hr" || role === "manager") {
+      loadAttendanceData();
+    }
+  }, [currentDate, department, role]);
 
   const loadDepartments = async () => {
     try {
@@ -89,7 +92,7 @@ export default function HRAttendanceDashboard() {
         `/attendance/calendar?year=${year}&month=${month}${department !== 'all' ? `&department=${department}` : ''}`
       );
       setAttendanceData(response);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to load attendance:', error);
       toast.error('Failed to load attendance data');
     } finally {
@@ -187,10 +190,10 @@ export default function HRAttendanceDashboard() {
 
       if (editData.recordId) {
         // Update existing record - only send changed fields
-        const updateData: any = {
+        const updateData: Partial<AttendanceUpdatePayload> = {
           userId: editData.employeeId,
           status: editData.status,
-          notes: editData.notes
+          notes: editData.notes,
         };
 
         // Only include times if they were changed
@@ -218,9 +221,11 @@ export default function HRAttendanceDashboard() {
       setEditDialog(false);
       setEditData(null);
       loadAttendanceData();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to save attendance:', error);
-      toast.error(error.response?.data?.error || 'Failed to save attendance');
+      const message =
+        error instanceof Error ? error.message : 'Failed to save attendance';
+      toast.error(message);
     } finally {
       setSaving(false);
     }

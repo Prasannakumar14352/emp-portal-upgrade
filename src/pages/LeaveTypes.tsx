@@ -69,9 +69,14 @@ export default function LeaveTypes() {
       setOpen(false);
       setEditingType(null);
       loadLeaveTypes();
-    } catch (error: any) {
-      const errorMessage = error?.message || (editingType ? "Failed to update leave type" : "Failed to create leave type");
-      toast.error(errorMessage);
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : editingType
+          ? "Failed to update leave type"
+          : "Failed to create leave type";
+      toast.error(message);
     } finally {
       setSubmitting(false);
     }
@@ -85,12 +90,16 @@ export default function LeaveTypes() {
     
     try {
       await leaveTypeService.updateLeaveType(leaveType.id.toString(), {
-        is_active: !leaveType.is_active
+        is_active: !leaveType.is_active,
       });
-      toast.success(`Leave type ${leaveType.is_active ? 'deactivated' : 'activated'}`);
+      toast.success(`Leave type ${leaveType.is_active ? "deactivated" : "activated"}`);
       loadLeaveTypes();
-    } catch (error: any) {
-      toast.error(error?.message || 'Failed to update leave type status');
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to update leave type status";
+      toast.error(message);
     }
   };
 
@@ -106,8 +115,10 @@ export default function LeaveTypes() {
       await leaveTypeService.deleteLeaveType(id.toString());
       toast.success("Leave type deleted successfully!");
       loadLeaveTypes();
-    } catch (error: any) {
-      toast.error(error?.message || 'Failed to delete leave type');
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : "Failed to delete leave type";
+      toast.error(message);
     }
   };
 

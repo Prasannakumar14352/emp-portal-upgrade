@@ -8,6 +8,17 @@ import { CheckCircle, XCircle, Clock, TrendingUp } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, Legend } from "recharts";
 import { dashboardService } from "@/services/dashboardService";
 
+interface MonthlyTrend {
+  month: string;
+  approved: number;
+  rejected: number;
+}
+
+interface LeaveTypeDistribution {
+  name: string;
+  value: number;
+}
+
 export default function HRDashboard() {
   const { role, loading: roleLoading } = useUserRole();
   const navigate = useNavigate();
@@ -24,8 +35,8 @@ export default function HRDashboard() {
     mostCommonLeaveType: "",
     peakRequestMonth: "",
   });
-  const [monthlyTrends, setMonthlyTrends] = useState<any[]>([]);
-  const [leaveTypeData, setLeaveTypeData] = useState<any[]>([]);
+  const [monthlyTrends, setMonthlyTrends] = useState<MonthlyTrend[]>([]);
+  const [leaveTypeData, setLeaveTypeData] = useState<LeaveTypeDistribution[]>([]);
 
   useEffect(() => {
     if (roleLoading) return;
@@ -67,8 +78,8 @@ export default function HRDashboard() {
         peakRequestMonth: insights.peak_month,
       });
     } catch (error) {
-      console.error('Failed to load HR dashboard data:', error);
-      toast.error('Failed to load dashboard data');
+      console.error("Failed to load HR dashboard data:", error);
+      toast.error("Failed to load dashboard data");
     } finally {
       setLoading(false);
     }
@@ -190,12 +201,12 @@ export default function HRDashboard() {
                   cx="50%"
                   cy="50%"
                   labelLine={false}
-                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                  label={({ name, percent }: { name: string; percent: number }) => `${name}: ${(percent * 100).toFixed(0)}%`}
                   outerRadius={80}
                   fill="hsl(var(--primary))"
                   dataKey="value"
                 >
-                  {leaveTypeData.map((entry, index) => (
+                  {leaveTypeData.map((_entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>

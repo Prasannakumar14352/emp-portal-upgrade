@@ -21,6 +21,15 @@ interface LeaveEvent {
   status: string;
 }
 
+interface StoredLeaveRequest {
+  id: string;
+  employeeName: string;
+  leaveType: string;
+  startDate: string;
+  endDate: string;
+  status: "Approved" | "Rejected" | "Pending";
+}
+
 // Predefined color classes for dynamic assignment
 const colorClasses = [
   "bg-primary text-primary-foreground",
@@ -78,18 +87,23 @@ export default function LeaveCalendar() {
   const approvedLeaves: LeaveEvent[] = useMemo(() => {
     const stored = localStorage.getItem("leaveRequests");
     if (!stored) return [];
-    
-    const requests = JSON.parse(stored);
-    return requests
-      .filter((req: any) => req.status === "Approved")
-      .map((req: any) => ({
-        id: req.id,
-        employeeName: req.employeeName,
-        leaveType: req.leaveType,
-        startDate: new Date(req.startDate),
-        endDate: new Date(req.endDate),
-        status: req.status,
-      }));
+
+    try {
+      const requests = JSON.parse(stored) as StoredLeaveRequest[];
+      return requests
+        .filter((req) => req.status === "Approved")
+        .map((req) => ({
+          id: req.id,
+          employeeName: req.employeeName,
+          leaveType: req.leaveType,
+          startDate: new Date(req.startDate),
+          endDate: new Date(req.endDate),
+          status: req.status,
+        }));
+    } catch (error) {
+      console.error("Failed to parse leave requests from localStorage", error);
+      return [];
+    }
   }, []);
 
   const monthStart = startOfMonth(currentDate);
