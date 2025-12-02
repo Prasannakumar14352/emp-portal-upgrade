@@ -273,7 +273,15 @@ export default function BulkOperations() {
   const handleBulkHolidays = async () => {
     try {
       setUploading(true);
-      const holidays = JSON.parse(holidaysData);
+      let holidays;
+
+      if (holidayFile) {
+        holidays = await handleHolidayFileUpload(holidayFile);
+      } else if (holidaysData.trim()) {
+        holidays = JSON.parse(holidaysData);
+      } else {
+        throw new Error("Please provide holiday data via Excel file or JSON");
+      }
       
       if (!Array.isArray(holidays)) {
         throw new Error("Data must be an array");
@@ -290,6 +298,7 @@ export default function BulkOperations() {
       }
 
       setHolidaysData("");
+      setHolidayFile(null);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to create holidays";
       toast.error(message);
