@@ -291,7 +291,7 @@ router.post('/:id/employees', authenticateToken, authorizeRole('hr', 'manager'),
     await pool.request()
       .input('employee_id', sql.Int, employee_id)
       .input('department', sql.NVarChar, departmentName)
-      .query('UPDATE employees SET department = @department, updated_at = GETDATE() WHERE employee_id = @employee_id');
+      .query('UPDATE profiles SET department = @department, updated_at = GETDATE() WHERE employee_id = @employee_id');
     
     res.json({ 
       success: true, 
@@ -333,7 +333,7 @@ router.delete('/:id/employees/:employeeId', authenticateToken, authorizeRole('hr
     await pool.request()
       .input('employee_id', sql.Int, employeeId)
       .input('department', sql.NVarChar, 'Not Assigned')
-      .query('UPDATE employees SET department = @department, updated_at = GETDATE() WHERE employee_id = @employee_id');
+      .query('UPDATE profiles SET department = @department, updated_at = GETDATE() WHERE employee_id = @employee_id');
     
     res.json({ success: true, message: 'Employee removed from department' });
   } catch (error) {

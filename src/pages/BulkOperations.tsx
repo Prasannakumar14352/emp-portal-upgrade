@@ -287,7 +287,7 @@ export default function BulkOperations() {
       </div>
 
       <Tabs defaultValue="users" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="users">
             <Users className="w-4 h-4 mr-2" />
             Users
@@ -296,10 +296,10 @@ export default function BulkOperations() {
             <Calendar className="w-4 h-4 mr-2" />
             Holidays
           </TabsTrigger>
-          <TabsTrigger value="payslips">
+          {/* <TabsTrigger value="payslips">
             <FileText className="w-4 h-4 mr-2" />
             Payslips JSON
-          </TabsTrigger>
+          </TabsTrigger> */}
           <TabsTrigger value="payslip-pdfs">
             <FileText className="w-4 h-4 mr-2" />
             Payslip PDFs
