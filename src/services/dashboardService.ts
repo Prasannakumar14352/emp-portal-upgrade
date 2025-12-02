@@ -15,6 +15,13 @@ export interface HRDashboardStats {
   approval_rate: number;
 }
 
+export interface HRInsights {
+  average_leave_duration: number;
+  most_frequent_leave_type: string;
+  department_most_leaves: string;
+  peak_leave_month: string;
+}
+
 export interface MonthlyTrend {
   month: string;
   approved: number;
@@ -40,9 +47,9 @@ class DashboardService {
     return apiClient.get<MonthlyTrend[]>(`/dashboard/hr/trends${yearParam}`);
   }
 
-  async getHRInsights(year?: number): Promise<any> {
+  async getHRInsights(year?: number): Promise<HRInsights> {
     const yearParam = year ? `?year=${year}` : '';
-    return apiClient.get(`/dashboard/hr/insights${yearParam}`);
+    return apiClient.get<HRInsights>(`/dashboard/hr/insights${yearParam}`);
   }
 
   async getLeaveTypeDistribution(year?: number): Promise<LeaveTypeDistribution[]> {

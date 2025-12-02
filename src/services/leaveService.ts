@@ -54,6 +54,15 @@ export interface LeaveConflict {
   days: number;
 }
 
+export interface LeaveComment {
+  id: string;
+  leave_request_id: string;
+  employee_id: string;
+  comment: string;
+  created_at: string;
+  author_name: string;
+}
+
 export interface UpdateLeaveRequest {
   status: 'Approved' | 'Rejected';
   comments?: string;
@@ -102,8 +111,8 @@ class LeaveService {
   }
 
   // Get leave comments
-  async getLeaveComments(leaveId: string): Promise<any[]> {
-    return apiClient.get(`/leaves/${leaveId}/comments`);
+  async getLeaveComments(leaveId: string): Promise<LeaveComment[]> {
+    return apiClient.get<LeaveComment[]>(`/leaves/${leaveId}/comments`);
   }
 
   // Cancel leave request

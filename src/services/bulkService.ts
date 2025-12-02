@@ -41,16 +41,16 @@ export interface BulkResponse<T> {
 }
 
 class BulkService {
-  async createBulkUsers(users: BulkUserData[]): Promise<BulkResponse<any>> {
-    return apiClient.post<BulkResponse<any>>('/bulk/users', { users });
+  async createBulkUsers(users: BulkUserData[]): Promise<BulkResponse<BulkUserData>> {
+    return apiClient.post<BulkResponse<BulkUserData>>('/bulk/users', { users });
   }
 
-  async createBulkHolidays(holidays: BulkHolidayData[]): Promise<BulkResponse<any>> {
-    return apiClient.post<BulkResponse<any>>('/bulk/holidays', { holidays });
+  async createBulkHolidays(holidays: BulkHolidayData[]): Promise<BulkResponse<BulkHolidayData>> {
+    return apiClient.post<BulkResponse<BulkHolidayData>>('/bulk/holidays', { holidays });
   }
 
-  async createBulkPayslips(payslips: BulkPayslipData[]): Promise<BulkResponse<any>> {
-    return apiClient.post<BulkResponse<any>>('/bulk/payslips', { payslips });
+  async createBulkPayslips(payslips: BulkPayslipData[]): Promise<BulkResponse<BulkPayslipData>> {
+    return apiClient.post<BulkResponse<BulkPayslipData>>('/bulk/payslips', { payslips });
   }
 }
 

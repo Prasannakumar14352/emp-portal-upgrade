@@ -63,7 +63,7 @@ class APIClient {
   //   });
   // }
 
-  post<T>(endpoint: string, data?: any, options?: FetchOptions): Promise<T> {
+  post<T>(endpoint: string, data?: unknown, options?: FetchOptions): Promise<T> {
     const isFormData = data instanceof FormData;
 
     return this.request<T>(endpoint, {
@@ -77,11 +77,15 @@ class APIClient {
     });
   }
 
-  patch<T>(endpoint: string, data?: any, options?: FetchOptions): Promise<T> {
+  patch<T>(endpoint: string, data?: unknown, options?: FetchOptions): Promise<T> {
     return this.request<T>(endpoint, {
       ...options,
       method: 'PATCH',
-      body: JSON.stringify(data)
+      body: JSON.stringify(data),
+      headers: {
+        ...(options?.headers || {}),
+        'Content-Type': 'application/json'
+      }
     });
   }
 
@@ -89,7 +93,7 @@ class APIClient {
     return this.request<T>(endpoint, { ...options, method: 'DELETE' });
   }
 
-  put<T>(endpoint: string, data?: any, options?: FetchOptions): Promise<T> {
+  put<T>(endpoint: string, data?: unknown, options?: FetchOptions): Promise<T> {
     return this.request<T>(endpoint, {
       ...options,
       method: 'PUT',

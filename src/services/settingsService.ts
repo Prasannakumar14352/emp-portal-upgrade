@@ -24,8 +24,8 @@ class SettingsService {
     try {
       const response = await apiClient.get<UserPreferences>(`/users/${userId}/preferences`);
       return response;
-    } catch (error: any) {
-      if (error.status === 404) {
+    } catch (error: unknown) {
+      if (error && typeof error === 'object' && 'status' in error && error.status === 404) {
         return null;
       }
       console.error('Error fetching user preferences:', error);
