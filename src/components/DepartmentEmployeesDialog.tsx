@@ -67,6 +67,7 @@ export function DepartmentEmployeesDialog({ department, open, onOpenChange, onUp
     setAdding(true);
     let successCount = 0;
     let failCount = 0;
+    const addedEmployeeIds: string[] = [];
 
     for (const empId of selectedEmployees) {
       const emp = allEmployees.find((e) => e.employee_id === empId);
@@ -81,6 +82,7 @@ export function DepartmentEmployeesDialog({ department, open, onOpenChange, onUp
           emp.email,
           user?.full_name || "HR"
         );
+        addedEmployeeIds.push(empId);
         successCount++;
       } catch (error) {
         console.error(`Failed to add ${emp.full_name}:`, error);
@@ -96,7 +98,9 @@ export function DepartmentEmployeesDialog({ department, open, onOpenChange, onUp
     }
 
     setSelectedEmployees([]);
-    loadData();
+    
+    // Reload data to get fresh employee list
+    await loadData();
     onUpdate();
     setAdding(false);
   };
@@ -114,8 +118,16 @@ export function DepartmentEmployeesDialog({ department, open, onOpenChange, onUp
         emp.email,
         user?.full_name || "HR"
       );
+      
+      // Immediately update local state to remove the employee
+      setEmployees((prevEmployees) => 
+        prevEmployees.filter((e) => e.employee_id !== emp.employee_id)
+      );
+      
       toast.success(`${emp.full_name} has been removed from ${department.name}`);
-      loadData();
+      
+      // Reload data to ensure consistency with backend
+      await loadData();
       onUpdate();
     } catch (error) {
       console.error("Failed to remove employee:", error);
