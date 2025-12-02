@@ -176,8 +176,9 @@ export default function Settings() {
       toast.success("Password changed successfully");
       setPasswordDialogOpen(false);
       setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
-    } catch (error: any) {
-      toast.error(error.message || "Failed to change password");
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Failed to change password";
+      toast.error(message);
     } finally {
       setChangingPassword(false);
     }

@@ -63,8 +63,9 @@ export default function ResetPassword() {
 
       toast.success("Password reset successful! Please sign in.");
       navigate("/auth");
-    } catch (error: any) {
-      toast.error(error.message || "Failed to reset password");
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to reset password';
+      toast.error(message);
     } finally {
       setLoading(false);
     }

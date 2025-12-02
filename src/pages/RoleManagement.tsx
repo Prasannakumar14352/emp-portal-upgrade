@@ -78,9 +78,10 @@ export default function RoleManagement() {
       setLoading(true);
       const data = await roleManagementService.getUsersWithRoles();
       setUsers(data);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to load users:', error);
-      toast.error(error?.message || 'Failed to load users');
+      const message = error instanceof Error ? error.message : 'Failed to load users';
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -96,8 +97,9 @@ export default function RoleManagement() {
       setAssignDialogOpen(false);
       setSelectedUser(null);
       loadUsers();
-    } catch (error: any) {
-      toast.error(error?.message || 'Failed to assign role');
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to assign role';
+      toast.error(message);
     } finally {
       setSubmitting(false);
     }
@@ -112,8 +114,9 @@ export default function RoleManagement() {
       toast.success('Role removed successfully');
       setRoleToDelete(null);
       loadUsers();
-    } catch (error: any) {
-      toast.error(error?.message || 'Failed to remove role');
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to remove role';
+      toast.error(message);
     } finally {
       setSubmitting(false);
     }
@@ -147,8 +150,9 @@ export default function RoleManagement() {
       setBulkDialogOpen(false);
       setSelectedUserIds([]);
       loadUsers();
-    } catch (error: any) {
-      toast.error(error?.message || 'Failed to bulk assign roles');
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to bulk assign roles';
+      toast.error(message);
     } finally {
       setSubmitting(false);
     }
@@ -281,7 +285,7 @@ export default function RoleManagement() {
               )}
             </div>
             
-            <Select value={roleFilter} onValueChange={(value) => setRoleFilter(value as any)}>
+            <Select value={roleFilter} onValueChange={(value) => setRoleFilter(value as 'all' | 'employee' | 'hr' | 'manager')}>
               <SelectTrigger className="w-full sm:w-[180px]">
                 <SelectValue placeholder="Filter by role" />
               </SelectTrigger>
@@ -418,11 +422,11 @@ export default function RoleManagement() {
             </TableHeader>
             <TableBody>
               {paginatedUsers.map((user) => (
-                <TableRow key={user.employee_id}>
+                <TableRow key={user.id}>
                   <TableCell>
                     <Checkbox
-                      checked={selectedUserIds.includes(parseInt(user.employee_id))}
-                      onCheckedChange={(checked) => toggleUserSelection(parseInt(user.employee_id), checked)}
+                      checked={selectedUserIds.includes(user.id)}
+                      onCheckedChange={(checked) => toggleUserSelection(user.id, checked)}
                       aria-label={`Select ${user.full_name}`}
                     />
                   </TableCell>
@@ -445,7 +449,7 @@ export default function RoleManagement() {
                                 size="icon"
                                 className="h-5 w-5"
                                 onClick={() => setRoleToDelete({ 
-                                  userId: user.employee_id as unknown as number, 
+                                  userId: user.id, 
                                   roleId: roleInfo.role_id, 
                                   role: roleInfo.role 
                                 })}

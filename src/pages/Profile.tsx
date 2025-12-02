@@ -95,9 +95,10 @@ export default function Profile() {
       
       setProfile(prev => prev ? { ...prev, avatar_url: fullAvatarUrl } : null);
       toast.success('Profile picture updated successfully');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Upload failed:', error);
-      toast.error(error.message || 'Failed to upload image');
+      const message = error instanceof Error ? error.message : 'Failed to upload image';
+      toast.error(message);
       throw error;
     }
   };
