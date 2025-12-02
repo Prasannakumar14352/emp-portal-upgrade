@@ -119,7 +119,7 @@ export function getAuthErrorMessage(error: unknown): AuthError {
     };
   }
 
-  if (statusCode &gt;= 500) {
+  if (statusCode >= 500) {
     return {
       code: "SERVER_ERROR",
       message: "A server error occurred. Please try again later.",
