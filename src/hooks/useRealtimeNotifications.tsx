@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 
 interface RealtimeNotification {
@@ -13,15 +14,15 @@ export const useRealtimeNotifications = () => {
   const [notifications] = useState<RealtimeNotification[]>([]);
   const [unreadCount] = useState(0);
 
-  // Realtime notifications disabled - SQL Server backend doesn't support Supabase realtime
-  // Use SignalR for real-time updates instead (already implemented in useSignalR hook)
+  // Real-time notifications are handled via SignalR (see useSignalR hook)
+  // This hook provides a placeholder interface for compatibility
 
   const markAsRead = () => {
-    // No-op: realtime notifications disabled
+    // No-op: handled by SignalR implementation
   };
 
   const clearNotifications = () => {
-    // No-op: realtime notifications disabled
+    // No-op: handled by SignalR implementation
   };
 
   return {
