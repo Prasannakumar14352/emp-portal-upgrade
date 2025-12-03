@@ -193,20 +193,17 @@ router.post('/users',
             }
           }
 
-          // Create profile with proper GUID generation for id column
-          const newId = uuidv4();
-          
+          // Create profile - let SQL Server auto-generate id and employee_id (IDENTITY columns)
           const profileResult = await transaction.request()
-            .input('id', sql.UniqueIdentifier, newId)
             .input('email', sql.NVarChar, email)
             .input('full_name', sql.NVarChar, full_name)
             .input('department', sql.NVarChar, department || null)
             .input('position', sql.NVarChar, position || null)
             .input('phone', sql.NVarChar, phone || null)
             .query(`
-              INSERT INTO profiles (id, email, full_name, department, position, phone, created_at)
+              INSERT INTO profiles (email, full_name, department, position, phone, created_at)
               OUTPUT INSERTED.id, INSERTED.employee_id, INSERTED.email, INSERTED.full_name
-              VALUES (@id, @email, @full_name, @department, @position, @phone, GETDATE())
+              VALUES (@email, @full_name, @department, @position, @phone, GETDATE())
             `);
 
           const newProfile = profileResult.recordset[0];
