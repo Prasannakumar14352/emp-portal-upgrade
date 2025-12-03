@@ -150,11 +150,11 @@ router.post('/users',
             .input('department', sql.NVarChar, department || null)
             .input('position', sql.NVarChar, position || null)
             .input('phone', sql.NVarChar, phone || null)
-            .input('password_hash', sql.NVarChar, hashedPassword)
+            .input('password', sql.NVarChar, hashedPassword)
             .query(`
-              INSERT INTO profiles (email, full_name, department, position, phone, password_hash, created_at)
+              INSERT INTO profiles (email, full_name, department, position, phone, password, created_at)
               OUTPUT INSERTED.employee_id, INSERTED.email, INSERTED.full_name
-              VALUES (@email, @full_name, @department, @position, @phone, @password_hash, GETDATE())
+              VALUES (@email, @full_name, @department, @position, @phone, @password, GETDATE())
             `);
 
           const newProfile = profileResult.recordset[0];
