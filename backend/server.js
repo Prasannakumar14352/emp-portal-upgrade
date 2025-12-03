@@ -82,7 +82,7 @@ app.use((req, res, next) => {
   
   // Log incoming request
   console.log(`[${timestamp}] --> ${req.method} ${req.path}`);
-  logger.logInfo(`Incoming request: ${req.method} ${req.path}`, {
+  logger.info(`Incoming request: ${req.method} ${req.path}`, {
     method: req.method,
     path: req.path,
     query: req.query,
@@ -109,7 +109,7 @@ app.use((req, res, next) => {
     console.log(`[${timestamp}] <-- ${req.method} ${req.path} ${statusColor}${res.statusCode}${resetColor} - ${duration}ms`);
     
     // Log response details
-    logger.logInfo(`Response: ${req.method} ${req.path}`, {
+    logger.info(`Response: ${req.method} ${req.path}`, {
       method: req.method,
       path: req.path,
       statusCode: res.statusCode,
@@ -121,7 +121,7 @@ app.use((req, res, next) => {
       const warningColor = '\x1b[33m';
       console.log(`${warningColor}⚠️  SLOW REQUEST: ${req.method} ${req.path} took ${duration}ms (threshold: ${SLOW_REQUEST_THRESHOLD}ms)${resetColor}`);
       
-      logger.logWarning(`Slow API endpoint detected`, {
+      logger.warn(`Slow API endpoint detected`, {
         method: req.method,
         path: req.path,
         duration: `${duration}ms`,
@@ -241,8 +241,10 @@ app.get('/api/health', async (req, res) => {
 // Error handling middleware
 app.use((err, req, res, next) => {
   // Log error with full details
-  logger.logError(err, req, {
+  logger.error(err.message || 'Internal Server Error', err, {
     status: err.status || 500,
+    path: req.path,
+    method: req.method,
     body: req.body
   });
   
@@ -266,7 +268,7 @@ async function validateNetworkShareOnStartup() {
     console.warn('   Payslips will be saved to local backend folder instead.');
     console.warn('   Set NETWORK_SHARE_PATH in .env to use network storage.\n');
     
-    logger.logWarning('Network share path not configured', {
+    logger.warn('Network share path not configured', {
       env: 'NETWORK_SHARE_PATH',
       fallback: 'local backend folder'
     });
@@ -280,10 +282,9 @@ async function validateNetworkShareOnStartup() {
   logValidationResult(result);
   
   if (result.success) {
-    logger.logInfo('Network share validation successful', result.details);
+    logger.info('Network share validation successful', result.details);
   } else {
-    logger.logError(new Error('Network share validation failed'), null, {
-      message: result.message,
+    logger.error('Network share validation failed', new Error(result.message), {
       details: result.details
     });
     
@@ -299,7 +300,7 @@ async function validateNetworkShareOnStartup() {
 
 // Start server
 server.listen(PORT, async () => {
-  logger.logInfo('Server started', {
+  logger.info('Server started', {
     port: PORT,
     environment: process.env.NODE_ENV || 'development',
     corsOrigin: process.env.FRONTEND_URL || 'http://localhost:8080'
@@ -310,9 +311,6 @@ server.listen(PORT, async () => {
   console.log(`CORS enabled for: ${process.env.FRONTEND_URL || 'http://localhost:8080'}`);
   console.log(`Error logs: backend/logs/error.log`);
   console.log(`Socket.IO enabled for real-time notifications`);
-  
-  // Clear old logs on startup (keep last 30 days)
-  logger.clearOldLogs(30);
   
   // Validate network share configuration
   await validateNetworkShareOnStartup();
