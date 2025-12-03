@@ -423,13 +423,13 @@ export default function ApproveLeaves() {
                     />
                     <Avatar>
                       <AvatarFallback>
-                        {request.user_name.split(" ").map((n) => n[0]).join("")}
+                        {request.employeeName.split(" ").map((n) => n[0]).join("")}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1 space-y-2">
                       <div className="flex items-center justify-between">
                         <div>
-                          <h3 className="font-semibold">{request.user_name}</h3>
+                          <h3 className="font-semibold">{request.employeeName}</h3>
                           <p className="text-sm text-muted-foreground">{request.leaveType}</p>
                         </div>
                         {getStatusBadge(request.status)}
@@ -437,12 +437,12 @@ export default function ApproveLeaves() {
                       <div className="flex items-center gap-4 text-sm text-muted-foreground">
                         <div className="flex items-center gap-1">
                           <Calendar className="h-4 w-4" />
-                          {request.startDate ? formatDate(request.startDate) : request.start_date ? formatDate(request.start_date) : ''} to {request.endDate ? formatDate(request.endDate) : request.end_date ? formatDate(request.end_date) : ''}
+                          {formatDate(request.startDate)} to {formatDate(request.endDate)}
                         </div>
                         <div>({request.days} days)</div>
                       </div>
                       <p className="text-sm"><strong>Reason:</strong> {request.reason}</p>
-                      <p className="text-xs text-muted-foreground">Applied: {request.appliedDate ? formatDate(request.appliedDate) : request.created_at ? formatDate(request.created_at) : ''}</p>
+                      <p className="text-xs text-muted-foreground">Applied: {formatDate(request.appliedDate)}</p>
                       {request.comments && request.comments.length > 0 && (
                         <div className="mt-2 space-y-1">
                           <Label className="text-xs">Comments:</Label>
@@ -512,13 +512,13 @@ export default function ApproveLeaves() {
                   <div className="flex items-start gap-4">
                     <Avatar>
                       <AvatarFallback>
-                        {request.user_name ? request.user_name.split(" ").map((n) => n[0]).join("") : request.employeeName ? request.employeeName.split(" ").map((n) => n[0]).join("") : "Unknown"}
+                        {request.employeeName ? request.employeeName.split(" ").map((n) => n[0]).join("") : "?"}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1 space-y-2">
                       <div className="flex items-center justify-between">
                         <div>
-                          <h3 className="font-semibold">{request.user_name ? request.user_name : request.employeeName ? request.employeeName : "Unknown"}</h3>
+                          <h3 className="font-semibold">{request.employeeName || "Unknown"}</h3>
                           <p className="text-sm text-muted-foreground">{request.leaveType}</p>
                         </div>
                         {getStatusBadge(request.status)}
@@ -526,7 +526,7 @@ export default function ApproveLeaves() {
                       <div className="flex items-center gap-4 text-sm text-muted-foreground">
                         <div className="flex items-center gap-1">
                           <Calendar className="h-4 w-4" />
-                          {request.startDate ? formatDate(request.startDate) : request.start_date ? formatDate(request.start_date) : ''} to {request.endDate ? formatDate(request.endDate) : request.end_date ? formatDate(request.end_date) : ''}
+                          {formatDate(request.startDate)} to {formatDate(request.endDate)}
                         </div>
                         <div>({request.days} days)</div>
                       </div>
@@ -545,9 +545,9 @@ export default function ApproveLeaves() {
         <EmployeeDetailModal
           isOpen={modalOpen}
           onClose={() => setModalOpen(false)}
-          employeeId={selectedEmployee.employee_id ? selectedEmployee.employee_id : selectedEmployee.id}
-          employeeName={selectedEmployee.user_name ? selectedEmployee.user_name : selectedEmployee.employeeName ? selectedEmployee.employeeName : "Unknown"}
-          employeeEmail={`${selectedEmployee.user_email ? selectedEmployee.user_email : selectedEmployee.email ? selectedEmployee.email : ""}`}
+          employeeId={selectedEmployee.employee_id || selectedEmployee.id}
+          employeeName={selectedEmployee.employeeName || "Unknown"}
+          employeeEmail={selectedEmployee.email || ""}
         />
       )}
 

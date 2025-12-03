@@ -84,12 +84,14 @@ class DepartmentService {
     employeeEmail: string,
     removedBy: string
   ): Promise<void> {
-    await apiClient.delete(`/departments/${departmentId}/employees/${employeeId}`, {
+    // Use query params for delete since body isn't supported by apiClient.delete
+    const params = new URLSearchParams({
       department_name: departmentName,
       employee_name: employeeName,
       employee_email: employeeEmail,
       removed_by: removedBy,
     });
+    await apiClient.delete(`/departments/${departmentId}/employees/${employeeId}?${params.toString()}`);
   }
 }
 

@@ -8,6 +8,7 @@ const path = require('path');
 const fs = require('fs').promises;
 const JSZip = require('jszip');
 const pdfExtract = require("pdf-extraction");
+const { v4: uuidv4 } = require('uuid');
 
 
 const router = express.Router();
@@ -192,18 +193,20 @@ router.post('/users',
             }
           }
 
-          // Create profile - let database generate GUID automatically with NEWID()
-          // Remove the manual id generation
+          // Create profile with proper GUID generation for id column
+          const newId = uuidv4();
+          
           const profileResult = await transaction.request()
+            .input('id', sql.UniqueIdentifier, newId)
             .input('email', sql.NVarChar, email)
             .input('full_name', sql.NVarChar, full_name)
             .input('department', sql.NVarChar, department || null)
             .input('position', sql.NVarChar, position || null)
             .input('phone', sql.NVarChar, phone || null)
             .query(`
-              INSERT INTO profiles (email, full_name, department, position, phone, created_at)
+              INSERT INTO profiles (id, email, full_name, department, position, phone, created_at)
               OUTPUT INSERTED.id, INSERTED.employee_id, INSERTED.email, INSERTED.full_name
-              VALUES (@email, @full_name, @department, @position, @phone, GETDATE())
+              VALUES (@id, @email, @full_name, @department, @position, @phone, GETDATE())
             `);
 
           const newProfile = profileResult.recordset[0];
