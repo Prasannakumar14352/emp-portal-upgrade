@@ -217,7 +217,7 @@ router.post('/users',
             .input('department', sql.NVarChar, department || 'Not Assigned')
             .input('position', sql.NVarChar, position || 'Employee')
             .query(`
-              INSERT INTO employees (employee_id, full_name, email, phone, department, position, status, created_at)
+              INSERT INTO profiles (employee_id, full_name, email, phone, department, position, status, created_at)
               VALUES (@employee_id, @full_name, @email, @phone, @department, @position, 'Active', GETDATE())
             `);
 

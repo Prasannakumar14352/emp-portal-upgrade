@@ -453,9 +453,11 @@ router.get('/oauth/callback/azure', async (req, res) => {
 
     /* 3) Sync OAuth user using stored procedure */
     const pool = await getConnection();
+    console.log('Connected to database for OAuth callback processing');
 
     let employee_id;
     try {
+      console.log('Syncing OAuth user with sp_sync_oauth_user:', { email, fullName, department: userInfo.department, position: userInfo.jobTitle });
       // Call the sync procedure which will create/update profile and employee records
       logger.info(`Attempting to sync OAuth user: ${email}`);
       const syncResult = await pool.request()

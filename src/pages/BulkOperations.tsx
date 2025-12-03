@@ -686,7 +686,7 @@ export default function BulkOperations() {
                   <code className="bg-muted px-2 py-1 rounded">
                     IST Salary Slip Month Of [Month]-[Year]_[Full Name].pdf
                   </code>
-                  <p className="mt-2">Example: "IST Salary Slip Month Of Apr-2024_Singamsetty Prasanna Kumar.pdf"</p>
+                  <p className="mt-2">Example: "IST Salary Slip Month Of Apr-2024_***********.pdf"</p>
                 </div>
                 <Input
                   id="payslip-zip-file"
