@@ -1,6 +1,7 @@
 const express = require('express');
 const { getConnection, sql } = require('../config/database');
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
+const logger = require('../utils/logger');
 
 const router = express.Router();
 
@@ -8,9 +9,11 @@ const router = express.Router();
 router.get('/employee/:userId', authenticateToken, async (req, res) => {
   try {
     const { userId } = req.params;
+    logger.api.request('GET', `/api/statistics/employee/${userId}`, { userId: req.user.id, targetUserId: userId });
     
     // Users can only view their own stats unless HR/manager
     if (req.user.id !== userId && !['hr', 'manager'].includes(req.user.role)) {
+      logger.warn('Unauthorized statistics access attempt', { userId: req.user.id, targetUserId: userId });
       return res.status(403).json({ error: 'Not authorized' });
     }
 
@@ -75,6 +78,7 @@ router.get('/employee/:userId', authenticateToken, async (req, res) => {
         ORDER BY MONTH(start_date)
       `);
 
+    logger.info('Fetched employee statistics', { targetUserId: userId, userId: req.user.id });
     res.json({
       leave_stats: leaveStats.recordset[0],
       balance_stats: balanceStats.recordset[0],
@@ -82,7 +86,7 @@ router.get('/employee/:userId', authenticateToken, async (req, res) => {
       monthly_trends: monthlyTrends.recordset,
     });
   } catch (err) {
-    console.error('Get employee statistics error:', err);
+    logger.api.error('GET', `/api/statistics/employee/${req.params.userId}`, err, { userId: req.user.id });
     res.status(500).json({ error: 'Failed to get employee statistics' });
   }
 });
@@ -92,9 +96,11 @@ router.get('/attendance/:userId', authenticateToken, async (req, res) => {
   try {
     const { userId } = req.params;
     const { startDate, endDate } = req.query;
+    logger.api.request('GET', `/api/statistics/attendance/${userId}`, { userId: req.user.id, targetUserId: userId, startDate, endDate });
     
     // Users can only view their own attendance unless HR/manager
     if (req.user.id !== userId && !['hr', 'manager'].includes(req.user.role)) {
+      logger.warn('Unauthorized attendance statistics access attempt', { userId: req.user.id, targetUserId: userId });
       return res.status(403).json({ error: 'Not authorized' });
     }
 
@@ -111,7 +117,7 @@ router.get('/attendance/:userId', authenticateToken, async (req, res) => {
       )
       SELECT COUNT(*) as working_days
       FROM DateRange
-      WHERE DATEPART(WEEKDAY, date) NOT IN (1, 7) -- Exclude Saturday and Sunday
+      WHERE DATEPART(WEEKDAY, date) NOT IN (1, 7)
         AND date NOT IN (SELECT date FROM holidays)
       OPTION (MAXRECURSION 0)
     `;
@@ -142,6 +148,7 @@ router.get('/attendance/:userId', authenticateToken, async (req, res) => {
     const presentDays = workingDays - leaveDays;
     const attendanceRate = workingDays > 0 ? ((presentDays / workingDays) * 100).toFixed(2) : 0;
 
+    logger.info('Fetched attendance statistics', { targetUserId: userId, workingDays, leaveDays, attendanceRate, userId: req.user.id });
     res.json({
       total_working_days: workingDays,
       present_days: presentDays,
@@ -154,7 +161,7 @@ router.get('/attendance/:userId', authenticateToken, async (req, res) => {
       }
     });
   } catch (err) {
-    console.error('Get attendance statistics error:', err);
+    logger.api.error('GET', `/api/statistics/attendance/${req.params.userId}`, err, { userId: req.user.id });
     res.status(500).json({ error: 'Failed to get attendance statistics' });
   }
 });
@@ -163,6 +170,7 @@ router.get('/attendance/:userId', authenticateToken, async (req, res) => {
 router.get('/team', authenticateToken, authorizeRole('hr', 'manager'), async (req, res) => {
   try {
     const { department } = req.query;
+    logger.api.request('GET', '/api/statistics/team', { userId: req.user.id, department });
     const pool = await getConnection();
     
     let departmentFilter = '';
@@ -221,13 +229,14 @@ router.get('/team', authenticateToken, authorizeRole('hr', 'manager'), async (re
         ORDER BY total_days DESC
       `);
 
+    logger.info('Fetched team statistics', { department, userId: req.user.id });
     res.json({
       overview: teamOverview.recordset[0],
       department_breakdown: departmentBreakdown.recordset,
       top_leave_takers: topLeaveTakers.recordset,
     });
   } catch (err) {
-    console.error('Get team statistics error:', err);
+    logger.api.error('GET', '/api/statistics/team', err, { userId: req.user.id });
     res.status(500).json({ error: 'Failed to get team statistics' });
   }
 });
@@ -235,6 +244,7 @@ router.get('/team', authenticateToken, authorizeRole('hr', 'manager'), async (re
 // GET /api/statistics/utilization - Get leave utilization rates (HR/Manager only)
 router.get('/utilization', authenticateToken, authorizeRole('hr', 'manager'), async (req, res) => {
   try {
+    logger.api.request('GET', '/api/statistics/utilization', { userId: req.user.id });
     const pool = await getConnection();
     const year = new Date().getFullYear();
     
@@ -275,12 +285,13 @@ router.get('/utilization', authenticateToken, authorizeRole('hr', 'manager'), as
         ORDER BY month
       `);
 
+    logger.info('Fetched utilization statistics', { year, userId: req.user.id });
     res.json({
       utilization_by_type: utilizationByType.recordset,
       monthly_utilization: monthlyUtilization.recordset,
     });
   } catch (err) {
-    console.error('Get utilization statistics error:', err);
+    logger.api.error('GET', '/api/statistics/utilization', err, { userId: req.user.id });
     res.status(500).json({ error: 'Failed to get utilization statistics' });
   }
 });
