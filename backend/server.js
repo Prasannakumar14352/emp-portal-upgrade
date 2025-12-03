@@ -5,7 +5,7 @@ const http = require('http');
 const socketIO = require('socket.io');
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./config/swagger');
-const { logError, logInfo, logWarning, clearOldLogs } = require('./utils/logger');
+const logger = require('./utils/logger');
 const { ensureNetworkShareStructure, logValidationResult } = require('./utils/networkShareValidator');
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
@@ -82,7 +82,7 @@ app.use((req, res, next) => {
   
   // Log incoming request
   console.log(`[${timestamp}] --> ${req.method} ${req.path}`);
-  logInfo(`Incoming request: ${req.method} ${req.path}`, {
+  logger.logInfo(`Incoming request: ${req.method} ${req.path}`, {
     method: req.method,
     path: req.path,
     query: req.query,
@@ -109,7 +109,7 @@ app.use((req, res, next) => {
     console.log(`[${timestamp}] <-- ${req.method} ${req.path} ${statusColor}${res.statusCode}${resetColor} - ${duration}ms`);
     
     // Log response details
-    logInfo(`Response: ${req.method} ${req.path}`, {
+    logger.logInfo(`Response: ${req.method} ${req.path}`, {
       method: req.method,
       path: req.path,
       statusCode: res.statusCode,
@@ -121,7 +121,7 @@ app.use((req, res, next) => {
       const warningColor = '\x1b[33m';
       console.log(`${warningColor}⚠️  SLOW REQUEST: ${req.method} ${req.path} took ${duration}ms (threshold: ${SLOW_REQUEST_THRESHOLD}ms)${resetColor}`);
       
-      logWarning(`Slow API endpoint detected`, {
+      logger.logWarning(`Slow API endpoint detected`, {
         method: req.method,
         path: req.path,
         duration: `${duration}ms`,
@@ -160,6 +160,10 @@ app.use('/api/attendance', attendanceRoutes);
 app.use('/api/performance', performanceRoutes);
 app.use('/api/docs', apiDocsRoutes);
 app.use('/api/postman', postmanRoutes);
+
+// Import logs route
+const logsRoutes = require('./routes/logs');
+app.use('/api/logs', logsRoutes);
 
 // Swagger API Documentation
 app.use('/api/swagger', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
@@ -237,7 +241,7 @@ app.get('/api/health', async (req, res) => {
 // Error handling middleware
 app.use((err, req, res, next) => {
   // Log error with full details
-  logError(err, req, {
+  logger.logError(err, req, {
     status: err.status || 500,
     body: req.body
   });
@@ -262,7 +266,7 @@ async function validateNetworkShareOnStartup() {
     console.warn('   Payslips will be saved to local backend folder instead.');
     console.warn('   Set NETWORK_SHARE_PATH in .env to use network storage.\n');
     
-    logWarning('Network share path not configured', {
+    logger.logWarning('Network share path not configured', {
       env: 'NETWORK_SHARE_PATH',
       fallback: 'local backend folder'
     });
@@ -276,9 +280,9 @@ async function validateNetworkShareOnStartup() {
   logValidationResult(result);
   
   if (result.success) {
-    logInfo('Network share validation successful', result.details);
+    logger.logInfo('Network share validation successful', result.details);
   } else {
-    logError(new Error('Network share validation failed'), null, {
+    logger.logError(new Error('Network share validation failed'), null, {
       message: result.message,
       details: result.details
     });
@@ -295,7 +299,7 @@ async function validateNetworkShareOnStartup() {
 
 // Start server
 server.listen(PORT, async () => {
-  logInfo('Server started', {
+  logger.logInfo('Server started', {
     port: PORT,
     environment: process.env.NODE_ENV || 'development',
     corsOrigin: process.env.FRONTEND_URL || 'http://localhost:8080'
@@ -308,7 +312,7 @@ server.listen(PORT, async () => {
   console.log(`Socket.IO enabled for real-time notifications`);
   
   // Clear old logs on startup (keep last 30 days)
-  clearOldLogs(30);
+  logger.clearOldLogs(30);
   
   // Validate network share configuration
   await validateNetworkShareOnStartup();

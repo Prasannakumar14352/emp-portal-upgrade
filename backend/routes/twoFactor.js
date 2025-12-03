@@ -4,6 +4,7 @@ const QRCode = require('qrcode');
 const crypto = require('crypto');
 const { getConnection, sql } = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
+const logger = require('../utils/logger');
 
 const router = express.Router();
 
@@ -11,6 +12,7 @@ const router = express.Router();
 router.post('/setup', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
+    logger.api.request('POST', '/api/2fa/setup', { userId });
     const pool = await getConnection();
 
     // Get user email for QR code
@@ -19,6 +21,7 @@ router.post('/setup', authenticateToken, async (req, res) => {
       .query('SELECT email, full_name FROM profiles WHERE employee_id = @employee_id');
 
     if (userResult.recordset.length === 0) {
+      logger.warn('2FA setup failed: User not found', { userId });
       return res.status(404).json({ error: 'User not found' });
     }
 
@@ -50,13 +53,14 @@ router.post('/setup', authenticateToken, async (req, res) => {
     // Generate QR code
     const qrCodeUrl = await QRCode.toDataURL(secret.otpauth_url);
 
+    logger.process.success('2FA Setup Initialized', { userId, email: user.email });
     res.json({
       secret: secret.base32,
       qrCode: qrCodeUrl,
       backupCodes
     });
   } catch (err) {
-    console.error('2FA setup error:', err);
+    logger.api.error('POST', '/api/2fa/setup', err, { userId: req.user.id });
     res.status(500).json({ error: 'Failed to setup 2FA' });
   }
 });
@@ -66,8 +70,10 @@ router.post('/verify', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const { token } = req.body;
+    logger.api.request('POST', '/api/2fa/verify', { userId });
 
     if (!token) {
+      logger.warn('2FA verification failed: Token required', { userId });
       return res.status(400).json({ error: 'Token is required' });
     }
 
@@ -79,6 +85,7 @@ router.post('/verify', authenticateToken, async (req, res) => {
       .query('SELECT two_factor_secret FROM profiles WHERE employee_id = @employee_id');
 
     if (result.recordset.length === 0 || !result.recordset[0].two_factor_secret) {
+      logger.warn('2FA verification failed: Not set up', { userId });
       return res.status(400).json({ error: '2FA not set up' });
     }
 
@@ -93,6 +100,7 @@ router.post('/verify', authenticateToken, async (req, res) => {
     });
 
     if (!verified) {
+      logger.warn('2FA verification failed: Invalid token', { userId });
       return res.status(400).json({ error: 'Invalid token' });
     }
 
@@ -101,9 +109,10 @@ router.post('/verify', authenticateToken, async (req, res) => {
       .input('employee_id', sql.Int, userId)
       .query('UPDATE profiles SET two_factor_enabled = 1 WHERE employee_id = @employee_id');
 
+    logger.process.success('2FA Enabled', { userId });
     res.json({ message: '2FA enabled successfully' });
   } catch (err) {
-    console.error('2FA verify error:', err);
+    logger.api.error('POST', '/api/2fa/verify', err, { userId: req.user.id });
     res.status(500).json({ error: 'Failed to verify 2FA' });
   }
 });
@@ -113,8 +122,10 @@ router.post('/disable', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const { password, token } = req.body;
+    logger.api.request('POST', '/api/2fa/disable', { userId });
 
     if (!password && !token) {
+      logger.warn('2FA disable failed: Password or backup code required', { userId });
       return res.status(400).json({ error: 'Password or backup code required' });
     }
 
@@ -130,6 +141,7 @@ router.post('/disable', authenticateToken, async (req, res) => {
       `);
 
     if (result.recordset.length === 0) {
+      logger.warn('2FA disable failed: User not found', { userId });
       return res.status(404).json({ error: 'User not found' });
     }
 
@@ -161,6 +173,7 @@ router.post('/disable', authenticateToken, async (req, res) => {
     }
 
     if (!verified) {
+      logger.warn('2FA disable failed: Invalid credentials', { userId });
       return res.status(400).json({ error: 'Invalid credentials' });
     }
 
@@ -175,9 +188,10 @@ router.post('/disable', authenticateToken, async (req, res) => {
         WHERE employee_id = @employee_id
       `);
 
+    logger.process.success('2FA Disabled', { userId });
     res.json({ message: '2FA disabled successfully' });
   } catch (err) {
-    console.error('2FA disable error:', err);
+    logger.api.error('POST', '/api/2fa/disable', err, { userId: req.user.id });
     res.status(500).json({ error: 'Failed to disable 2FA' });
   }
 });
@@ -186,8 +200,10 @@ router.post('/disable', authenticateToken, async (req, res) => {
 router.post('/verify-login', async (req, res) => {
   try {
     const { userId, token } = req.body;
+    logger.api.request('POST', '/api/2fa/verify-login', { userId });
 
     if (!userId || !token) {
+      logger.warn('2FA login verification failed: Missing required fields');
       return res.status(400).json({ error: 'User ID and token required' });
     }
 
@@ -203,6 +219,7 @@ router.post('/verify-login', async (req, res) => {
       `);
 
     if (result.recordset.length === 0 || !result.recordset[0].two_factor_secret) {
+      logger.warn('2FA login verification failed: Not enabled', { userId });
       return res.status(400).json({ error: '2FA not enabled' });
     }
 
@@ -230,12 +247,14 @@ router.post('/verify-login', async (req, res) => {
     }
 
     if (!verified) {
+      logger.warn('2FA login verification failed: Invalid token', { userId });
       return res.status(400).json({ error: 'Invalid token' });
     }
 
+    logger.auth.login(userId, 'unknown', { method: '2FA' });
     res.json({ verified: true });
   } catch (err) {
-    console.error('2FA login verify error:', err);
+    logger.api.error('POST', '/api/2fa/verify-login', err);
     res.status(500).json({ error: 'Failed to verify 2FA' });
   }
 });
@@ -244,6 +263,7 @@ router.post('/verify-login', async (req, res) => {
 router.get('/status', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
+    logger.api.request('GET', '/api/2fa/status', { userId });
     const pool = await getConnection();
 
     const result = await pool.request()
@@ -259,15 +279,17 @@ router.get('/status', authenticateToken, async (req, res) => {
       `);
 
     if (result.recordset.length === 0) {
+      logger.warn('2FA status fetch failed: User not found', { userId });
       return res.status(404).json({ error: 'User not found' });
     }
 
+    logger.info('Fetched 2FA status', { userId });
     res.json({
       enabled: result.recordset[0].two_factor_enabled || false,
       backupCodesRemaining: result.recordset[0].backup_codes_remaining || 0
     });
   } catch (err) {
-    console.error('2FA status error:', err);
+    logger.api.error('GET', '/api/2fa/status', err, { userId: req.user.id });
     res.status(500).json({ error: 'Failed to get 2FA status' });
   }
 });

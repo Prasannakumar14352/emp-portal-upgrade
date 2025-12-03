@@ -1,13 +1,14 @@
 const express = require('express');
 const { getConnection, sql } = require('../config/database');
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
-const { logError } = require('../utils/logger');
+const logger = require('../utils/logger');
 
 const router = express.Router();
 
 // GET /api/departments - Get all departments
 router.get('/', authenticateToken, async (req, res) => {
   try {
+    logger.api.request('GET', '/api/departments', { userId: req.user.id });
     const pool = await getConnection();
     const result = await pool.request().query(`
       SELECT 
@@ -20,9 +21,10 @@ router.get('/', authenticateToken, async (req, res) => {
       ORDER BY d.name ASC
     `);
     
+    logger.info('Fetched all departments', { count: result.recordset.length, userId: req.user.id });
     res.json(result.recordset);
   } catch (error) {
-    logError(error, req, { context: 'Error fetching departments' });
+    logger.api.error('GET', '/api/departments', error, { userId: req.user.id });
     res.status(500).json({ error: error.message });
   }
 });
@@ -31,6 +33,7 @@ router.get('/', authenticateToken, async (req, res) => {
 router.get('/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
+    logger.api.request('GET', `/api/departments/${id}`, { userId: req.user.id, departmentId: id });
     const pool = await getConnection();
     
     const result = await pool.request()
@@ -47,12 +50,14 @@ router.get('/:id', authenticateToken, async (req, res) => {
       `);
     
     if (result.recordset.length === 0) {
+      logger.warn('Department not found', { departmentId: id, userId: req.user.id });
       return res.status(404).json({ error: 'Department not found' });
     }
     
+    logger.info('Fetched department by ID', { departmentId: id, userId: req.user.id });
     res.json(result.recordset[0]);
   } catch (error) {
-    logError(error, req, { context: 'Error fetching department' });
+    logger.api.error('GET', `/api/departments/${req.params.id}`, error, { userId: req.user.id });
     res.status(500).json({ error: error.message });
   }
 });
@@ -61,8 +66,10 @@ router.get('/:id', authenticateToken, async (req, res) => {
 router.post('/', authenticateToken, authorizeRole('hr', 'manager'), async (req, res) => {
   try {
     const { name, description, manager_id } = req.body;
+    logger.api.request('POST', '/api/departments', { userId: req.user.id, departmentName: name });
     
     if (!name || name.trim() === '') {
+      logger.warn('Department creation failed: Name required', { userId: req.user.id });
       return res.status(400).json({ error: 'Department name is required' });
     }
     
@@ -74,6 +81,7 @@ router.post('/', authenticateToken, authorizeRole('hr', 'manager'), async (req, 
       .query('SELECT id FROM departments WHERE name = @name');
     
     if (existing.recordset.length > 0) {
+      logger.warn('Department creation failed: Already exists', { departmentName: name, userId: req.user.id });
       return res.status(400).json({ error: 'Department with this name already exists' });
     }
     
@@ -87,9 +95,10 @@ router.post('/', authenticateToken, authorizeRole('hr', 'manager'), async (req, 
         VALUES (@name, @description, @manager_id, GETDATE(), GETDATE())
       `);
     
+    logger.process.success('Department Created', { departmentName: name, userId: req.user.id });
     res.status(201).json(result.recordset[0]);
   } catch (error) {
-    logError(error, req, { context: 'Error creating department' });
+    logger.api.error('POST', '/api/departments', error, { userId: req.user.id });
     res.status(500).json({ error: error.message });
   }
 });
@@ -99,6 +108,7 @@ router.patch('/:id', authenticateToken, authorizeRole('hr', 'manager'), async (r
   try {
     const { id } = req.params;
     const { name, description, manager_id } = req.body;
+    logger.api.request('PATCH', `/api/departments/${id}`, { userId: req.user.id, departmentId: id });
     
     const pool = await getConnection();
     
@@ -108,6 +118,7 @@ router.patch('/:id', authenticateToken, authorizeRole('hr', 'manager'), async (r
       .query('SELECT id, name FROM departments WHERE id = @id');
     
     if (existing.recordset.length === 0) {
+      logger.warn('Department update failed: Not found', { departmentId: id, userId: req.user.id });
       return res.status(404).json({ error: 'Department not found' });
     }
     
@@ -121,6 +132,7 @@ router.patch('/:id', authenticateToken, authorizeRole('hr', 'manager'), async (r
         .query('SELECT id FROM departments WHERE name = @name AND id != @id');
       
       if (duplicate.recordset.length > 0) {
+        logger.warn('Department update failed: Duplicate name', { departmentName: name, userId: req.user.id });
         return res.status(400).json({ error: 'Department with this name already exists' });
       }
     }
@@ -166,9 +178,10 @@ router.patch('/:id', authenticateToken, authorizeRole('hr', 'manager'), async (r
         WHERE d.id = @id
       `);
     
+    logger.process.success('Department Updated', { departmentId: id, oldName, newName: name, userId: req.user.id });
     res.json(result.recordset[0]);
   } catch (error) {
-    logError(error, req, { context: 'Error updating department' });
+    logger.api.error('PATCH', `/api/departments/${req.params.id}`, error, { userId: req.user.id });
     res.status(500).json({ error: error.message });
   }
 });
@@ -177,6 +190,7 @@ router.patch('/:id', authenticateToken, authorizeRole('hr', 'manager'), async (r
 router.delete('/:id', authenticateToken, authorizeRole('hr'), async (req, res) => {
   try {
     const { id } = req.params;
+    logger.api.request('DELETE', `/api/departments/${id}`, { userId: req.user.id, departmentId: id });
     const pool = await getConnection();
     
     // Check if department exists
@@ -185,6 +199,7 @@ router.delete('/:id', authenticateToken, authorizeRole('hr'), async (req, res) =
       .query('SELECT id, name FROM departments WHERE id = @id');
     
     if (existing.recordset.length === 0) {
+      logger.warn('Department delete failed: Not found', { departmentId: id, userId: req.user.id });
       return res.status(404).json({ error: 'Department not found' });
     }
     
@@ -196,6 +211,7 @@ router.delete('/:id', authenticateToken, authorizeRole('hr'), async (req, res) =
       .query('SELECT COUNT(*) as count FROM profiles WHERE department = @name');
     
     if (employeeCount.recordset[0].count > 0) {
+      logger.warn('Department delete failed: Has employees', { departmentId: id, departmentName, employeeCount: employeeCount.recordset[0].count, userId: req.user.id });
       return res.status(400).json({ 
         error: 'Cannot delete department with assigned employees. Please reassign employees first.' 
       });
@@ -205,9 +221,10 @@ router.delete('/:id', authenticateToken, authorizeRole('hr'), async (req, res) =
       .input('id', sql.UniqueIdentifier, id)
       .query('DELETE FROM departments WHERE id = @id');
     
+    logger.process.success('Department Deleted', { departmentId: id, departmentName, userId: req.user.id });
     res.json({ message: 'Department deleted successfully' });
   } catch (error) {
-    logError(error, req, { context: 'Error deleting department' });
+    logger.api.error('DELETE', `/api/departments/${req.params.id}`, error, { userId: req.user.id });
     res.status(500).json({ error: error.message });
   }
 });
@@ -216,6 +233,7 @@ router.delete('/:id', authenticateToken, authorizeRole('hr'), async (req, res) =
 router.get('/:id/employees', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
+    logger.api.request('GET', `/api/departments/${id}/employees`, { userId: req.user.id, departmentId: id });
     const pool = await getConnection();
     
     // Get department name first
@@ -224,6 +242,7 @@ router.get('/:id/employees', authenticateToken, async (req, res) => {
       .query('SELECT name FROM departments WHERE id = @id');
     
     if (dept.recordset.length === 0) {
+      logger.warn('Department employees fetch failed: Department not found', { departmentId: id, userId: req.user.id });
       return res.status(404).json({ error: 'Department not found' });
     }
     
@@ -240,9 +259,10 @@ router.get('/:id/employees', authenticateToken, async (req, res) => {
         ORDER BY p.full_name ASC
       `);
     
+    logger.info('Fetched department employees', { departmentId: id, departmentName, employeeCount: result.recordset.length, userId: req.user.id });
     res.json(result.recordset);
   } catch (error) {
-    logError(error, req, { context: 'Error fetching department employees' });
+    logger.api.error('GET', `/api/departments/${req.params.id}/employees`, error, { userId: req.user.id });
     res.status(500).json({ error: error.message });
   }
 });
@@ -252,8 +272,10 @@ router.post('/:id/employees', authenticateToken, authorizeRole('hr', 'manager'),
   try {
     const { id } = req.params;
     const { employee_id } = req.body;
+    logger.api.request('POST', `/api/departments/${id}/employees`, { userId: req.user.id, departmentId: id, employeeId: employee_id });
     
     if (!employee_id) {
+      logger.warn('Add employee to department failed: Employee ID required', { departmentId: id, userId: req.user.id });
       return res.status(400).json({ error: 'Employee ID is required' });
     }
     
@@ -265,6 +287,7 @@ router.post('/:id/employees', authenticateToken, authorizeRole('hr', 'manager'),
       .query('SELECT name FROM departments WHERE id = @id');
     
     if (dept.recordset.length === 0) {
+      logger.warn('Add employee to department failed: Department not found', { departmentId: id, userId: req.user.id });
       return res.status(404).json({ error: 'Department not found' });
     }
     
@@ -276,6 +299,7 @@ router.post('/:id/employees', authenticateToken, authorizeRole('hr', 'manager'),
       .query('SELECT employee_id, full_name, email, department FROM profiles WHERE employee_id = @employee_id');
     
     if (employee.recordset.length === 0) {
+      logger.warn('Add employee to department failed: Employee not found', { employeeId: employee_id, userId: req.user.id });
       return res.status(404).json({ error: 'Employee not found' });
     }
     
@@ -293,6 +317,7 @@ router.post('/:id/employees', authenticateToken, authorizeRole('hr', 'manager'),
       .input('department', sql.NVarChar, departmentName)
       .query('UPDATE profiles SET department = @department, updated_at = GETDATE() WHERE employee_id = @employee_id');
     
+    logger.process.success('Employee Assigned to Department', { departmentId: id, departmentName, employeeId: employee_id, employeeName: emp.full_name, userId: req.user.id });
     res.json({ 
       success: true, 
       message: 'Employee assigned to department',
@@ -304,7 +329,7 @@ router.post('/:id/employees', authenticateToken, authorizeRole('hr', 'manager'),
       }
     });
   } catch (error) {
-    logError(error, req, { context: 'Error adding employee to department' });
+    logger.api.error('POST', `/api/departments/${req.params.id}/employees`, error, { userId: req.user.id });
     res.status(500).json({ error: error.message });
   }
 });
@@ -313,6 +338,7 @@ router.post('/:id/employees', authenticateToken, authorizeRole('hr', 'manager'),
 router.delete('/:id/employees/:employeeId', authenticateToken, authorizeRole('hr', 'manager'), async (req, res) => {
   try {
     const { id, employeeId } = req.params;
+    logger.api.request('DELETE', `/api/departments/${id}/employees/${employeeId}`, { userId: req.user.id, departmentId: id, employeeId });
     const pool = await getConnection();
     
     // Get department
@@ -321,6 +347,7 @@ router.delete('/:id/employees/:employeeId', authenticateToken, authorizeRole('hr
       .query('SELECT name FROM departments WHERE id = @id');
     
     if (dept.recordset.length === 0) {
+      logger.warn('Remove employee from department failed: Department not found', { departmentId: id, userId: req.user.id });
       return res.status(404).json({ error: 'Department not found' });
     }
     
@@ -335,9 +362,10 @@ router.delete('/:id/employees/:employeeId', authenticateToken, authorizeRole('hr
       .input('department', sql.NVarChar, 'Not Assigned')
       .query('UPDATE profiles SET department = @department, updated_at = GETDATE() WHERE employee_id = @employee_id');
     
+    logger.process.success('Employee Removed from Department', { departmentId: id, employeeId, userId: req.user.id });
     res.json({ success: true, message: 'Employee removed from department' });
   } catch (error) {
-    logError(error, req, { context: 'Error removing employee from department' });
+    logger.api.error('DELETE', `/api/departments/${req.params.id}/employees/${req.params.employeeId}`, error, { userId: req.user.id });
     res.status(500).json({ error: error.message });
   }
 });
