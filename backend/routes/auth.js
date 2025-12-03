@@ -5,7 +5,7 @@ const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
 const { getConnection, sql } = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
-const { logError, logInfo, logWarning } = require('../utils/logger');
+const logger = require('../utils/logger');
 
 const router = express.Router();
 
@@ -439,10 +439,9 @@ router.get('/oauth/callback/azure', async (req, res) => {
       if (isManager) userRoles.push('manager');
       if (userRoles.length === 0) userRoles.push('employee');
 
-      logInfo(`Detected roles for ${email}: ${userRoles.join(', ')}`);
+      logger.info(`Detected roles for ${email}: ${userRoles.join(', ')}`);
     } catch (groupErr) {
-      logError(groupErr, req, {
-        context: 'Failed to fetch Azure AD groups, using default employee role',
+      logger.error('Failed to fetch Azure AD groups, using default employee role', groupErr, {
         email
       });
 
@@ -458,7 +457,7 @@ router.get('/oauth/callback/azure', async (req, res) => {
     let employee_id;
     try {
       // Call the sync procedure which will create/update profile and employee records
-      logInfo(`Attempting to sync OAuth user: ${email}`);
+      logger.info(`Attempting to sync OAuth user: ${email}`);
       const syncResult = await pool.request()
         .input("email", sql.NVarChar, email)
         .input("full_name", sql.NVarChar, fullName)
@@ -471,10 +470,9 @@ router.get('/oauth/callback/azure', async (req, res) => {
       }
 
       employee_id = syncResult.recordset[0].employee_id;
-      logInfo(`Successfully synced OAuth user. Employee ID: ${employee_id}`);
+      logger.info(`Successfully synced OAuth user. Employee ID: ${employee_id}`);
     } catch (syncErr) {
-      logError(syncErr, req, {
-        context: 'Failed to sync OAuth user with stored procedure',
+      logger.error('User synchronization failed', syncErr, {
         email,
         fullName,
         storedProcedure: 'sp_sync_oauth_user',
@@ -489,21 +487,21 @@ router.get('/oauth/callback/azure', async (req, res) => {
 
     /* 3.5) Sync user roles based on Azure AD groups */
     try {
-      logInfo(`Fetching employee_id for employee_id: ${employee_id}`);
+      logger.info(`Fetching employee_id for employee_id: ${employee_id}`);
       const userIdResult = await pool.request()
         .input('employee_id', sql.Int, employee_id)
         .query('SELECT employee_id FROM profiles WHERE employee_id = @employee_id');
 
       if (userIdResult.recordset.length === 0) {
-        logWarning(`No employee_id found for employee_id: ${employee_id}`, { email });
+        logger.warn(`No employee_id found for employee_id: ${employee_id}`, { email });
       } else {
         const userId = userIdResult.recordset[0].employee_id;
-        logInfo(`Found employee_id: ${userId} for employee_id: ${employee_id}`);
+        logger.info(`Found employee_id: ${userId} for employee_id: ${employee_id}`);
 
         // Assign roles from Azure AD groups
         for (const role of userRoles) {
           try {
-            logInfo(`Attempting to assign role '${role}' to user ${email} (employee_id: ${userId})`);
+            logger.info(`Attempting to assign role '${role}' to user ${email} (employee_id: ${userId})`);
 
             await pool.request()
               .input('employee_id', sql.Int, userId)
@@ -515,10 +513,9 @@ router.get('/oauth/callback/azure', async (req, res) => {
                   VALUES (@employee_id, @role, GETDATE())
                 END
               `);
-            logInfo(`Successfully assigned role '${role}' to user ${email}`);
+            logger.info(`Successfully assigned role '${role}' to user ${email}`);
           } catch (roleErr) {
-            logError(roleErr, req, {
-              context: `Failed to assign role: ${role}`,
+            logger.error(`Failed to assign role: ${role}`, roleErr, {
               email,
               userId,
               roleAttempted: role,
@@ -549,19 +546,17 @@ router.get('/oauth/callback/azure', async (req, res) => {
                 WHERE employee_id = @employee_id 
                 AND role = 'employee'
               `);
-            logInfo(`Removed redundant 'employee' role for user ${email} with elevated roles: ${dbRoles.join(', ')}`);
+            logger.info(`Removed redundant 'employee' role for user ${email} with elevated roles: ${dbRoles.join(', ')}`);
           }
         } catch (cleanupErr) {
-          logError(cleanupErr, req, {
-            context: 'Failed to cleanup employee role',
+          logger.error('Failed to cleanup employee role', cleanupErr, {
             email,
             userId
           });
         }
       }
     } catch (userIdErr) {
-      logError(userIdErr, req, {
-        context: 'Failed to fetch employee_id from profiles table',
+      logger.error('Failed to fetch employee_id from profiles table', userIdErr, {
         email,
         employee_id,
         sqlErrorNumber: userIdErr.number,
@@ -587,7 +582,7 @@ router.get('/oauth/callback/azure', async (req, res) => {
     return res.redirect(redirectURL);
 
   } catch (err) {
-    logError(err, req, { context: 'OAuth callback failed', provider: 'azure' });
+    logger.error('OAuth callback failed', err, { provider: 'azure' });
 
     let errorMessage = "Authentication failed. Please try again.";
     let errorDetails = err.message;
