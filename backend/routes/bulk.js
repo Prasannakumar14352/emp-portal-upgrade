@@ -34,6 +34,47 @@ const ensureDirectories = async () => {
 };
 ensureDirectories();
 
+// Helper function to ensure department exists (create if not)
+async function ensureDepartmentExists(pool, departmentName, transaction = null) {
+  if (!departmentName || departmentName.trim() === '') {
+    return null;
+  }
+
+  const trimmedName = departmentName.trim();
+  const request = transaction ? transaction.request() : pool.request();
+
+  try {
+    // Check if department exists
+    const existingDept = await request
+      .input('name', sql.NVarChar, trimmedName)
+      .query('SELECT id, name FROM departments WHERE name = @name');
+
+    if (existingDept.recordset.length > 0) {
+      console.log(`Department "${trimmedName}" already exists`);
+      return existingDept.recordset[0].id;
+    }
+
+    // Department doesn't exist, create it
+    console.log(`Creating new department: "${trimmedName}"`);
+    const createRequest = transaction ? transaction.request() : pool.request();
+    const result = await createRequest
+      .input('name', sql.NVarChar, trimmedName)
+      .input('description', sql.NVarChar, `Auto-created department: ${trimmedName}`)
+      .query(`
+        INSERT INTO departments (name, description, is_active, created_at, updated_at)
+        OUTPUT INSERTED.id, INSERTED.name
+        VALUES (@name, @description, 1, GETDATE(), GETDATE())
+      `);
+
+    console.log(`Department "${trimmedName}" created with ID: ${result.recordset[0].id}`);
+    return result.recordset[0].id;
+
+  } catch (error) {
+    console.error(`Error ensuring department "${trimmedName}" exists:`, error);
+    throw error;
+  }
+}
+
 function extractAmount(line) {
   // Extract ₹ and number
   const match = line.match(/₹\s*([\d,]+\.\d{2})/);
@@ -140,6 +181,17 @@ router.post('/users',
             continue;
           }
 
+          // Ensure department exists (create if not)
+          if (department && department.trim() !== '') {
+            try {
+              await ensureDepartmentExists(pool, department, transaction);
+              console.log(`✅ Department "${department}" verified/created for user ${email}`);
+            } catch (deptError) {
+              console.error(`⚠️ Failed to create department "${department}" for user ${email}:`, deptError);
+              // Continue anyway - department will be stored as string
+            }
+          }
+
           // Hash password if provided
           const hashedPassword = password ? await bcrypt.hash(password, 10) : null;
 
@@ -150,11 +202,11 @@ router.post('/users',
             .input('department', sql.NVarChar, department || null)
             .input('position', sql.NVarChar, position || null)
             .input('phone', sql.NVarChar, phone || null)
-            .input('password_hash', sql.NVarChar, hashedPassword)
+            .input('password', sql.NVarChar, hashedPassword)
             .query(`
-              INSERT INTO profiles (email, full_name, department, position, phone, password_hash, created_at)
+              INSERT INTO profiles (email, full_name, department, position, phone, password, created_at)
               OUTPUT INSERTED.employee_id, INSERTED.email, INSERTED.full_name
-              VALUES (@email, @full_name, @department, @position, @phone, @password_hash, GETDATE())
+              VALUES (@email, @full_name, @department, @position, @phone, @password, GETDATE())
             `);
 
           const newProfile = profileResult.recordset[0];
@@ -199,6 +251,18 @@ router.post('/users',
       }
 
       await transaction.commit();
+
+      // Log summary of department creation
+      console.log('\n========================================');
+      console.log('BULK USER IMPORT SUMMARY');
+      console.log('========================================');
+      console.log(`✅ Successfully created: ${createdUsers.length} users`);
+      console.log(`❌ Failed: ${failedUsers.length} users`);
+      if (failedUsers.length > 0) {
+        console.log('\nFailed users:');
+        failedUsers.forEach(f => console.log(`  - ${f.email}: ${f.reason}`));
+      }
+      console.log('========================================\n');
 
       res.status(201).json({
         success: true,
