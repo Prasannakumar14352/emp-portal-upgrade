@@ -3,7 +3,7 @@ import * as XLSX from "xlsx";
 
 export interface LeaveRequest {
   id: string;
-  user_name: string;
+  employeeName: string;
   leaveType: string;
   startDate: string;
   endDate: string;
@@ -20,7 +20,7 @@ export const exportToCSV = (data: LeaveRequest[], filename: string = "leave-requ
   const csvContent = [
     headers.join(","),
     ...data.map(row => [
-      `"${row.user_name}"`,
+      `"${row.employeeName}"`,
       `"${row.leaveType}"`,
       row.startDate,
       row.endDate,
@@ -67,7 +67,7 @@ export const exportToPDF = (data: LeaveRequest[], filename: string = "leave-requ
 
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
-    doc.text(`${index + 1}. ${request.user_name}`, 15, yPosition);
+    doc.text(`${index + 1}. ${request.employeeName}`, 15, yPosition);
     yPosition += 7;
 
     doc.setFontSize(10);

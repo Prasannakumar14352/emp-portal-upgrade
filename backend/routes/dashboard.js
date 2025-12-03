@@ -231,7 +231,7 @@ router.get('/hr/employee-stats', authenticateToken, authorizeRole('hr', 'manager
     const employeesResult = await pool.request()
       .query(`
         SELECT COUNT(*) as active_employees
-        FROM users
+        FROM profiles
         WHERE status = 'active'
       `);
 

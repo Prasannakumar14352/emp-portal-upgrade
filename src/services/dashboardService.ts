@@ -16,10 +16,13 @@ export interface HRDashboardStats {
 }
 
 export interface HRInsights {
-  average_leave_duration: number;
-  most_frequent_leave_type: string;
-  department_most_leaves: string;
-  peak_leave_month: string;
+  avg_processing_time: number;
+  most_common_leave_type: string;
+  peak_month: string;
+  average_leave_duration?: number;
+  most_frequent_leave_type?: string;
+  department_most_leaves?: string;
+  peak_leave_month?: string;
 }
 
 export interface MonthlyTrend {

@@ -8,6 +8,7 @@ const path = require('path');
 const fs = require('fs').promises;
 const JSZip = require('jszip');
 const pdfExtract = require("pdf-extraction");
+const { v4: uuidv4 } = require('uuid');
 
 
 const router = express.Router();
@@ -192,66 +193,18 @@ router.post('/users',
             }
           }
 
-          // Check if employee_id is provided in the data
-          const hasEmployeeId = userData.employee_id && !isNaN(parseInt(userData.employee_id));
-          let profileResult;
-
-          if (hasEmployeeId) {
-            // User wants to specify employee_id explicitly
-            const requestedEmployeeId = parseInt(userData.employee_id);
-            
-            // Check if this employee_id already exists
-            const existingEmployeeId = await transaction.request()
-              .input('employee_id', sql.Int, requestedEmployeeId)
-              .query('SELECT employee_id FROM profiles WHERE employee_id = @employee_id');
-
-            if (existingEmployeeId.recordset.length > 0) {
-              failedUsers.push({ 
-                email, 
-                reason: `Employee ID ${requestedEmployeeId} already exists` 
-              });
-              continue;
-            }
-
-            // Enable IDENTITY_INSERT to allow explicit employee_id
-            await transaction.request()
-              .query('SET IDENTITY_INSERT profiles ON');
-
-            // Insert profile with explicit employee_id
-            profileResult = await transaction.request()
-              .input('employee_id', sql.Int, requestedEmployeeId)
-              .input('email', sql.NVarChar, email)
-              .input('full_name', sql.NVarChar, full_name)
-              .input('department', sql.NVarChar, department || null)
-              .input('position', sql.NVarChar, position || null)
-              .input('phone', sql.NVarChar, phone || null)
-              .query(`
-                INSERT INTO profiles (employee_id, email, full_name, department, position, phone, created_at)
-                OUTPUT INSERTED.id, INSERTED.employee_id, INSERTED.email, INSERTED.full_name
-                VALUES (@employee_id, @email, @full_name, @department, @position, @phone, GETDATE())
-              `);
-
-            // Disable IDENTITY_INSERT after insertion
-            await transaction.request()
-              .query('SET IDENTITY_INSERT profiles OFF');
-
-            console.log(`✅ Created user ${email} with explicit employee_id: ${requestedEmployeeId}`);
-          } else {
-            // No employee_id provided - let database auto-generate it
-            profileResult = await transaction.request()
-              .input('email', sql.NVarChar, email)
-              .input('full_name', sql.NVarChar, full_name)
-              .input('department', sql.NVarChar, department || null)
-              .input('position', sql.NVarChar, position || null)
-              .input('phone', sql.NVarChar, phone || null)
-              .query(`
-                INSERT INTO profiles (email, full_name, department, position, phone, created_at)
-                OUTPUT INSERTED.id, INSERTED.employee_id, INSERTED.email, INSERTED.full_name
-                VALUES (@email, @full_name, @department, @position, @phone, GETDATE())
-              `);
-
-            console.log(`✅ Created user ${email} with auto-generated employee_id: ${profileResult.recordset[0].employee_id}`);
-          }
+          // Create profile - let SQL Server auto-generate id and employee_id (IDENTITY columns)
+          const profileResult = await transaction.request()
+            .input('email', sql.NVarChar, email)
+            .input('full_name', sql.NVarChar, full_name)
+            .input('department', sql.NVarChar, department || null)
+            .input('position', sql.NVarChar, position || null)
+            .input('phone', sql.NVarChar, phone || null)
+            .query(`
+              INSERT INTO profiles (email, full_name, department, position, phone, created_at)
+              OUTPUT INSERTED.id, INSERTED.employee_id, INSERTED.email, INSERTED.full_name
+              VALUES (@email, @full_name, @department, @position, @phone, GETDATE())
+            `);
 
           const newProfile = profileResult.recordset[0];
 
