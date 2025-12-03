@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Upload, Users, Calendar, FileText } from "lucide-react";
+import { Upload, Users, Calendar, FileText, Download } from "lucide-react";
 import { toast } from "sonner";
 import { useUserRole } from "@/hooks/useUserRole";
 import { Navigate } from "react-router-dom";
@@ -76,6 +76,116 @@ export default function BulkOperations() {
   if (role !== "hr" && role !== "manager") {
     return <Navigate to="/" replace />;
   }
+
+  const downloadUserTemplate = () => {
+    try {
+      // Create sample data with correct column headers
+      const sampleData = [
+        {
+          "Email": "john.doe@company.com",
+          "Full Name": "John Doe",
+          "Department": "Engineering",
+          "Position": "Software Engineer",
+          "Phone": "+1234567890",
+          "Role": "employee",
+          "Password": "TempPass123!"
+        },
+        {
+          "Email": "jane.smith@company.com",
+          "Full Name": "Jane Smith",
+          "Department": "Human Resources",
+          "Position": "HR Manager",
+          "Phone": "+1234567891",
+          "Role": "hr",
+          "Password": "TempPass456!"
+        },
+        {
+          "Email": "bob.wilson@company.com",
+          "Full Name": "Bob Wilson",
+          "Department": "Sales",
+          "Position": "Sales Manager",
+          "Phone": "+1234567892",
+          "Role": "manager",
+          "Password": "TempPass789!"
+        }
+      ];
+
+      // Create worksheet from data
+      const worksheet = XLSX.utils.json_to_sheet(sampleData);
+      
+      // Set column widths for better readability
+      worksheet['!cols'] = [
+        { wch: 30 }, // Email
+        { wch: 25 }, // Full Name
+        { wch: 20 }, // Department
+        { wch: 25 }, // Position
+        { wch: 15 }, // Phone
+        { wch: 12 }, // Role
+        { wch: 15 }  // Password
+      ];
+
+      // Create workbook
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Users Template");
+
+      // Generate and download file
+      XLSX.writeFile(workbook, "Employee_Import_Template.xlsx");
+      
+      toast.success("Excel template downloaded successfully!");
+    } catch (error) {
+      console.error("Error generating Excel template:", error);
+      toast.error("Failed to download template");
+    }
+  };
+
+  const downloadHolidayTemplate = () => {
+    try {
+      // Create sample data with correct column headers
+      const sampleData = [
+        {
+          "Name": "New Year's Day",
+          "Date": "2025-01-01",
+          "Type": "Public Holiday",
+          "Description": "First day of the year"
+        },
+        {
+          "Name": "Independence Day",
+          "Date": "2025-07-04",
+          "Type": "National Holiday",
+          "Description": "Celebrating national independence"
+        },
+        {
+          "Name": "Christmas Day",
+          "Date": "2025-12-25",
+          "Type": "Public Holiday",
+          "Description": "Christmas celebration"
+        }
+      ];
+
+      // Create worksheet from data
+      const worksheet = XLSX.utils.json_to_sheet(sampleData);
+      
+      // Set column widths for better readability
+      worksheet['!cols'] = [
+        { wch: 25 }, // Name
+        { wch: 15 }, // Date
+        { wch: 20 }, // Type
+        { wch: 40 }  // Description
+      ];
+
+      // Create workbook
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Holidays Template");
+
+      // Generate and download file
+      XLSX.writeFile(workbook, "Holiday_Import_Template.xlsx");
+      
+      toast.success("Excel template downloaded successfully!");
+    } catch (error) {
+      console.error("Error generating Excel template:", error);
+      toast.error("Failed to download template");
+    }
+  };
 
   const handleUserFileUpload = async (file: File) => {
     try {
@@ -163,7 +273,15 @@ export default function BulkOperations() {
   const handleBulkHolidays = async () => {
     try {
       setUploading(true);
-      const holidays = JSON.parse(holidaysData);
+      let holidays;
+
+      if (holidayFile) {
+        holidays = await handleHolidayFileUpload(holidayFile);
+      } else if (holidaysData.trim()) {
+        holidays = JSON.parse(holidaysData);
+      } else {
+        throw new Error("Please provide holiday data via Excel file or JSON");
+      }
       
       if (!Array.isArray(holidays)) {
         throw new Error("Data must be an array");
@@ -180,6 +298,7 @@ export default function BulkOperations() {
       }
 
       setHolidaysData("");
+      setHolidayFile(null);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to create holidays";
       toast.error(message);
@@ -283,7 +402,7 @@ export default function BulkOperations() {
     <div className="container mx-auto py-6 space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Bulk Operations</h1>
-        <p className="text-muted-foreground">Import multiple records at once using JSON format</p>
+        <p className="text-muted-foreground">Import multiple records at once using Excel or JSON format</p>
       </div>
 
       <Tabs defaultValue="users" className="w-full">
@@ -315,11 +434,34 @@ export default function BulkOperations() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              {/* Download Template Button */}
+              <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="space-y-1">
+                    <p className="font-semibold text-blue-900 dark:text-blue-100">
+                      Need a template?
+                    </p>
+                    <p className="text-sm text-blue-700 dark:text-blue-300">
+                      Download our Excel template with sample data and correct column headers
+                    </p>
+                  </div>
+                  <Button 
+                    onClick={downloadUserTemplate}
+                    variant="outline"
+                    size="sm"
+                    className="shrink-0 border-blue-300 dark:border-blue-700 hover:bg-blue-100 dark:hover:bg-blue-900"
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Download Template
+                  </Button>
+                </div>
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="user-file">Upload Excel File</Label>
                 <div className="text-xs text-muted-foreground mb-2">
-                  Required columns: <strong>email, full_name</strong><br />
-                  Optional columns: department, position, phone, role (employee/hr/manager), password
+                  <strong>Required columns:</strong> Email, Full Name<br />
+                  <strong>Optional columns:</strong> Department, Position, Phone, Role (employee/hr/manager), Password
                 </div>
                 <Input
                   id="user-file"
@@ -394,11 +536,34 @@ export default function BulkOperations() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              {/* Download Template Button */}
+              <div className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="space-y-1">
+                    <p className="font-semibold text-green-900 dark:text-green-100">
+                      Need a template?
+                    </p>
+                    <p className="text-sm text-green-700 dark:text-green-300">
+                      Download our Excel template with sample holiday data and correct column headers
+                    </p>
+                  </div>
+                  <Button 
+                    onClick={downloadHolidayTemplate}
+                    variant="outline"
+                    size="sm"
+                    className="shrink-0 border-green-300 dark:border-green-700 hover:bg-green-100 dark:hover:bg-green-900"
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Download Template
+                  </Button>
+                </div>
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="holiday-file">Upload Excel File</Label>
                 <div className="text-xs text-muted-foreground mb-2">
-                  Required columns: <strong>name, date (YYYY-MM-DD), type</strong><br />
-                  Optional columns: description
+                  <strong>Required columns:</strong> Name, Date (YYYY-MM-DD), Type<br />
+                  <strong>Optional columns:</strong> Description
                 </div>
                 <Input
                   id="holiday-file"
