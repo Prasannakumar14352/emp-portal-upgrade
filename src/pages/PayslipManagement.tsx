@@ -22,8 +22,8 @@ interface PayslipWithEmployee {
   net_salary: number;
   file_url?: string;
   created_at: string;
-  user_name: string;
-  user_email: string;
+  user_name?: string;
+  user_email?: string;
 }
 
 export default function PayslipManagement() {
@@ -140,8 +140,8 @@ export default function PayslipManagement() {
   const filteredPayslips = payslips.filter((p) => {
     const s = search.toLowerCase();
     return (
-      p.user_name.toLowerCase().includes(s) ||
-      p.user_email.toLowerCase().includes(s) ||
+      (p.user_name?.toLowerCase().includes(s) ?? false) ||
+      (p.user_email?.toLowerCase().includes(s) ?? false) ||
       p.month.toLowerCase().includes(s) ||
       p.year.toString().includes(s)
     );
@@ -194,8 +194,8 @@ export default function PayslipManagement() {
                     <TableRow key={payslip.id}>
                       <TableCell>
                         <div>
-                          <p className="font-medium">{payslip.user_name}</p>
-                          <p className="text-sm text-muted-foreground">{payslip.user_email}</p>
+                          <p className="font-medium">{payslip.user_name || 'Unknown'}</p>
+                          <p className="text-sm text-muted-foreground">{payslip.user_email || payslip.employee_id}</p>
                         </div>
                       </TableCell>
                       <TableCell>{payslip.month} {payslip.year}</TableCell>
@@ -271,7 +271,7 @@ export default function PayslipManagement() {
           {editingPayslip && (
             <div className="space-y-4">
               <div>
-                <p className="text-sm text-muted-foreground">Employee: {editingPayslip.user_name}</p>
+                <p className="text-sm text-muted-foreground">Employee: {editingPayslip.user_name || 'Unknown'}</p>
                 <p className="text-sm text-muted-foreground">Period: {editingPayslip.month} {editingPayslip.year}</p>
               </div>
               <div className="space-y-2">

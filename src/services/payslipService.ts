@@ -11,6 +11,8 @@ export interface Payslip {
   net_salary: number;
   file_url?: string;
   created_at: string;
+  user_name?: string;
+  user_email?: string;
 }
 
 export interface CreatePayslipRequest {
