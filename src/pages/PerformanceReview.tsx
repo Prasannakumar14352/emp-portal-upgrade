@@ -388,7 +388,7 @@ export default function PerformanceReview() {
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-2">
-              <Target className="h-5 w-5 text-accent" />
+              <Target className="h-5 w-5 text-primary" />
               <div className="text-3xl font-bold">
                 {isManager 
                   ? reviews.filter(r => r.status === 'draft').length

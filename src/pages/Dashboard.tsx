@@ -187,7 +187,7 @@ export default function Dashboard() {
                 upcomingHolidays.map((holiday) => (
                   <div key={holiday.id} className="flex items-center gap-4 rounded-lg border p-4">
                     <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-accent/10">
-                      <Calendar className="h-6 w-6 text-accent" />
+                      <Calendar className="h-6 w-6 text-primary" />
                     </div>
                     <div>
                       <p className="font-medium">{holiday.name}</p>
