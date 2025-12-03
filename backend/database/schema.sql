@@ -36,7 +36,6 @@ CREATE TABLE profiles (
     id INT PRIMARY KEY IDENTITY(1,1),  -- Numeric employee ID
     email NVARCHAR(255) NOT NULL UNIQUE,
     full_name NVARCHAR(255) NOT NULL,
-    password_hash NVARCHAR(255),  -- For password-based authentication
     phone NVARCHAR(50),
     department NVARCHAR(255),
     position NVARCHAR(255),

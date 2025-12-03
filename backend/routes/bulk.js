@@ -169,7 +169,7 @@ router.post('/users',
 
       for (const userData of users) {
         try {
-          const { email, full_name, department, position, phone, role, password } = userData;
+          const { email, full_name, department, position, phone, role } = userData;
 
           // Check if user exists
           const existingUser = await transaction.request()
@@ -192,21 +192,18 @@ router.post('/users',
             }
           }
 
-          // Hash password if provided
-          const hashedPassword = password ? await bcrypt.hash(password, 10) : null;
-
           // Create profile (employee_id will be auto-generated as int identity)
+          // No password field - using OAuth authentication only
           const profileResult = await transaction.request()
             .input('email', sql.NVarChar, email)
             .input('full_name', sql.NVarChar, full_name)
             .input('department', sql.NVarChar, department || null)
             .input('position', sql.NVarChar, position || null)
             .input('phone', sql.NVarChar, phone || null)
-            .input('password', sql.NVarChar, hashedPassword)
             .query(`
-              INSERT INTO profiles (email, full_name, department, position, phone, password, created_at)
+              INSERT INTO profiles (email, full_name, department, position, phone, created_at)
               OUTPUT INSERTED.employee_id, INSERTED.email, INSERTED.full_name
-              VALUES (@email, @full_name, @department, @position, @phone, @password, GETDATE())
+              VALUES (@email, @full_name, @department, @position, @phone, GETDATE())
             `);
 
           const newProfile = profileResult.recordset[0];
