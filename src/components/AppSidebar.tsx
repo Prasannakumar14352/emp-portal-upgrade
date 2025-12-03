@@ -142,6 +142,21 @@ export function AppSidebar() {
           </SidebarGroup>
         )}
 
+        {(role === 'hr' || role === 'manager') && (
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
+                  <NavLink to="/system-logs">
+                    <FileText />
+                    <span>System Logs</span>
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        )}
+
         <SidebarGroup>
           <SidebarGroupLabel>Account</SidebarGroupLabel>
           <SidebarGroupContent>

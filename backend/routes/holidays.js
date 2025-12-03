@@ -1,6 +1,7 @@
 const express = require('express');
 const { getConnection, sql } = require('../config/database');
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
+const logger = require('../utils/logger');
 
 const router = express.Router();
 
@@ -8,6 +9,9 @@ const router = express.Router();
 router.get('/', authenticateToken, async (req, res) => {
   try {
     const { year } = req.query;
+
+    logger.process.start('Get All Holidays', { year });
+
     const pool = await getConnection();
     
     let query = `
@@ -25,9 +29,15 @@ router.get('/', authenticateToken, async (req, res) => {
     query += ' ORDER BY date';
     
     const result = await request.query(query);
+
+    logger.process.success('Get All Holidays', { 
+      count: result.recordset.length, 
+      year 
+    });
+
     res.json(result.recordset);
   } catch (err) {
-    console.error('Get holidays error:', err);
+    logger.process.error('Get All Holidays', err, { year: req.query.year });
     res.status(500).json({ error: 'Failed to get holidays' });
   }
 });
@@ -36,6 +46,9 @@ router.get('/', authenticateToken, async (req, res) => {
 router.get('/upcoming', authenticateToken, async (req, res) => {
   try {
     const { limit } = req.query;
+
+    logger.process.start('Get Upcoming Holidays', { limit });
+
     const pool = await getConnection();
     
     const result = await pool.request()
@@ -47,9 +60,14 @@ router.get('/upcoming', authenticateToken, async (req, res) => {
         ORDER BY date
       `);
 
+    logger.process.success('Get Upcoming Holidays', { 
+      count: result.recordset.length, 
+      limit 
+    });
+
     res.json(result.recordset);
   } catch (err) {
-    console.error('Get upcoming holidays error:', err);
+    logger.process.error('Get Upcoming Holidays', err, { limit: req.query.limit });
     res.status(500).json({ error: 'Failed to get upcoming holidays' });
   }
 });
@@ -79,6 +97,9 @@ router.get('/:id', authenticateToken, async (req, res) => {
 router.post('/', authenticateToken, authorizeRole('hr', 'manager'), async (req, res) => {
   try {
     const { name, date, type, description } = req.body;
+
+    logger.process.start('Create Holiday', { name, date, type, createdBy: req.user.id });
+
     const pool = await getConnection();
     
     const result = await pool.request()
@@ -92,9 +113,15 @@ router.post('/', authenticateToken, authorizeRole('hr', 'manager'), async (req, 
         VALUES (@name, @date, @type, @description, GETDATE())
       `);
 
+    logger.process.success('Create Holiday', { 
+      holidayId: result.recordset[0].id, 
+      name, 
+      date 
+    });
+
     res.status(201).json(result.recordset[0]);
   } catch (err) {
-    console.error('Create holiday error:', err);
+    logger.process.error('Create Holiday', err, { data: req.body });
     res.status(500).json({ error: 'Failed to create holiday' });
   }
 });

@@ -2,6 +2,7 @@ const express = require('express');
 const { body, validationResult } = require('express-validator');
 const { getConnection, sql } = require('../config/database');
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
+const logger = require('../utils/logger');
 
 const router = express.Router();
 
@@ -10,13 +11,17 @@ const router = express.Router();
 --------------------------------------------------------- */
 router.get('/', authenticateToken, async (req, res) => {
   try {
+    logger.process.start('Get All Leave Types');
+
     const pool = await getConnection();
     const result = await pool.request()
       .query('SELECT * FROM leave_types ORDER BY name');
 
+    logger.process.success('Get All Leave Types', { count: result.recordset.length });
+
     res.json(result.recordset);
   } catch (err) {
-    console.error('Get leave types error:', err);
+    logger.process.error('Get All Leave Types', err);
     res.status(500).json({ error: 'Failed to fetch leave types' });
   }
 });
@@ -26,13 +31,17 @@ router.get('/', authenticateToken, async (req, res) => {
 --------------------------------------------------------- */
 router.get('/active', authenticateToken, async (req, res) => {
   try {
+    logger.process.start('Get Active Leave Types');
+
     const pool = await getConnection();
     const result = await pool.request()
       .query('SELECT * FROM leave_types WHERE is_active = 1 ORDER BY name');
 
+    logger.process.success('Get Active Leave Types', { count: result.recordset.length });
+
     res.json(result.recordset);
   } catch (err) {
-    console.error('Get active leave types error:', err);
+    logger.process.error('Get Active Leave Types', err);
     res.status(500).json({ error: 'Failed to fetch active leave types' });
   }
 });
@@ -75,10 +84,14 @@ router.post('/',
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
+        logger.warn('Leave Type Creation Validation Failed', { errors: errors.array() });
         return res.status(400).json({ errors: errors.array() });
       }
 
       const { name, default_days, description } = req.body;
+
+      logger.process.start('Create Leave Type', { name, default_days, createdBy: req.user.id });
+
       const pool = await getConnection();
 
       // Check if leave type with same name exists
@@ -87,6 +100,7 @@ router.post('/',
         .query('SELECT id FROM leave_types WHERE name = @name');
 
       if (existing.recordset.length > 0) {
+        logger.warn('Leave Type Already Exists', { name });
         return res.status(400).json({ error: 'Leave type with this name already exists' });
       }
 
@@ -104,9 +118,14 @@ router.post('/',
         .input('name', sql.NVarChar, name)
         .query('SELECT * FROM leave_types WHERE name = @name');
 
+      logger.process.success('Create Leave Type', { 
+        leaveTypeId: result.recordset[0].id, 
+        name 
+      });
+
       res.status(201).json(result.recordset[0]);
     } catch (err) {
-      console.error('Create leave type error:', err);
+      logger.process.error('Create Leave Type', err, { data: req.body });
       res.status(500).json({ error: 'Failed to create leave type' });
     }
   }

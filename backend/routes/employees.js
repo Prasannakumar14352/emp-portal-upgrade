@@ -1,13 +1,15 @@
 const express = require('express');
 const { getConnection, sql } = require('../config/database');
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
-const { logError } = require('../utils/logger');
+const logger = require('../utils/logger');
 
 const router = express.Router();
 
 // GET /api/employees/departments - Get unique departments
 router.get('/departments', authenticateToken, async (req, res) => {
   try {
+    logger.process.start('Get Departments List');
+
     const pool = await getConnection();
     const result = await pool.request().query(`
       SELECT DISTINCT department 
@@ -17,9 +19,12 @@ router.get('/departments', authenticateToken, async (req, res) => {
     `);
     
     const departments = result.recordset.map(row => row.department);
+
+    logger.process.success('Get Departments List', { count: departments.length });
+
     res.json({ departments });
   } catch (error) {
-    logError(error, req, { context: 'Error fetching departments' });
+    logger.process.error('Get Departments List', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -27,9 +32,10 @@ router.get('/departments', authenticateToken, async (req, res) => {
 // GET /api/employees - Get all employees
 router.get('/', authenticateToken, async (req, res) => {
   try {
+    logger.process.start('Get All Employees');
+
     const pool = await getConnection();
     
-    console.log('[Employees] Fetching all employees');
     const result = await pool.request()
       .query(`
         SELECT 
@@ -39,10 +45,11 @@ router.get('/', authenticateToken, async (req, res) => {
         ORDER BY e.full_name
       `);
 
+    logger.process.success('Get All Employees', { count: result.recordset.length });
+
     res.json(result.recordset);
   } catch (err) {
-    console.error('[Employees] Get employees error:', err);
-    logError(err, req, { context: 'Get employees error' });
+    logger.process.error('Get All Employees', err);
     res.status(500).json({ error: 'Failed to get employees', details: err.message });
   }
 });
@@ -51,6 +58,9 @@ router.get('/', authenticateToken, async (req, res) => {
 router.get('/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
+
+    logger.process.start('Get Employee By ID', { employeeId: id });
+
     const pool = await getConnection();
     
     const result = await pool.request()
@@ -66,12 +76,18 @@ router.get('/:id', authenticateToken, async (req, res) => {
       `);
 
     if (result.recordset.length === 0) {
+      logger.warn('Employee not found', { employeeId: id });
       return res.status(404).json({ error: 'Employee not found' });
     }
 
+    logger.process.success('Get Employee By ID', { 
+      employeeId: id, 
+      employeeName: result.recordset[0].full_name 
+    });
+
     res.json(result.recordset[0]);
   } catch (err) {
-    logError(err, req, { context: 'Get employee error', employeeId: id });
+    logger.process.error('Get Employee By ID', err, { employeeId: req.params.id });
     res.status(500).json({ error: 'Failed to get employee' });
   }
 });
@@ -80,6 +96,14 @@ router.get('/:id', authenticateToken, async (req, res) => {
 router.post('/', authenticateToken, authorizeRole('hr', 'manager'), async (req, res) => {
   try {
     const { full_name, email, phone, department, position, status, employee_id, role } = req.body;
+
+    logger.process.start('Create Employee', { 
+      email, 
+      full_name, 
+      department,
+      requestedBy: req.user.id 
+    });
+
     const pool = await getConnection();
     
     const result = await pool.request()
@@ -96,9 +120,15 @@ router.post('/', authenticateToken, authorizeRole('hr', 'manager'), async (req, 
         VALUES (@employee_id, @full_name, @email, @phone, @department, @position, @status, GETDATE(), GETDATE())
       `);
 
+    logger.process.success('Create Employee', { 
+      employeeId: result.recordset[0].employee_id, 
+      email, 
+      full_name 
+    });
+
     res.status(201).json(result.recordset[0]);
   } catch (err) {
-    logError(err, req, { context: 'Create employee error', data: req.body });
+    logger.process.error('Create Employee', err, { data: req.body });
     res.status(500).json({ error: 'Failed to create employee' });
   }
 });

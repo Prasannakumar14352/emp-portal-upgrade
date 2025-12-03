@@ -2,13 +2,15 @@ const express = require('express');
 const router = express.Router();
 const { getConnection, sql } = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
-const { logError } = require('../utils/logger');
+const logger = require('../utils/logger');
 
 // Get today's attendance record
 router.get('/today', authenticateToken, async (req, res) => {
   try {
     const { userId } = req.query;
     const today = new Date().toISOString().split('T')[0];
+
+    logger.process.start('Get Today Attendance', { userId, date: today });
 
     const pool = await getConnection();
     const result = await pool.request()
@@ -19,9 +21,14 @@ router.get('/today', authenticateToken, async (req, res) => {
         WHERE employee_id = @userId AND date = @date
       `);
 
+    logger.process.success('Get Today Attendance', { 
+      userId, 
+      found: result.recordset.length > 0 
+    });
+
     res.json(result.recordset[0] || null);
   } catch (error) {
-    logError(error, req, { context: 'Error fetching today attendance', userId });
+    logger.process.error('Get Today Attendance', error, { userId: req.query.userId });
     res.status(500).json({ error: error.message });
   }
 });
@@ -30,6 +37,8 @@ router.get('/today', authenticateToken, async (req, res) => {
 router.get('/stats', authenticateToken, async (req, res) => {
   try {
     const { userId, month, year } = req.query;
+
+    logger.process.start('Get Attendance Stats', { userId, month, year });
 
     const startDate = new Date(year, month - 1, 1);
     const endDate = new Date(year, month, 0);
@@ -56,15 +65,24 @@ router.get('/stats', authenticateToken, async (req, res) => {
       ? Math.round(((stats.present + stats.late) / stats.totalDays) * 100)
       : 0;
 
-    res.json({
+    const responseData = {
       totalDays: stats.totalDays,
       present: stats.present,
       absent: stats.absent,
       late: stats.late,
       attendanceRate,
+    };
+
+    logger.process.success('Get Attendance Stats', { 
+      userId, 
+      month, 
+      year, 
+      stats: responseData 
     });
+
+    res.json(responseData);
   } catch (error) {
-    logError(error, req, { context: 'Error fetching attendance stats', userId, month, year });
+    logger.process.error('Get Attendance Stats', error, { userId, month, year });
     res.status(500).json({ error: error.message });
   }
 });
