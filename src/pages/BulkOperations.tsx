@@ -82,6 +82,7 @@ export default function BulkOperations() {
       // Create sample data with correct column headers
       const sampleData = [
         {
+          "Employee ID": 1001,  // Optional - will auto-generate if not provided
           "Email": "john.doe@company.com",
           "Full Name": "John Doe",
           "Department": "Engineering",
@@ -91,6 +92,7 @@ export default function BulkOperations() {
           "Password": "TempPass123!"
         },
         {
+          "Employee ID": "",  // Leave empty for auto-generation
           "Email": "jane.smith@company.com",
           "Full Name": "Jane Smith",
           "Department": "Human Resources",
@@ -100,6 +102,7 @@ export default function BulkOperations() {
           "Password": "TempPass456!"
         },
         {
+          // Employee ID omitted - will auto-generate
           "Email": "bob.wilson@company.com",
           "Full Name": "Bob Wilson",
           "Department": "Sales",
@@ -115,6 +118,7 @@ export default function BulkOperations() {
       
       // Set column widths for better readability
       worksheet['!cols'] = [
+        { wch: 15 }, // Employee ID
         { wch: 30 }, // Email
         { wch: 25 }, // Full Name
         { wch: 20 }, // Department
@@ -461,7 +465,7 @@ export default function BulkOperations() {
                 <Label htmlFor="user-file">Upload Excel File</Label>
                 <div className="text-xs text-muted-foreground mb-2">
                   <strong>Required columns:</strong> Email, Full Name<br />
-                  <strong>Optional columns:</strong> Department, Position, Phone, Role (employee/hr/manager), Password
+                  <strong>Optional columns:</strong> Employee ID (auto-generates if not provided), Department, Position, Phone, Role (employee/hr/manager), Password
                 </div>
                 <Input
                   id="user-file"
@@ -491,6 +495,7 @@ export default function BulkOperations() {
                   <pre className="text-xs overflow-x-auto">
 {`[
   {
+    "employee_id": 1001,
     "email": "john@example.com",
     "full_name": "John Doe",
     "password": "SecurePass123!",
@@ -498,8 +503,20 @@ export default function BulkOperations() {
     "position": "Software Engineer",
     "phone": "+1234567890",
     "role": "employee"
+  },
+  {
+    "email": "jane@example.com",
+    "full_name": "Jane Smith",
+    "password": "SecurePass456!",
+    "department": "HR",
+    "position": "HR Manager",
+    "phone": "+1234567891",
+    "role": "hr"
   }
-]`}
+]
+
+Note: employee_id is optional. If not provided, it will auto-generate (1, 2, 3...).
+If provided, it must be unique and not already exist in the database.`}
                   </pre>
                 </div>
                 <Textarea
