@@ -4,7 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const { getConnection, sql } = require('../config/database');
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
-const { logError } = require('../utils/logger');
+const logger = require('../utils/logger');
 
 const router = express.Router();
 
@@ -64,7 +64,7 @@ router.get('/:userId/role', authenticateToken, async (req, res) => {
     console.error('Get user role error:', err);
     console.error('Failed query: SELECT role FROM user_roles WHERE employee_id = @employee_id');
     console.error('Table: user_roles, Column: role');
-    logError(err, req, { context: 'Get role error', userId: req.params.userId, table: 'user_roles', column: 'role' });
+    logger.error(err, req, { context: 'Get role error', userId: req.params.userId, table: 'user_roles', column: 'role' });
     res.status(500).json({ 
       error: 'Failed to get user role',
       details: 'Check if user_roles table has role column in SQL Server database'
@@ -99,7 +99,7 @@ router.get('/:userId/profile', authenticateToken, async (req, res) => {
     console.error('Get profile error:', err);
     console.error('Query:', query);
     console.error('Table: profiles');
-    logError(err, req, { context: 'Get profile error', userId: req.params.userId, table: 'profiles' });
+    logger.error(err, req, { context: 'Get profile error', userId: req.params.userId, table: 'profiles' });
     res.status(500).json({ 
       error: 'Failed to get user profile',
       details: err.message 
@@ -164,7 +164,7 @@ router.post('/:userId/avatar', authenticateToken, upload.single('avatar'), async
     if (req.file) {
       fs.unlinkSync(req.file.path);
     }
-    logError(err, req, { context: 'Upload avatar error', userId: req.params.userId });
+    logger.error(err, req, { context: 'Upload avatar error', userId: req.params.userId });
     res.status(500).json({ error: 'Failed to upload avatar' });
   }
 });
@@ -226,7 +226,7 @@ router.patch('/:userId/profile', authenticateToken, async (req, res) => {
 
     res.json(result.recordset[0]);
   } catch (err) {
-    logError(err, req, { context: 'Update profile error', userId: req.params.userId });
+    logger.error(err, req, { context: 'Update profile error', userId: req.params.userId });
     res.status(500).json({ error: 'Failed to update profile' });
   }
 });
@@ -247,7 +247,7 @@ router.get('/', authenticateToken, authorizeRole('hr', 'manager'), async (req, r
 
     res.json(result.recordset);
   } catch (err) {
-    logError(err, req, { context: 'Get users error' });
+    logger.error(err, req, { context: 'Get users error' });
     res.status(500).json({ error: 'Failed to get users' });
   }
 });
@@ -291,7 +291,7 @@ router.get('/with-roles', authenticateToken, authorizeRole('hr', 'manager'), asy
 
     res.json(Array.from(usersMap.values()));
   } catch (err) {
-    logError(err, req, { context: 'Get users with roles error' });
+    logger.error(err, req, { context: 'Get users with roles error' });
     res.status(500).json({ error: 'Failed to get users with roles' });
   }
 });
@@ -352,7 +352,7 @@ router.post('/:userId/roles', authenticateToken, authorizeRole('hr', 'manager'),
       role: result.recordset[0]
     });
   } catch (err) {
-    logError(err, req, { context: 'Assign role error', userId: req.params.userId, role: req.body.role });
+    logger.error(err, req, { context: 'Assign role error', userId: req.params.userId, role: req.body.role });
     res.status(500).json({ error: 'Failed to assign role' });
   }
 });
@@ -420,7 +420,7 @@ router.post('/bulk-assign-roles', authenticateToken, authorizeRole('hr', 'manage
 
         results.assigned.push({ userId, userName, role });
       } catch (err) {
-        logError(err, req, { context: 'Bulk role assignment error for user', userId, role });
+        logger.error(err, req, { context: 'Bulk role assignment error for user', userId, role });
         results.errors.push({ userId, reason: err.message });
       }
     }
@@ -439,7 +439,7 @@ router.post('/bulk-assign-roles', authenticateToken, authorizeRole('hr', 'manage
       details: results
     });
   } catch (err) {
-    logError(err, req, { context: 'Bulk assign roles error' });
+    logger.error(err, req, { context: 'Bulk assign roles error' });
     res.status(500).json({ error: 'Failed to bulk assign roles' });
   }
 });
@@ -489,7 +489,7 @@ router.delete('/roles/:roleId', authenticateToken, authorizeRole('hr', 'manager'
 
     res.json({ message: 'Role removed successfully' });
   } catch (err) {
-    logError(err, req, { context: 'Remove role error', roleId });
+    logger.error(err, req, { context: 'Remove role error', roleId });
     res.status(500).json({ error: 'Failed to remove role' });
   }
 });
@@ -557,7 +557,7 @@ router.get('/role-audit-log', authenticateToken, authorizeRole('hr', 'manager'),
       }
     });
   } catch (err) {
-    logError(err, req, { context: 'Get role audit log error' });
+    logger.error(err, req, { context: 'Get role audit log error' });
     res.status(500).json({ error: 'Failed to get role audit log' });
   }
 });
@@ -615,7 +615,7 @@ router.get('/:userId/preferences', authenticateToken, async (req, res) => {
 
     res.json(result.recordset[0]);
   } catch (err) {
-    logError(err, req, { context: 'Get preferences error', userId: req.params.userId });
+    logger.error(err, req, { context: 'Get preferences error', userId: req.params.userId });
     res.status(500).json({ error: 'Failed to get preferences' });
   }
 });
@@ -715,7 +715,7 @@ router.put('/:userId/preferences', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'No updates provided' });
     }
   } catch (err) {
-    logError(err, req, { context: 'Update preferences error', userId: req.params.userId });
+    logger.error(err, req, { context: 'Update preferences error', userId: req.params.userId });
     res.status(500).json({ error: 'Failed to update preferences' });
   }
 });
@@ -742,7 +742,7 @@ router.put('/:userId/notification-sound', authenticateToken, async (req, res) =>
 
     res.json({ message: 'Sound preferences updated successfully' });
   } catch (err) {
-    logError(err, req, { context: 'Update sound preferences error', userId: req.params.userId });
+    logger.error(err, req, { context: 'Update sound preferences error', userId: req.params.userId });
     res.status(500).json({ error: 'Failed to update sound preferences' });
   }
 });
@@ -798,7 +798,7 @@ router.post('/:userId/change-password', authenticateToken, async (req, res) => {
 
     res.json({ message: 'Password changed successfully' });
   } catch (err) {
-    logError(err, req, { context: 'Change password error', userId: req.params.userId });
+    logger.error(err, req, { context: 'Change password error', userId: req.params.userId });
     res.status(500).json({ error: 'Failed to change password' });
   }
 });

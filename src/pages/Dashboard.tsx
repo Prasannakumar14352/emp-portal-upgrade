@@ -68,12 +68,12 @@ export default function Dashboard() {
   };
 
   const statsData = [
-    {
-      title: "Leave Balance",
-      value: `${stats.leaveBalance} days`,
-      icon: Calendar,
-      trend: { value: "Annual quota", positive: true }
-    },
+    // {
+    //   title: "Leave Balance",
+    //   value: `${stats.leaveBalance} days`,
+    //   icon: Calendar,
+    //   trend: { value: "Annual quota", positive: true }
+    // },
     {
       title: "Pending Approvals",
       value: stats.pendingApprovals.toString(),

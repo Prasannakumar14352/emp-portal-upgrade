@@ -168,7 +168,7 @@ router.patch('/:id', authenticateToken, authorizeRole('hr', 'manager'), async (r
 
     res.json(result.recordset[0]);
   } catch (err) {
-    logError(err, req, { context: 'Update employee error', employeeId: id });
+    logger.error(err, req, { context: 'Update employee error', employeeId: id });
     res.status(500).json({ error: 'Failed to update employee' });
   }
 });
@@ -189,7 +189,7 @@ router.delete('/:id', authenticateToken, authorizeRole('hr'), async (req, res) =
 
     res.json({ message: 'Employee deleted successfully' });
   } catch (err) {
-    logError(err, req, { context: 'Delete employee error', employeeId: id });
+    logger.error(err, req, { context: 'Delete employee error', employeeId: id });
     res.status(500).json({ error: 'Failed to delete employee' });
   }
 });
@@ -213,7 +213,7 @@ router.get('/department/:department', authenticateToken, async (req, res) => {
 
     res.json(result.recordset);
   } catch (err) {
-    logError(err, req, { context: 'Get employees by department error', department });
+    logger.error(err, req, { context: 'Get employees by department error', department });
     res.status(500).json({ error: 'Failed to get employees' });
   }
 });

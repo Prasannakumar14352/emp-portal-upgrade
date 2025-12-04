@@ -161,7 +161,7 @@ export default function Notifications() {
         )}
       </div>
 
-      <Card>
+      {/* <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>All Notifications</CardTitle>
           {unreadCount > 0 && (
@@ -226,7 +226,7 @@ export default function Notifications() {
             )}
           </div>
         </CardContent>
-      </Card>
+      </Card> */}
 
       <Card>
         <CardHeader>

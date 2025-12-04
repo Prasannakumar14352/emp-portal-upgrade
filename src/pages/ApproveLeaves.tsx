@@ -423,13 +423,13 @@ export default function ApproveLeaves() {
                     />
                     <Avatar>
                       <AvatarFallback>
-                        {request.employeeName.split(" ").map((n) => n[0]).join("")}
+                        {request.user_name? request.user_name.split(" ").map((n) => n[0]).join("") : request.employeeName ? request.employeeName.split(" ").map((n) => n[0]).join("") : "?"}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1 space-y-2">
                       <div className="flex items-center justify-between">
                         <div>
-                          <h3 className="font-semibold">{request.employeeName}</h3>
+                          <h3 className="font-semibold">{request.user_name ? request.user_name : request.employeeName ? request.employeeName : "Unknown"}</h3>
                           <p className="text-sm text-muted-foreground">{request.leaveType}</p>
                         </div>
                         {getStatusBadge(request.status)}

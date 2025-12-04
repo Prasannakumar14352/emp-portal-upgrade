@@ -27,6 +27,7 @@ export function LeaveBalanceCard({ balances, year }: Props) {
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
         {balances.map((b, i) => {
           const usagePercentage = (b.usedDays / b.totalDays) * 100 || 0;
+          const availablePercent = 100 - usagePercentage;
 
           return (
             <Card key={i} className="shadow-sm hover:shadow-md transition rounded-xl">
@@ -48,11 +49,28 @@ export function LeaveBalanceCard({ balances, year }: Props) {
                 </div>
 
                 <div>
-                  <div className="flex justify-between text-xs mb-1 text-muted-foreground">
+                  {/* <div className="flex justify-between text-xs mb-1 text-muted-foreground">
                     <span>Usage</span>
                     <span>{usagePercentage.toFixed(0)}%</span>
                   </div>
-                  <Progress value={usagePercentage} className="h-2" />
+                  <Progress value={usagePercentage} className="h-2" /> */}
+                  <div>
+                    <div className="flex justify-between text-xs mb-1 text-muted-foreground">
+                      <span>Usage</span>
+                      <span>{usagePercentage.toFixed(0)}%</span>
+                    </div>
+
+                    <div className="w-full h-2 rounded-full bg-gray-200 flex overflow-hidden">
+                      <div
+                        className="h-full bg-blue-500"
+                        style={{ width: `${usagePercentage}%` }}
+                      />
+                      <div
+                        className="h-full bg-green-500"
+                        style={{ width: `${availablePercent}%` }}
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-4 text-xs text-muted-foreground">

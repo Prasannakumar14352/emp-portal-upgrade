@@ -113,7 +113,7 @@ router.get('/', authenticateToken, async (req, res) => {
     const result = await request.query(query);
     res.json(result.recordset);
   } catch (error) {
-    logError(error, req, { context: 'Error fetching attendance records', userId });
+    logger.error(error, req, { context: 'Error fetching attendance records', userId });
     res.status(500).json({ error: error.message });
   }
 });
@@ -200,7 +200,7 @@ router.post('/', authenticateToken, async (req, res) => {
 
     res.json({ message: 'Attendance record saved successfully' });
   } catch (error) {
-    logError(error, req, { context: 'Error creating/updating attendance' });
+    logger.error(error, req, { context: 'Error creating/updating attendance' });
     res.status(500).json({ error: error.message });
   }
 });
@@ -272,7 +272,7 @@ router.post('/checkin', authenticateToken, async (req, res) => {
 
     res.json({ message: 'Checked in successfully' });
   } catch (error) {
-    logError(error, req, { context: 'Error checking in', userId });
+    logger.error(error, req, { context: 'Error checking in', userId });
     res.status(500).json({ error: error.message });
   }
 });
@@ -358,7 +358,7 @@ router.post('/checkout', authenticateToken, async (req, res) => {
 
     res.json({ message: 'Checked out successfully' });
   } catch (error) {
-    logError(error, req, { context: 'Error checking out', userId });
+    logger.error(error, req, { context: 'Error checking out', userId });
     res.status(500).json({ error: error.message });
   }
 });
@@ -407,7 +407,7 @@ router.get('/analytics/stats', authenticateToken, async (req, res) => {
       avgAttendanceRate: Math.round(avgRate.avgAttendanceRate || 0),
     });
   } catch (error) {
-    logError(error, req, { context: 'Error fetching analytics stats' });
+    logger.error(error, req, { context: 'Error fetching analytics stats' });
     res.status(500).json({ error: error.message });
   }
 });
@@ -524,7 +524,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
     res.json({ message: 'Attendance updated successfully' });
   } catch (error) {
     console.error('[Attendance Update] Error:', error);
-    logError(error, req, { context: 'Error updating attendance' });
+    logger.error(error, req, { context: 'Error updating attendance' });
     res.status(500).json({ error: error.message });
   }
 });
@@ -556,7 +556,7 @@ router.get('/analytics/departments', authenticateToken, async (req, res) => {
 
     res.json(result.recordset);
   } catch (error) {
-    logError(error, req, { context: 'Error fetching department analytics' });
+    logger.error(error, req, { context: 'Error fetching department analytics' });
     res.status(500).json({ error: error.message });
   }
 });
@@ -588,7 +588,7 @@ router.get('/analytics/trends', authenticateToken, async (req, res) => {
 
     res.json(result.recordset);
   } catch (error) {
-    logError(error, req, { context: 'Error fetching trend analytics', days });
+    logger.error(error, req, { context: 'Error fetching trend analytics', days });
     res.status(500).json({ error: error.message });
   }
 });
@@ -657,7 +657,7 @@ router.get('/calendar', authenticateToken, async (req, res) => {
 
     res.json(result);
   } catch (error) {
-    logError(error, req, { context: 'Error fetching calendar attendance', year, month, department });
+    logger.error(error, req, { context: 'Error fetching calendar attendance', year, month, department });
     res.status(500).json({ error: error.message });
   }
 });
@@ -691,7 +691,7 @@ router.get('/reports', authenticateToken, async (req, res) => {
 
     res.json(result.recordset);
   } catch (error) {
-    logError(error, req, { context: 'Error fetching attendance reports', startDate, endDate });
+    logger.error(error, req, { context: 'Error fetching attendance reports', startDate, endDate });
     res.status(500).json({ error: error.message });
   }
 });
@@ -776,7 +776,7 @@ router.get('/analytics/late-patterns', authenticateToken, async (req, res) => {
       departmentLate: departmentLate.recordset
     });
   } catch (error) {
-    logError(error, req, { context: 'Error fetching late patterns', days: req.query.days });
+    logger.error(error, req, { context: 'Error fetching late patterns', days: req.query.days });
     res.status(500).json({ error: error.message });
   }
 });
@@ -809,7 +809,7 @@ router.get('/analytics/department-comparison', authenticateToken, async (req, re
 
     res.json(result.recordset);
   } catch (error) {
-    logError(error, req, { context: 'Error fetching department comparison', days });
+    logger.error(error, req, { context: 'Error fetching department comparison', days });
     res.status(500).json({ error: error.message });
   }
 });
@@ -915,7 +915,7 @@ router.get('/summary/:userId', authenticateToken, async (req, res) => {
       totalWorkHours: totalHoursResult.recordset[0]?.total_hours || 0
     });
   } catch (error) {
-    logError(error, req);
+    logger.error(error, req);
     res.status(500).json({ error: 'Failed to fetch attendance summary' });
   }
 });
