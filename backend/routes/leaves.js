@@ -3,6 +3,7 @@ const { getConnection, sql } = require('../config/database');
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
 const { logError } = require('../utils/logger');
 const { shouldSendLeaveNotification, filterEmailRecipients } = require('../utils/emailHelper');
+const nodemailer = require('nodemailer');
 
 const router = express.Router();
 
@@ -10,7 +11,6 @@ const router = express.Router();
 router.post('/bulk-action', authenticateToken, authorizeRole('hr', 'manager'), async (req, res) => {
   try {
     const { leaveIds, action, comments } = req.body;
-    const nodemailer = require('nodemailer');
 
     if (!leaveIds || !Array.isArray(leaveIds) || leaveIds.length === 0) {
       return res.status(400).json({ error: 'Leave IDs array is required' });
@@ -434,7 +434,6 @@ router.post('/', authenticateToken, async (req, res) => {
   try {
     const { leave_type, start_date, end_date, days, reason, manager_id, cc_emails } = req.body;
     const pool = await getConnection();
-    const nodemailer = require('nodemailer');
 
     const insertResult = await pool.request()
       .input('employee_id', sql.Int, req.user.id)
@@ -650,7 +649,6 @@ router.patch('/:leaveId', authenticateToken, authorizeRole('hr', 'manager'), asy
   try {
     const { leaveId } = req.params;
     const { status, comments } = req.body;
-    const nodemailer = require('nodemailer');
 
     if (!['Approved', 'Rejected'].includes(status)) {
       return res.status(400).json({ error: 'Invalid status' });
@@ -930,8 +928,8 @@ router.patch('/:leaveId', authenticateToken, authorizeRole('hr', 'manager'), asy
 
     res.json(updatedLeave);
   } catch (err) {
-    console.error('Update leave error:', err);
-    logError(err, req, { context: 'Update leave error', leaveId });
+    console.error('Update leave error:', err.message);
+    logError(err, req, { context: 'Update leave error', leaveId: req.params.leaveId });
     res.status(500).json({ error: 'Failed to update leave status' });
   }
 });
@@ -1047,7 +1045,6 @@ router.put('/:leaveId', authenticateToken, async (req, res) => {
     const { leaveId } = req.params;
     const { leave_type, start_date, end_date, days, reason } = req.body;
     const pool = await getConnection();
-    const nodemailer = require('nodemailer');
     
     // Get leave request details
     const leaveResult = await pool.request()
@@ -1185,7 +1182,6 @@ router.delete('/:leaveId', authenticateToken, async (req, res) => {
   try {
     const { leaveId } = req.params;
     const pool = await getConnection();
-    const nodemailer = require('nodemailer');
     
     // Get leave request details
     const leaveResult = await pool.request()

@@ -9,6 +9,20 @@ if (!fs.existsSync(logsDir)) {
   fs.mkdirSync(logsDir, { recursive: true });
 }
 
+// Helper function to safely stringify objects with circular references
+const safeStringify = (obj) => {
+  const seen = new WeakSet();
+  return JSON.stringify(obj, (key, value) => {
+    if (typeof value === 'object' && value !== null) {
+      if (seen.has(value)) {
+        return '[Circular]';
+      }
+      seen.add(value);
+    }
+    return value;
+  });
+};
+
 // Custom format for structured logging
 const logFormat = winston.format.combine(
   winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
@@ -17,9 +31,9 @@ const logFormat = winston.format.combine(
   winston.format.printf(({ timestamp, level, message, stack, ...meta }) => {
     let log = `${timestamp} [${level.toUpperCase()}]: ${message}`;
     
-    // Add metadata if present
+    // Add metadata if present (safely handle circular references)
     if (Object.keys(meta).length > 0) {
-      log += ` | ${JSON.stringify(meta)}`;
+      log += ` | ${safeStringify(meta)}`;
     }
     
     // Add stack trace for errors
