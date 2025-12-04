@@ -3,7 +3,7 @@ const { getConnection, sql } = require('../config/database');
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
 const { logError } = require('../utils/logger');
 const { shouldSendLeaveNotification, filterEmailRecipients } = require('../utils/emailHelper');
-const nodemailer = require('nodemailer');
+const { sendEmailWithRetry, queueEmailWithRetry } = require('../utils/emailRetry');
 
 const router = express.Router();
 
@@ -166,20 +166,10 @@ router.post('/bulk-action', authenticateToken, authorizeRole('hr', 'manager'), a
               VALUES (@employee_id, @type, @title, @message, @metadata, GETDATE())
             `);
 
-          // Send email notification
+          // Send email notification with retry
           const shouldSendEmail = await shouldSendLeaveNotification(updatedLeave.employee_id);
           if (shouldSendEmail) {
-            const transporter = nodemailer.createTransporter({
-              host: process.env.SMTP_HOST,
-              port: 587,
-              secure: false,
-              auth: {
-                user: process.env.GMAIL_USER,
-                pass: process.env.GMAIL_APP_PASSWORD
-              }
-            });
-
-            await transporter.sendMail({
+            queueEmailWithRetry({
               from: process.env.GMAIL_USER,
               to: userResult.recordset[0]?.email || updatedLeave.employee_id,
               subject: notificationTitle,
@@ -190,7 +180,7 @@ router.post('/bulk-action', authenticateToken, authorizeRole('hr', 'manager'), a
                 <p><strong>Duration:</strong> ${updatedLeave.start_date} to ${updatedLeave.end_date} (${updatedLeave.days} days)</p>
                 <p><strong>Comments:</strong> ${comments}</p>
               `
-            });
+            }, { maxRetries: 3 });
           }
 
           // Notify HR if manager approved
@@ -236,17 +226,7 @@ router.post('/bulk-action', authenticateToken, authorizeRole('hr', 'manager'), a
 
             const hrEmails = await filterEmailRecipients(hrResult.recordset);
             if (hrEmails.length > 0) {
-              const transporter = nodemailer.createTransporter({
-                host: process.env.SMTP_HOST,
-                port: 587,
-                secure: false,
-                auth: {
-                  user: process.env.GMAIL_USER,
-                  pass: process.env.GMAIL_APP_PASSWORD
-                }
-              });
-
-              await transporter.sendMail({
+              queueEmailWithRetry({
                 from: process.env.GMAIL_USER,
                 to: hrEmails.join(', '),
                 subject: 'Leave Request Awaiting HR Approval',
@@ -461,16 +441,6 @@ router.post('/', authenticateToken, async (req, res) => {
       if (userResult.recordset.length > 0) {
         const employee = userResult.recordset[0];
         
-        const transporter = nodemailer.createTransport({
-          host: process.env.SMTP_HOST,
-          port: 587,
-          secure: false,
-          auth: {
-            user: process.env.GMAIL_USER,
-            pass: process.env.GMAIL_APP_PASSWORD
-          }
-        });
-
         const emailSubject = 'New Leave Request Requires Your Approval';
         const emailHtml = `
           <h2>New Leave Request</h2>
@@ -533,10 +503,12 @@ router.post('/', authenticateToken, async (req, res) => {
             emailOptions.cc = cc_emails.join(', ');
           }
 
-          await transporter.sendMail(emailOptions);
-          console.log('Leave notification sent to:', filteredEmails.join(', '));
-          if (cc_emails && cc_emails.length > 0) {
-            console.log('CC sent to:', cc_emails.join(', '));
+          const result = await sendEmailWithRetry(emailOptions, { maxRetries: 3 });
+          if (result.success) {
+            console.log('Leave notification sent to:', filteredEmails.join(', '));
+            if (cc_emails && cc_emails.length > 0) {
+              console.log('CC sent to:', cc_emails.join(', '));
+            }
           }
         }
       }
@@ -775,18 +747,8 @@ router.patch('/:leaveId', authenticateToken, authorizeRole('hr', 'manager'), asy
         `);
     }
 
-    // Send email notifications
+    // Send email notifications with retry
     try {
-      const transporter = nodemailer.createTransporter({
-        host: process.env.SMTP_SERVER,
-        port: 587,
-        secure: false,
-        auth: {
-          user: process.env.GMAIL_USER,
-          pass: process.env.GMAIL_APP_PASSWORD
-        }
-      });
-
       // Get employee and approver details
       const employeeResult = await pool.request()
         .input('employee_id', sql.Int, updatedLeave.employee_id)
@@ -805,7 +767,7 @@ router.patch('/:leaveId', authenticateToken, authorizeRole('hr', 'manager'), asy
         
         // Notify employee if they have notifications enabled
         if (shouldNotifyEmployee) {
-          await transporter.sendMail({
+          queueEmailWithRetry({
             from: process.env.GMAIL_USER,
             to: employee.email,
             subject: `Leave Request ${status} by ${isManager ? 'Manager' : 'HR'}`,
@@ -817,7 +779,7 @@ router.patch('/:leaveId', authenticateToken, authorizeRole('hr', 'manager'), asy
               ${comments ? `<p><strong>Comments:</strong> ${comments}</p>` : ''}
               ${isManager && status === 'Approved' ? '<p><em>Your request now awaits HR approval.</em></p>' : ''}
             `
-          });
+          }, { maxRetries: 3 });
         } else {
           console.log(`Skipping leave notification email to ${employee.email} - notifications disabled`);
         }
@@ -841,7 +803,7 @@ router.patch('/:leaveId', authenticateToken, authorizeRole('hr', 'manager'), asy
             const hrEmails = await filterEmailRecipients(hrWithPrefs);
             
             if (hrEmails.length > 0) {
-              await transporter.sendMail({
+              queueEmailWithRetry({
                 from: process.env.GMAIL_USER,
                 to: hrEmails,
                 subject: 'Leave Request Requires HR Approval',
@@ -853,7 +815,7 @@ router.patch('/:leaveId', authenticateToken, authorizeRole('hr', 'manager'), asy
                   <p><strong>Manager:</strong> ${approver.full_name}</p>
                   <p>Please log in to the system to review and approve/reject this request.</p>
                 `
-              });
+              }, { maxRetries: 3 });
             }
             
             // Send real-time notifications to HR users
@@ -1093,18 +1055,8 @@ router.put('/:leaveId', authenticateToken, async (req, res) => {
 
     const updatedLeave = result.recordset[0];
 
-    // Send email notifications about the change
+    // Send email notifications about the change with retry
     try {
-      const transporter = nodemailer.createTransporter({
-        host: process.env.SMTP_SERVER,
-        port: 587,
-        secure: false,
-        auth: {
-          user: process.env.GMAIL_USER,
-          pass: process.env.GMAIL_APP_PASSWORD
-        }
-      });
-
       const employeeResult = await pool.request()
         .input('employee_id', sql.Int, leave.employee_id)
         .query('SELECT email, full_name FROM profiles WHERE employee_id = @employee_id');
@@ -1119,10 +1071,9 @@ router.put('/:leaveId', authenticateToken, async (req, res) => {
             .query('SELECT email, full_name FROM profiles WHERE employee_id = @manager_id');
           
           if (managerResult.recordset.length > 0) {
-            const manager = managerResult.recordset[0];
-            await transporter.sendMail({
+            queueEmailWithRetry({
               from: process.env.GMAIL_USER,
-              to: manager.email,
+              to: managerResult.recordset[0].email,
               subject: 'Leave Request Modified',
               html: `
                 <h2>Leave Request Updated</h2>
@@ -1133,7 +1084,7 @@ router.put('/:leaveId', authenticateToken, async (req, res) => {
                 <p><strong>Reason:</strong> ${reason}</p>
                 <p>Please review the updated request.</p>
               `
-            });
+            }, { maxRetries: 3 });
           }
         }
 
@@ -1148,7 +1099,7 @@ router.put('/:leaveId', authenticateToken, async (req, res) => {
         
         if (hrResult.recordset.length > 0) {
           const hrEmails = hrResult.recordset.map(hr => hr.email);
-          await transporter.sendMail({
+          queueEmailWithRetry({
             from: process.env.GMAIL_USER,
             to: hrEmails,
             subject: 'Leave Request Modified',
@@ -1161,7 +1112,7 @@ router.put('/:leaveId', authenticateToken, async (req, res) => {
               <p><strong>Reason:</strong> ${reason}</p>
               <p>Please review the updated request.</p>
             `
-          });
+          }, { maxRetries: 3 });
         }
       }
     } catch (emailErr) {
@@ -1214,18 +1165,8 @@ router.delete('/:leaveId', authenticateToken, async (req, res) => {
       .input('leave_id', sql.Int, leaveId)
       .query('DELETE FROM leaves WHERE id = @leave_id');
 
-    // Send email notifications
+    // Send email notifications with retry
     try {
-      const transporter = nodemailer.createTransporter({
-        host: process.env.SMTP_SERVER,
-        port: 587,
-        secure: false,
-        auth: {
-          user: process.env.GMAIL_USER,
-          pass: process.env.GMAIL_APP_PASSWORD
-        }
-      });
-
       if (employeeResult.recordset.length > 0) {
         const employee = employeeResult.recordset[0];
 
@@ -1236,10 +1177,9 @@ router.delete('/:leaveId', authenticateToken, async (req, res) => {
             .query('SELECT email, full_name FROM profiles WHERE employee_id = @manager_id');
           
           if (managerResult.recordset.length > 0) {
-            const manager = managerResult.recordset[0];
-            await transporter.sendMail({
+            queueEmailWithRetry({
               from: process.env.GMAIL_USER,
-              to: manager.email,
+              to: managerResult.recordset[0].email,
               subject: 'Leave Request Cancelled',
               html: `
                 <h2>Leave Request Cancelled</h2>
@@ -1248,7 +1188,7 @@ router.delete('/:leaveId', authenticateToken, async (req, res) => {
                 <p><strong>Duration:</strong> ${leave.start_date} to ${leave.end_date} (${leave.days} days)</p>
                 <p><strong>Reason:</strong> ${leave.reason}</p>
               `
-            });
+            }, { maxRetries: 3 });
           }
         }
 
@@ -1263,7 +1203,7 @@ router.delete('/:leaveId', authenticateToken, async (req, res) => {
         
         if (hrResult.recordset.length > 0) {
           const hrEmails = hrResult.recordset.map(hr => hr.email);
-          await transporter.sendMail({
+          queueEmailWithRetry({
             from: process.env.GMAIL_USER,
             to: hrEmails,
             subject: 'Leave Request Cancelled',
@@ -1274,7 +1214,7 @@ router.delete('/:leaveId', authenticateToken, async (req, res) => {
               <p><strong>Duration:</strong> ${leave.start_date} to ${leave.end_date} (${leave.days} days)</p>
               <p><strong>Reason:</strong> ${leave.reason}</p>
             `
-          });
+          }, { maxRetries: 3 });
         }
       }
     } catch (emailErr) {

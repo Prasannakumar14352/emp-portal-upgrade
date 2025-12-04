@@ -1,21 +1,10 @@
 const express = require('express');
-const nodemailer = require('nodemailer');
 const { getConnection } = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const logger = require('../utils/logger');
+const { sendEmailWithRetry } = require('../utils/emailRetry');
 
 const router = express.Router();
-
-// Configure email transporter
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: parseInt(process.env.SMTP_PORT || '587'),
-  secure: false,
-  auth: {
-    user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_APP_PASSWORD
-  }
-});
 
 // GET /api/notifications - Get user notifications
 router.get('/', authenticateToken, async (req, res) => {
@@ -404,21 +393,26 @@ router.post('/leave', authenticateToken, async (req, res) => {
       </html>
     `;
 
-    const info = await transporter.sendMail({
+    const emailResult = await sendEmailWithRetry({
       from: `"Employee Portal" <${process.env.SMTP_USER}>`,
       to,
       subject,
       html: htmlContent
-    });
+    }, { maxRetries: 3 });
+
+    if (!emailResult.success) {
+      throw new Error(emailResult.message || 'Failed to send email after retries');
+    }
 
     logger.process.success('Send Leave Notification Email', {
       to,
-      messageId: info.messageId,
-      status
+      messageId: emailResult.result?.messageId,
+      status,
+      attempts: emailResult.attempts
     });
     
     logger.api.response('POST', '/api/notifications/leave', 200, Date.now() - startTime);
-    res.json({ success: true, messageId: info.messageId });
+    res.json({ success: true, messageId: emailResult.result?.messageId, attempts: emailResult.attempts });
   } catch (err) {
     logger.process.error('Send Leave Notification Email', err, { to: req.body.to });
     logger.api.error('POST', '/api/notifications/leave', err);
