@@ -309,12 +309,38 @@ router.post('/checkout', authenticateToken, async (req, res) => {
 
     const userName = userResult.recordset[0]?.full_name || 'Unknown User';
 
+    // Calculate work hours and determine status
+    const checkInTime = new Date(existing.recordset[0].check_in_time);
+    const workHours = (now - checkInTime) / (1000 * 60 * 60); // hours
+    
+    // Determine status based on work hours
+    let status = 'absent';
+    if (workHours >= 9) {
+      status = 'present';
+    } else if (workHours >= 4) {
+      status = 'half-day';
+    }
+    
+    // Check if late (check-in after 9:15 AM)
+    const checkInHour = checkInTime.getHours();
+    const checkInMinute = checkInTime.getMinutes();
+    if (checkInHour > 9 || (checkInHour === 9 && checkInMinute > 15)) {
+      if (workHours >= 9) {
+        status = 'late'; // Late but worked full hours
+      }
+    }
+
     await pool.request()
       .input('id', sql.UniqueIdentifier, existing.recordset[0].id)
       .input('checkOutTime', sql.DateTime2, now)
+      .input('workHours', sql.Decimal(5, 2), workHours)
+      .input('status', sql.NVarChar, status)
       .query(`
         UPDATE attendance_records 
-        SET check_out_time = @checkOutTime, updated_at = GETDATE()
+        SET check_out_time = @checkOutTime, 
+            work_hours = @workHours,
+            status = @status,
+            updated_at = GETDATE()
         WHERE id = @id
       `);
 

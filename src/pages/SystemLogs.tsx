@@ -71,9 +71,8 @@ export default function SystemLogs() {
   const loadRecentLogs = async () => {
     try {
       setLoadingLogs(true);
-      const response = await apiClient.get<{ logs: LogEntry[] }>('/logs/recent', {
-        params: { limit: 100, level: selectedLevel !== 'all' ? selectedLevel : undefined }
-      });
+      const levelParam = selectedLevel !== 'all' ? `&level=${selectedLevel}` : '';
+      const response = await apiClient.get<{ logs: LogEntry[] }>(`/logs/recent?limit=100${levelParam}`);
       setLogs(response.logs);
     } catch (error) {
       console.error('Failed to load logs:', error);
@@ -86,9 +85,7 @@ export default function SystemLogs() {
   const loadErrorLogs = async () => {
     try {
       setLoadingLogs(true);
-      const response = await apiClient.get<{ logs: LogEntry[] }>('/logs/errors', {
-        params: { limit: 100 }
-      });
+      const response = await apiClient.get<{ logs: LogEntry[] }>('/logs/errors?limit=100');
       setLogs(response.logs);
     } catch (error) {
       console.error('Failed to load error logs:', error);
@@ -101,9 +98,7 @@ export default function SystemLogs() {
   const loadProcessLogs = async () => {
     try {
       setLoadingLogs(true);
-      const response = await apiClient.get<{ logs: LogEntry[] }>('/logs/processes', {
-        params: { limit: 100 }
-      });
+      const response = await apiClient.get<{ logs: LogEntry[] }>('/logs/processes?limit=100');
       setLogs(response.logs);
     } catch (error) {
       console.error('Failed to load process logs:', error);
