@@ -133,22 +133,43 @@ export function NotificationCenter() {
       >
         <div className="flex items-center justify-between border-b px-4 py-3 bg-muted/30">
           <h3 className="font-semibold">Notifications</h3>
-          {unreadCount > 0 && (
-            <Badge variant="secondary" className="text-xs">
-              {unreadCount} new
-            </Badge>
-          )}
+          <div className="flex items-center gap-2">
+            {unreadCount > 0 && (
+              <>
+                <Badge variant="secondary" className="text-xs">
+                  {unreadCount} new
+                </Badge>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="h-6 text-xs"
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    try {
+                      await notificationService.markAllAsRead();
+                      setNotifications([]);
+                      setUnreadCount(0);
+                    } catch (error) {
+                      console.error('Failed to mark all as read:', error);
+                    }
+                  }}
+                >
+                  Mark all read
+                </Button>
+              </>
+            )}
+          </div>
         </div>
 
         <ScrollArea className="h-[400px]">
-          {notifications.length === 0 ? (
+          {notifications.filter(n => !n.read).length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
               <Bell className="h-12 w-12 mb-3 opacity-20" />
-              <p className="text-sm">No notifications</p>
+              <p className="text-sm">No new notifications</p>
             </div>
           ) : (
             <div className="divide-y">
-              {notifications.map((notification) => {
+              {notifications.filter(n => !n.read).map((notification) => {
                 const Icon = getNotificationIcon(notification.type);
                 const colorClass = getNotificationColor(notification.type);
 
