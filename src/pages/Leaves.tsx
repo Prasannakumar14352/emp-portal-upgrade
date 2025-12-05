@@ -12,6 +12,7 @@ import { Calendar, Plus, CheckCircle, XCircle, Clock, Trash2, Eye, Edit, AlertTr
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { useSignalR } from "@/hooks/useSignalR";
+import { useGlobalLoading } from "@/hooks/useGlobalLoading";
 import { leaveService, type Leave, type LeaveBalance, type LeaveConflict } from "@/services/leaveService";
 import { leaveTypeService, type LeaveType } from "@/services/leaveTypeService";
 import { managerService, type Manager } from "@/services/managerService";
@@ -38,6 +39,7 @@ export default function Leaves() {
   const [open, setOpen] = useState(false);
   const { user } = useAuth();
   useSignalR(); // Enable real-time notifications
+  const { startLoading, stopLoading } = useGlobalLoading();
   const [leaveBalance, setLeaveBalance] = useState<LeaveBalance[]>([]);
   const [leaveHistory, setLeaveHistory] = useState<Leave[]>([]);
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
@@ -195,6 +197,7 @@ export default function Leaves() {
     }
 
     try {
+      startLoading("Submitting leave request...");
       await leaveService.createLeave({
         leave_type: formData.leave_type,
         start_date: formData.start_date,
@@ -221,6 +224,8 @@ export default function Leaves() {
     } catch (error) {
       console.error("Failed to submit leave request", error);
       toast.error("Failed to submit leave request");
+    } finally {
+      stopLoading();
     }
   };
 
@@ -295,6 +300,7 @@ export default function Leaves() {
     if (!selectedLeaveId) return;
 
     try {
+      startLoading("Cancelling leave request...");
       await leaveService.cancelLeave(selectedLeaveId);
       toast.success("Leave request cancelled successfully");
       setCancelDialogOpen(false);
@@ -302,6 +308,8 @@ export default function Leaves() {
       loadLeaveData();
     } catch (error) {
       toast.error("Failed to cancel leave request");
+    } finally {
+      stopLoading();
     }
   };
 
@@ -331,6 +339,7 @@ export default function Leaves() {
     }
 
     try {
+      startLoading("Updating leave request...");
       await leaveService.updateLeave(leaveToEdit.id, editFormData);
       toast.success('Leave request updated successfully. Manager and HR will be notified.');
       loadLeaveData();
@@ -339,6 +348,8 @@ export default function Leaves() {
     } catch (error) {
       console.error('Failed to update leave:', error);
       toast.error('Failed to update leave request');
+    } finally {
+      stopLoading();
     }
   };
 

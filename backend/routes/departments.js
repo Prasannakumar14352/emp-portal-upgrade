@@ -2,8 +2,44 @@ const express = require('express');
 const { getConnection, sql } = require('../config/database');
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
 const logger = require('../utils/logger');
+const { sendEmailWithRetry } = require('../utils/emailRetry');
+const { shouldSendEmail } = require('../utils/emailHelper');
 
 const router = express.Router();
+
+// Helper function to check if a string is a valid GUID
+const isValidGuid = (str) => {
+  const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return guidRegex.test(str);
+};
+
+// Helper function to get department - handles both GUID and numeric IDs
+const getDepartmentById = async (pool, id) => {
+  // Try GUID first if valid format
+  if (isValidGuid(id)) {
+    const result = await pool.request()
+      .input('id', sql.UniqueIdentifier, id)
+      .query('SELECT id, name, description, manager_id FROM departments WHERE id = @id');
+    if (result.recordset.length > 0) return result.recordset[0];
+  }
+  
+  // Try as numeric ID (using row number)
+  const numId = parseInt(id, 10);
+  if (!isNaN(numId)) {
+    const result = await pool.request()
+      .input('rowNum', sql.Int, numId)
+      .query(`
+        WITH numbered AS (
+          SELECT id, name, description, manager_id, ROW_NUMBER() OVER (ORDER BY created_at) as row_num
+          FROM departments
+        )
+        SELECT id, name, description, manager_id FROM numbered WHERE row_num = @rowNum
+      `);
+    if (result.recordset.length > 0) return result.recordset[0];
+  }
+  
+  return null;
+};
 
 // GET /api/departments - Get all departments
 router.get('/', authenticateToken, async (req, res) => {
@@ -236,17 +272,15 @@ router.get('/:id/employees', authenticateToken, async (req, res) => {
     logger.api.request('GET', `/api/departments/${id}/employees`, { userId: req.user.id, departmentId: id });
     const pool = await getConnection();
     
-    // Get department name first
-    const dept = await pool.request()
-      .input('id', sql.UniqueIdentifier, id)
-      .query('SELECT name FROM departments WHERE id = @id');
+    // Get department using helper (handles both GUID and numeric IDs)
+    const dept = await getDepartmentById(pool, id);
     
-    if (dept.recordset.length === 0) {
+    if (!dept) {
       logger.warn('Department employees fetch failed: Department not found', { departmentId: id, userId: req.user.id });
       return res.status(404).json({ error: 'Department not found' });
     }
     
-    const departmentName = dept.recordset[0].name;
+    const departmentName = dept.name;
     
     const result = await pool.request()
       .input('department', sql.NVarChar, departmentName)
@@ -281,17 +315,15 @@ router.post('/:id/employees', authenticateToken, authorizeRole('hr', 'manager'),
     
     const pool = await getConnection();
     
-    // Get department
-    const dept = await pool.request()
-      .input('id', sql.UniqueIdentifier, id)
-      .query('SELECT name FROM departments WHERE id = @id');
+    // Get department using helper (handles both GUID and numeric IDs)
+    const dept = await getDepartmentById(pool, id);
     
-    if (dept.recordset.length === 0) {
+    if (!dept) {
       logger.warn('Add employee to department failed: Department not found', { departmentId: id, userId: req.user.id });
       return res.status(404).json({ error: 'Department not found' });
     }
     
-    const departmentName = dept.recordset[0].name;
+    const departmentName = dept.name;
     
     // Get employee details before update
     const employee = await pool.request()
@@ -311,11 +343,52 @@ router.post('/:id/employees', authenticateToken, authorizeRole('hr', 'manager'),
       .input('department', sql.NVarChar, departmentName)
       .query('UPDATE profiles SET department = @department, updated_at = GETDATE() WHERE employee_id = @employee_id');
     
-    // Also update employees table if exists
-    await pool.request()
-      .input('employee_id', sql.Int, employee_id)
-      .input('department', sql.NVarChar, departmentName)
-      .query('UPDATE profiles SET department = @department, updated_at = GETDATE() WHERE employee_id = @employee_id');
+    // Create in-app notification for the employee
+    try {
+      await pool.request()
+        .input('user_id', sql.Int, emp.employee_id)
+        .input('type', sql.NVarChar, 'department_assignment')
+        .input('title', sql.NVarChar, 'Department Assignment')
+        .input('message', sql.NVarChar, `You have been assigned to the ${departmentName} department.`)
+        .input('metadata', sql.NVarChar, JSON.stringify({ 
+          department_name: departmentName, 
+          assigned_by: req.user.full_name || 'HR',
+          previous_department: emp.department || 'Not Assigned'
+        }))
+        .query(`
+          INSERT INTO notifications (user_id, type, title, message, metadata, read, created_at)
+          VALUES (@user_id, @type, @title, @message, @metadata, 0, GETDATE())
+        `);
+      logger.info('In-app notification created for department assignment', { employeeId: emp.employee_id, department: departmentName });
+    } catch (notifError) {
+      logger.warn('Failed to create in-app notification', { error: notifError.message, employeeId: emp.employee_id });
+    }
+    
+    // Send email notification based on preferences
+    try {
+      const shouldEmail = await shouldSendEmail(emp.employee_id);
+      if (shouldEmail && emp.email) {
+        await sendEmailWithRetry({
+          to: emp.email,
+          subject: `Department Assignment: ${departmentName}`,
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2 style="color: #2563eb;">Department Assignment Notification</h2>
+              <p>Dear ${emp.full_name},</p>
+              <p>You have been assigned to the <strong>${departmentName}</strong> department.</p>
+              ${emp.department && emp.department !== 'Not Assigned' ? `<p>Previous Department: ${emp.department}</p>` : ''}
+              <p>Assigned by: ${req.user.full_name || 'HR'}</p>
+              <p>If you have any questions, please contact your manager or HR department.</p>
+              <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
+              <p style="color: #6b7280; font-size: 12px;">This is an automated notification from the Employee Portal.</p>
+            </div>
+          `
+        });
+        logger.info('Email notification sent for department assignment', { employeeId: emp.employee_id, email: emp.email, department: departmentName });
+      }
+    } catch (emailError) {
+      logger.warn('Failed to send email notification for department assignment', { error: emailError.message, employeeId: emp.employee_id });
+    }
     
     logger.process.success('Employee Assigned to Department', { departmentId: id, departmentName, employeeId: employee_id, employeeName: emp.full_name, userId: req.user.id });
     res.json({ 
@@ -341,15 +414,22 @@ router.delete('/:id/employees/:employeeId', authenticateToken, authorizeRole('hr
     logger.api.request('DELETE', `/api/departments/${id}/employees/${employeeId}`, { userId: req.user.id, departmentId: id, employeeId });
     const pool = await getConnection();
     
-    // Get department
-    const dept = await pool.request()
-      .input('id', sql.UniqueIdentifier, id)
-      .query('SELECT name FROM departments WHERE id = @id');
+    // Get department using helper (handles both GUID and numeric IDs)
+    const dept = await getDepartmentById(pool, id);
     
-    if (dept.recordset.length === 0) {
+    if (!dept) {
       logger.warn('Remove employee from department failed: Department not found', { departmentId: id, userId: req.user.id });
       return res.status(404).json({ error: 'Department not found' });
     }
+    
+    const departmentName = dept.name;
+    
+    // Get employee details for notification
+    const employee = await pool.request()
+      .input('employee_id', sql.Int, employeeId)
+      .query('SELECT employee_id, full_name, email FROM profiles WHERE employee_id = @employee_id');
+    
+    const emp = employee.recordset[0];
     
     // Update employee's department to unassigned
     await pool.request()
@@ -357,12 +437,51 @@ router.delete('/:id/employees/:employeeId', authenticateToken, authorizeRole('hr
       .input('department', sql.NVarChar, 'Not Assigned')
       .query('UPDATE profiles SET department = @department, updated_at = GETDATE() WHERE employee_id = @employee_id');
     
-    await pool.request()
-      .input('employee_id', sql.Int, employeeId)
-      .input('department', sql.NVarChar, 'Not Assigned')
-      .query('UPDATE profiles SET department = @department, updated_at = GETDATE() WHERE employee_id = @employee_id');
+    // Create in-app notification for removal
+    if (emp) {
+      try {
+        await pool.request()
+          .input('user_id', sql.Int, emp.employee_id)
+          .input('type', sql.NVarChar, 'department_removal')
+          .input('title', sql.NVarChar, 'Department Change')
+          .input('message', sql.NVarChar, `You have been removed from the ${departmentName} department.`)
+          .input('metadata', sql.NVarChar, JSON.stringify({ 
+            department_name: departmentName, 
+            removed_by: req.user.full_name || 'HR'
+          }))
+          .query(`
+            INSERT INTO notifications (user_id, type, title, message, metadata, read, created_at)
+            VALUES (@user_id, @type, @title, @message, @metadata, 0, GETDATE())
+          `);
+      } catch (notifError) {
+        logger.warn('Failed to create removal notification', { error: notifError.message, employeeId: emp.employee_id });
+      }
+      
+      // Send email notification
+      try {
+        const shouldEmail = await shouldSendEmail(emp.employee_id);
+        if (shouldEmail && emp.email) {
+          await sendEmailWithRetry({
+            to: emp.email,
+            subject: `Department Change: Removed from ${departmentName}`,
+            html: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <h2 style="color: #2563eb;">Department Change Notification</h2>
+                <p>Dear ${emp.full_name},</p>
+                <p>You have been removed from the <strong>${departmentName}</strong> department.</p>
+                <p>If you have any questions, please contact your manager or HR department.</p>
+                <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
+                <p style="color: #6b7280; font-size: 12px;">This is an automated notification from the Employee Portal.</p>
+              </div>
+            `
+          });
+        }
+      } catch (emailError) {
+        logger.warn('Failed to send removal email notification', { error: emailError.message, employeeId: emp.employee_id });
+      }
+    }
     
-    logger.process.success('Employee Removed from Department', { departmentId: id, employeeId, userId: req.user.id });
+    logger.process.success('Employee Removed from Department', { departmentId: id, employeeId, departmentName, userId: req.user.id });
     res.json({ success: true, message: 'Employee removed from department' });
   } catch (error) {
     logger.api.error('DELETE', `/api/departments/${req.params.id}/employees/${req.params.employeeId}`, error, { userId: req.user.id });

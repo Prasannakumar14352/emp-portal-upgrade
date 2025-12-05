@@ -17,6 +17,7 @@ import { userService, type UserProfile } from "@/services/userService";
 import { toast } from "sonner";
 import { UserPlus, UserMinus, Loader2, Users, Mail, Briefcase, Search, CheckSquare, ArrowRight } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useGlobalLoading } from "@/hooks/useGlobalLoading";
 
 interface Props {
   department: Department | null;
@@ -27,6 +28,7 @@ interface Props {
 
 export function DepartmentEmployeesDialog({ department, open, onOpenChange, onUpdate }: Props) {
   const { user } = useAuth();
+  const { startLoading, stopLoading } = useGlobalLoading();
   const [employees, setEmployees] = useState<DepartmentEmployee[]>([]);
   const [allEmployees, setAllEmployees] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(false);
@@ -66,6 +68,7 @@ export function DepartmentEmployeesDialog({ department, open, onOpenChange, onUp
     if (!department || selectedEmployees.length === 0) return;
 
     setAdding(true);
+    startLoading("Adding employees to department...");
     let successCount = 0;
     let failCount = 0;
 
@@ -100,6 +103,7 @@ export function DepartmentEmployeesDialog({ department, open, onOpenChange, onUp
     await loadData();
     onUpdate();
     setAdding(false);
+    stopLoading();
   };
 
   const handleRemoveEmployee = async (emp: DepartmentEmployee) => {
