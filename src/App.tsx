@@ -5,6 +5,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthLoadingProvider } from "@/hooks/useAuthLoading";
 import { AuthLoadingOverlay } from "@/components/AuthLoadingOverlay";
+import { GlobalLoadingProvider } from "@/hooks/useGlobalLoading";
+import { GlobalLoadingOverlay } from "@/components/GlobalLoadingOverlay";
 import { DashboardLayout } from "./components/DashboardLayout";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import Index from "./pages/Index";
@@ -46,51 +48,54 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthLoadingProvider>
-      <TooltipProvider>
-        {/* <Toaster /> */}
-        <Sonner />
-        <AuthLoadingOverlay />
-        <BrowserRouter>
-          <Routes>
-          <Route path="/auth" element={<Auth />} />
-          <Route path="/" element={<ProtectedRoute><DashboardLayout><Index /></DashboardLayout></ProtectedRoute>} />
-          <Route path="/leaves" element={<ProtectedRoute><DashboardLayout><Leaves /></DashboardLayout></ProtectedRoute>} />
-          <Route path="/payslips" element={<ProtectedRoute><DashboardLayout><Payslips /></DashboardLayout></ProtectedRoute>} />
-          <Route path="/payslip-management" element={<ProtectedRoute><DashboardLayout><PayslipManagement /></DashboardLayout></ProtectedRoute>} />
-          <Route path="/payslip-notifications" element={<ProtectedRoute><DashboardLayout><PayslipNotificationHistory /></DashboardLayout></ProtectedRoute>} />
-          <Route path="/holidays" element={<ProtectedRoute><DashboardLayout><Holidays /></DashboardLayout></ProtectedRoute>} />
-          <Route path="/employees" element={<ProtectedRoute><DashboardLayout><Employees /></DashboardLayout></ProtectedRoute>} />
-          <Route path="/employee-import" element={<ProtectedRoute><DashboardLayout><EmployeeImport /></DashboardLayout></ProtectedRoute>} />
-          <Route path="/statistics" element={<ProtectedRoute><DashboardLayout><Statistics /></DashboardLayout></ProtectedRoute>} />
-          <Route path="/profile" element={<ProtectedRoute><DashboardLayout><Profile /></DashboardLayout></ProtectedRoute>} />
-          <Route path="/notifications" element={<ProtectedRoute><DashboardLayout><Notifications /></DashboardLayout></ProtectedRoute>} />
-          <Route path="/notification-preferences" element={<ProtectedRoute><DashboardLayout><NotificationPreferences /></DashboardLayout></ProtectedRoute>} />
-          <Route path="/settings" element={<ProtectedRoute><DashboardLayout><Settings /></DashboardLayout></ProtectedRoute>} />
-          <Route path="/hr-dashboard" element={<ProtectedRoute><DashboardLayout><HRDashboard /></DashboardLayout></ProtectedRoute>} />
-          <Route path="/approve-leaves" element={<ProtectedRoute><DashboardLayout><ApproveLeaves /></DashboardLayout></ProtectedRoute>} />
-          <Route path="/leave-calendar" element={<ProtectedRoute><DashboardLayout><LeaveCalendar /></DashboardLayout></ProtectedRoute>} />
-          <Route path="/advanced-reports" element={<ProtectedRoute><DashboardLayout><AdvancedReports /></DashboardLayout></ProtectedRoute>} />
-          <Route path="/bulk-operations" element={<ProtectedRoute><DashboardLayout><BulkOperations /></DashboardLayout></ProtectedRoute>} />
-          <Route path="/team-time-tracking" element={<ProtectedRoute><DashboardLayout><TeamTimeTracking /></DashboardLayout></ProtectedRoute>} />
-          <Route path="/leave-types" element={<ProtectedRoute><DashboardLayout><LeaveTypes /></DashboardLayout></ProtectedRoute>} />
-          <Route path="/attendance" element={<ProtectedRoute><DashboardLayout><Attendance /></DashboardLayout></ProtectedRoute>} />
-          <Route path="/attendance-summary" element={<ProtectedRoute><DashboardLayout><AttendanceSummary /></DashboardLayout></ProtectedRoute>} />
-          <Route path="/attendance-reports" element={<ProtectedRoute><DashboardLayout><AttendanceReports /></DashboardLayout></ProtectedRoute>} />
-          <Route path="/attendance-analytics" element={<ProtectedRoute><DashboardLayout><AttendanceAnalytics /></DashboardLayout></ProtectedRoute>} />
-          <Route path="/performance-review" element={<ProtectedRoute><DashboardLayout><PerformanceReview /></DashboardLayout></ProtectedRoute>} />
-          <Route path="/attendance-reports" element={<ProtectedRoute><DashboardLayout><AttendanceReports /></DashboardLayout></ProtectedRoute>} />
-          <Route path="/attendance-analytics" element={<ProtectedRoute><DashboardLayout><AttendanceAnalytics /></DashboardLayout></ProtectedRoute>} />
-          <Route path="/hr-attendance-dashboard" element={<ProtectedRoute><DashboardLayout><HRAttendanceDashboard /></DashboardLayout></ProtectedRoute>} />
-          <Route path="/role-management" element={<ProtectedRoute><DashboardLayout><RoleManagement /></DashboardLayout></ProtectedRoute>} />
-          <Route path="/department-management" element={<ProtectedRoute><DashboardLayout><DepartmentManagement /></DashboardLayout></ProtectedRoute>} />
-          <Route path="/auth/callback" element={<OAuthCallback />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
+      <GlobalLoadingProvider>
+        <TooltipProvider>
+          {/* <Toaster /> */}
+          <Sonner />
+          <AuthLoadingOverlay />
+          <GlobalLoadingOverlay />
+          <BrowserRouter>
+            <Routes>
+            <Route path="/auth" element={<Auth />} />
+            <Route path="/" element={<ProtectedRoute><DashboardLayout><Index /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/leaves" element={<ProtectedRoute><DashboardLayout><Leaves /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/payslips" element={<ProtectedRoute><DashboardLayout><Payslips /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/payslip-management" element={<ProtectedRoute><DashboardLayout><PayslipManagement /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/payslip-notifications" element={<ProtectedRoute><DashboardLayout><PayslipNotificationHistory /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/holidays" element={<ProtectedRoute><DashboardLayout><Holidays /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/employees" element={<ProtectedRoute><DashboardLayout><Employees /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/employee-import" element={<ProtectedRoute><DashboardLayout><EmployeeImport /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/statistics" element={<ProtectedRoute><DashboardLayout><Statistics /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/profile" element={<ProtectedRoute><DashboardLayout><Profile /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/notifications" element={<ProtectedRoute><DashboardLayout><Notifications /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/notification-preferences" element={<ProtectedRoute><DashboardLayout><NotificationPreferences /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/settings" element={<ProtectedRoute><DashboardLayout><Settings /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/hr-dashboard" element={<ProtectedRoute><DashboardLayout><HRDashboard /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/approve-leaves" element={<ProtectedRoute><DashboardLayout><ApproveLeaves /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/leave-calendar" element={<ProtectedRoute><DashboardLayout><LeaveCalendar /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/advanced-reports" element={<ProtectedRoute><DashboardLayout><AdvancedReports /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/bulk-operations" element={<ProtectedRoute><DashboardLayout><BulkOperations /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/team-time-tracking" element={<ProtectedRoute><DashboardLayout><TeamTimeTracking /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/leave-types" element={<ProtectedRoute><DashboardLayout><LeaveTypes /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/attendance" element={<ProtectedRoute><DashboardLayout><Attendance /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/attendance-summary" element={<ProtectedRoute><DashboardLayout><AttendanceSummary /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/attendance-reports" element={<ProtectedRoute><DashboardLayout><AttendanceReports /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/attendance-analytics" element={<ProtectedRoute><DashboardLayout><AttendanceAnalytics /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/performance-review" element={<ProtectedRoute><DashboardLayout><PerformanceReview /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/attendance-reports" element={<ProtectedRoute><DashboardLayout><AttendanceReports /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/attendance-analytics" element={<ProtectedRoute><DashboardLayout><AttendanceAnalytics /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/hr-attendance-dashboard" element={<ProtectedRoute><DashboardLayout><HRAttendanceDashboard /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/role-management" element={<ProtectedRoute><DashboardLayout><RoleManagement /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/department-management" element={<ProtectedRoute><DashboardLayout><DepartmentManagement /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/auth/callback" element={<OAuthCallback />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </GlobalLoadingProvider>
     </AuthLoadingProvider>
   </QueryClientProvider>
 );

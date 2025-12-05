@@ -19,6 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { leaveApprovalService } from "@/services/leaveApprovalService";
 import type { LeaveRequest } from "@/types/LeaveRequest";
 import { useAuth } from "@/hooks/useAuth";
+import { useGlobalLoading } from "@/hooks/useGlobalLoading";
 
 // Comment validation schema
 const commentSchema = z.string()
@@ -36,6 +37,7 @@ interface BulkActionResponse {
 export default function ApproveLeaves() {
   const { role, loading: roleLoading } = useUserRole();
   const { user, loading: authLoading } = useAuth();
+  const { startLoading, stopLoading } = useGlobalLoading();
   const navigate = useNavigate();
   const [requests, setRequests] = useState<LeaveRequest[]>([]);
   const [selectedRequests, setSelectedRequests] = useState<string[]>([]);
@@ -127,6 +129,7 @@ export default function ApproveLeaves() {
     }
 
     try {
+      startLoading("Approving leave request...");
       // Call backend API to update status with comments
       await leaveApprovalService.approve(id, validationResult.data);
 
@@ -143,6 +146,8 @@ export default function ApproveLeaves() {
       const message = error instanceof Error ? error.message : "Failed to approve leave request";
       toast.error(message);
       console.error("Approval error:", error);
+    } finally {
+      stopLoading();
     }
   };
 
@@ -155,6 +160,7 @@ export default function ApproveLeaves() {
     }
 
     try {
+      startLoading("Rejecting leave request...");
       // Call backend API to update status with comments
       await leaveApprovalService.reject(id, validationResult.data);
 
@@ -171,6 +177,8 @@ export default function ApproveLeaves() {
       const message = error instanceof Error ? error.message : "Failed to reject leave request";
       toast.error(message);
       console.error("Rejection error:", error);
+    } finally {
+      stopLoading();
     }
   };
 
