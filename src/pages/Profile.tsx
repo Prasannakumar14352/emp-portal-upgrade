@@ -17,9 +17,11 @@ import { useAuth } from "@/hooks/useAuth";
 import { userService, type UserProfile } from "@/services/userService";
 import { toast } from "sonner";
 import { AvatarUploadModal } from "@/components/AvatarUploadModal";
+import { useGlobalLoading } from "@/hooks/useGlobalLoading";
 
 export default function Profile() {
   const { user } = useAuth();
+  const { startLoading, stopLoading } = useGlobalLoading();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
@@ -64,6 +66,7 @@ export default function Profile() {
 
   const handleSave = async () => {
     try {
+      startLoading("Updating profile...");
       const updated = await userService.updateUserProfile(user!.id, form);
       setProfile(updated);
       setOpen(false);
@@ -71,6 +74,8 @@ export default function Profile() {
     } catch (error) {
       console.error('Failed to update profile:', error);
       toast.error('Failed to update profile');
+    } finally {
+      stopLoading();
     }
   };
 
@@ -86,6 +91,7 @@ export default function Profile() {
     if (!user) return;
 
     try {
+      startLoading("Uploading profile picture...");
       // Upload avatar to backend
       const response = await userService.uploadAvatar(user.id, blob);
       
@@ -100,6 +106,8 @@ export default function Profile() {
       const message = error instanceof Error ? error.message : 'Failed to upload image';
       toast.error(message);
       throw error;
+    } finally {
+      stopLoading();
     }
   };
 

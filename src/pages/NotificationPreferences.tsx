@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Bell, Mail, Smartphone, Volume2, CheckCircle, XCircle, Clock } from "lucide-react";
+import { Bell, Mail, Smartphone, Volume2, CheckCircle, XCircle, Clock, Building2 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { settingsService } from "@/services/settingsService";
@@ -22,6 +22,7 @@ export default function NotificationPreferences() {
     email_notifications: true,
     push_notifications: true,
     leave_update_notifications: true,
+    department_notifications: true,
     notification_sound: 'default',
     notification_volume: 50,
   });
@@ -46,6 +47,7 @@ export default function NotificationPreferences() {
           email_notifications: prefs.email_notifications,
           push_notifications: prefs.push_notifications,
           leave_update_notifications: prefs.leave_update_notifications,
+          department_notifications: prefs.department_notifications ?? true,
           notification_sound: prefs.notification_sound || 'default',
           notification_volume: prefs.notification_volume || 50,
         });
@@ -225,6 +227,26 @@ export default function NotificationPreferences() {
               <Switch
                 checked={preferences.leave_update_notifications}
                 onCheckedChange={(checked) => updatePreference('leave_update_notifications', checked)}
+              />
+            </div>
+
+            <Separator />
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-purple-500/10">
+                  <Building2 className="h-5 w-5 text-purple-600" />
+                </div>
+                <div className="space-y-0.5">
+                  <Label>Department Assignment</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Get notified when you are assigned to or removed from a department
+                  </p>
+                </div>
+              </div>
+              <Switch
+                checked={preferences.department_notifications}
+                onCheckedChange={(checked) => updatePreference('department_notifications', checked)}
               />
             </div>
 

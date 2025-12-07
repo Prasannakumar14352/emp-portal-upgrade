@@ -3,7 +3,7 @@ const { getConnection, sql } = require('../config/database');
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
 const logger = require('../utils/logger');
 const { sendEmailWithRetry } = require('../utils/emailRetry');
-const { shouldSendEmail } = require('../utils/emailHelper');
+const { shouldSendDepartmentNotification } = require('../utils/emailHelper');
 
 const router = express.Router();
 
@@ -366,7 +366,7 @@ router.post('/:id/employees', authenticateToken, authorizeRole('hr', 'manager'),
     
     // Send email notification based on preferences
     try {
-      const shouldEmail = await shouldSendEmail(emp.employee_id);
+      const shouldEmail = await shouldSendDepartmentNotification(emp.employee_id);
       if (shouldEmail && emp.email) {
         await sendEmailWithRetry({
           to: emp.email,
@@ -459,7 +459,7 @@ router.delete('/:id/employees/:employeeId', authenticateToken, authorizeRole('hr
       
       // Send email notification
       try {
-        const shouldEmail = await shouldSendEmail(emp.employee_id);
+        const shouldEmail = await shouldSendDepartmentNotification(emp.employee_id);
         if (shouldEmail && emp.email) {
           await sendEmailWithRetry({
             to: emp.email,
