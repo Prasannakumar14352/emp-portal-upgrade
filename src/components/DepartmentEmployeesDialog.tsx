@@ -6,6 +6,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -36,6 +46,7 @@ export function DepartmentEmployeesDialog({ department, open, onOpenChange, onUp
   const [removing, setRemoving] = useState<string | null>(null);
   const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
   useEffect(() => {
     if (open && department) {
@@ -300,7 +311,7 @@ export function DepartmentEmployeesDialog({ department, open, onOpenChange, onUp
               {/* Add Button */}
               <div className="p-3 border-t bg-muted/30">
                 <Button
-                  onClick={handleBulkAddEmployees}
+                  onClick={() => setShowConfirmDialog(true)}
                   disabled={selectedEmployees.length === 0 || adding}
                   className="w-full"
                   size="sm"
@@ -401,6 +412,58 @@ export function DepartmentEmployeesDialog({ department, open, onOpenChange, onUp
           </div>
         </div>
       </DialogContent>
+
+      {/* Bulk Assignment Confirmation Dialog */}
+      <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Bulk Assignment</AlertDialogTitle>
+            <AlertDialogDescription>
+              You are about to assign {selectedEmployees.length} employee{selectedEmployees.length !== 1 ? "s" : ""} to{" "}
+              <span className="font-semibold text-foreground">{department?.name}</span>.
+              {selectedEmployees.length > 0 && (
+                <div className="mt-3 max-h-32 overflow-y-auto rounded-md border bg-muted/50 p-2">
+                  <ul className="space-y-1 text-sm">
+                    {selectedEmployees.slice(0, 10).map((empId) => {
+                      const emp = allEmployees.find((e) => e.employee_id === empId);
+                      return emp ? (
+                        <li key={empId} className="flex items-center gap-2">
+                          <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                          {emp.full_name}
+                        </li>
+                      ) : null;
+                    })}
+                    {selectedEmployees.length > 10 && (
+                      <li className="text-muted-foreground">
+                        ...and {selectedEmployees.length - 10} more
+                      </li>
+                    )}
+                  </ul>
+                </div>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={adding}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setShowConfirmDialog(false);
+                handleBulkAddEmployees();
+              }}
+              disabled={adding}
+            >
+              {adding ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Adding...
+                </>
+              ) : (
+                <>Confirm Assignment</>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }
