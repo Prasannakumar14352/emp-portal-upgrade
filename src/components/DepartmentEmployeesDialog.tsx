@@ -155,9 +155,9 @@ export function DepartmentEmployeesDialog({ department, open, onOpenChange, onUp
     setSelectedEmployees([]);
   };
 
-  // Filter out employees already in this department
+  // Filter to show only employees NOT assigned to any department (or "Not Assigned")
   const availableEmployees = allEmployees.filter(
-    (e) => !employees.some((de) => de.employee_id === e.employee_id)
+    (e) => !e.department || e.department === '' || e.department === 'Not Assigned'
   );
 
   // Filter by search query

@@ -11,6 +11,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { apiClient } from "@/services/apiClient";
 import { toast } from "sonner";
 import { userService } from "@/services/userService";
+import { useGlobalLoading } from "@/hooks/useGlobalLoading";
 
 interface AttendanceRecord {
   id: string;
@@ -35,6 +36,7 @@ interface AttendanceStats {
 
 export default function Attendance() {
   const { user } = useAuth();
+  const { startLoading, stopLoading } = useGlobalLoading();
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [todayRecord, setTodayRecord] = useState<AttendanceRecord | null>(null);
@@ -108,6 +110,7 @@ export default function Attendance() {
 
     try {
       setActionLoading(true);
+      startLoading("Checking in...");
       await apiClient.post(`/attendance/checkin`, { userId: user.id });
       toast.success('Checked in successfully!');
       await loadAttendanceData();
@@ -117,6 +120,7 @@ export default function Attendance() {
       toast.error(message);
     } finally {
       setActionLoading(false);
+      stopLoading();
     }
   };
 
@@ -177,6 +181,7 @@ export default function Attendance() {
 
     try {
       setActionLoading(true);
+      startLoading("Checking out...");
       setCheckoutConfirmOpen(false);
       await apiClient.post(`/attendance/checkout`, { 
         userId: user.id,
@@ -189,6 +194,7 @@ export default function Attendance() {
       toast.error(message);
     } finally {
       setActionLoading(false);
+      stopLoading();
     }
   };
 

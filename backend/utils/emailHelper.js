@@ -56,6 +56,36 @@ async function shouldSendLeaveNotification(userId) {
 }
 
 /**
+ * Check if user has department notifications enabled
+ * @param {number} userId - The user ID to check
+ * @returns {Promise<boolean>} - True if department notifications are enabled
+ */
+async function shouldSendDepartmentNotification(userId) {
+  try {
+    const pool = await getConnection();
+    
+    const result = await pool.request()
+      .input('employee_id', sql.Int, userId)
+      .query('SELECT department_notifications, email_notifications FROM user_preferences WHERE employee_id = @employee_id');
+    
+    // If no preferences found, default to true
+    if (result.recordset.length === 0) {
+      return true;
+    }
+    
+    const prefs = result.recordset[0];
+    // Both email_notifications and department_notifications must be enabled
+    const emailEnabled = prefs.email_notifications === true || prefs.email_notifications === 1;
+    const deptEnabled = prefs.department_notifications === true || prefs.department_notifications === 1 || prefs.department_notifications === null;
+    return emailEnabled && deptEnabled;
+  } catch (error) {
+    console.error('Error checking department notification preferences:', error);
+    // On error, default to sending email
+    return true;
+  }
+}
+
+/**
  * Filter email recipients based on their preferences
  * @param {Array<{employee_id: number, email: string}>} recipients - Array of recipient objects
  * @returns {Promise<Array<string>>} - Array of email addresses that should receive emails
@@ -78,5 +108,6 @@ async function filterEmailRecipients(recipients) {
 module.exports = {
   shouldSendEmail,
   shouldSendLeaveNotification,
+  shouldSendDepartmentNotification,
   filterEmailRecipients
 };
