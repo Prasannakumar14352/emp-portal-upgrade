@@ -51,7 +51,7 @@ router.get('/', authenticateToken, async (req, res) => {
         d.id, d.name, d.description, d.manager_id, 
         d.created_at, d.updated_at,
         p.full_name as manager_name,
-        (SELECT COUNT(*) FROM profiles WHERE department = d.name) as employee_count
+        (SELECT COUNT(*) FROM profiles WHERE LOWER(LTRIM(RTRIM(department))) = LOWER(LTRIM(RTRIM(d.name))) AND department IS NOT NULL AND department != '' AND department != 'Not Assigned') as employee_count
       FROM departments d
       LEFT JOIN profiles p ON d.manager_id = p.employee_id
       ORDER BY d.name ASC
@@ -289,7 +289,7 @@ router.get('/:id/employees', authenticateToken, async (req, res) => {
           p.employee_id, p.full_name, p.email, p.phone, 
           p.position, p.department, p.avatar_url
         FROM profiles p
-        WHERE p.department = @department
+        WHERE LOWER(LTRIM(RTRIM(p.department))) = LOWER(LTRIM(RTRIM(@department)))
         ORDER BY p.full_name ASC
       `);
     
