@@ -25,7 +25,7 @@ import { Input } from "@/components/ui/input";
 import { departmentService, type Department, type DepartmentEmployee } from "@/services/departmentService";
 import { userService, type UserProfile } from "@/services/userService";
 import { toast } from "sonner";
-import { UserPlus, UserMinus, Loader2, Users, Mail, Briefcase, Search, CheckSquare, ArrowRight } from "lucide-react";
+import { UserPlus, UserMinus, Loader2, Users, Mail, Briefcase, Search, CheckSquare, ArrowRight, Trash2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useGlobalLoading } from "@/hooks/useGlobalLoading";
 
@@ -44,14 +44,18 @@ export function DepartmentEmployeesDialog({ department, open, onOpenChange, onUp
   const [loading, setLoading] = useState(false);
   const [adding, setAdding] = useState(false);
   const [removing, setRemoving] = useState<string | null>(null);
+  const [bulkRemoving, setBulkRemoving] = useState(false);
   const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
+  const [selectedForRemoval, setSelectedForRemoval] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [showRemoveConfirmDialog, setShowRemoveConfirmDialog] = useState(false);
 
   useEffect(() => {
     if (open && department) {
       loadData();
       setSelectedEmployees([]);
+      setSelectedForRemoval([]);
       setSearchQuery("");
     }
   }, [open, department]);
@@ -117,6 +121,48 @@ export function DepartmentEmployeesDialog({ department, open, onOpenChange, onUp
     stopLoading();
   };
 
+  const handleBulkRemoveEmployees = async () => {
+    if (!department || selectedForRemoval.length === 0) return;
+
+    setBulkRemoving(true);
+    startLoading("Removing employees from department...");
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const empId of selectedForRemoval) {
+      const emp = employees.find((e) => e.employee_id === empId);
+      if (!emp) continue;
+
+      try {
+        await departmentService.removeEmployeeFromDepartment(
+          department.id,
+          emp.employee_id,
+          department.name,
+          emp.full_name,
+          emp.email,
+          user?.full_name || "HR"
+        );
+        successCount++;
+      } catch (error) {
+        console.error(`Failed to remove ${emp.full_name}:`, error);
+        failCount++;
+      }
+    }
+
+    if (successCount > 0) {
+      toast.success(`${successCount} employee${successCount > 1 ? "s" : ""} removed successfully`);
+    }
+    if (failCount > 0) {
+      toast.error(`Failed to remove ${failCount} employee${failCount > 1 ? "s" : ""}`);
+    }
+
+    setSelectedForRemoval([]);
+    await loadData();
+    onUpdate();
+    setBulkRemoving(false);
+    stopLoading();
+  };
+
   const handleRemoveEmployee = async (emp: DepartmentEmployee) => {
     if (!department) return;
 
@@ -131,14 +177,12 @@ export function DepartmentEmployeesDialog({ department, open, onOpenChange, onUp
         user?.full_name || "HR"
       );
       
-      // Immediately update local state
       setEmployees((prevEmployees) => 
         prevEmployees.filter((e) => e.employee_id !== emp.employee_id)
       );
       
       toast.success(`${emp.full_name} removed from ${department.name}`);
       
-      // Reload to sync with backend
       await loadData();
       onUpdate();
     } catch (error) {
@@ -158,12 +202,28 @@ export function DepartmentEmployeesDialog({ department, open, onOpenChange, onUp
     );
   };
 
+  const toggleRemovalSelection = (empId: string) => {
+    setSelectedForRemoval((prev) =>
+      prev.includes(empId)
+        ? prev.filter((id) => id !== empId)
+        : [...prev, empId]
+    );
+  };
+
   const selectAllAvailable = () => {
     setSelectedEmployees(filteredAvailableEmployees.map((e) => e.employee_id));
   };
 
+  const selectAllForRemoval = () => {
+    setSelectedForRemoval(employees.map((e) => e.employee_id));
+  };
+
   const deselectAll = () => {
     setSelectedEmployees([]);
+  };
+
+  const deselectAllRemoval = () => {
+    setSelectedForRemoval([]);
   };
 
   // Filter to show only employees NOT assigned to any department (or "Not Assigned")
@@ -212,7 +272,7 @@ export function DepartmentEmployeesDialog({ department, open, onOpenChange, onUp
                 <div className="relative mb-3">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
-                    placeholder="Search by name, email, department..."
+                    placeholder="Search by name, email..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="pl-9 h-9"
@@ -296,11 +356,6 @@ export function DepartmentEmployeesDialog({ department, open, onOpenChange, onUp
                               {emp.email}
                             </span>
                           </div>
-                          {emp.department && (
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                              Current: {emp.department}
-                            </p>
-                          )}
                         </div>
                       </div>
                     ))}
@@ -335,7 +390,7 @@ export function DepartmentEmployeesDialog({ department, open, onOpenChange, onUp
             {/* RIGHT PANEL - Current Employees */}
             <div className="flex flex-col border rounded-lg bg-card overflow-hidden">
               <div className="p-4 border-b bg-primary/5">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between mb-3">
                   <h3 className="font-semibold flex items-center gap-2">
                     <Users className="h-4 w-4 text-primary" />
                     Current Employees
@@ -344,6 +399,36 @@ export function DepartmentEmployeesDialog({ department, open, onOpenChange, onUp
                     {employees.length} assigned
                   </Badge>
                 </div>
+
+                {/* Bulk Removal Actions */}
+                {employees.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={selectAllForRemoval}
+                      className="flex-1 h-8"
+                    >
+                      <CheckSquare className="h-3.5 w-3.5 mr-1.5" />
+                      Select All
+                    </Button>
+                    {selectedForRemoval.length > 0 && (
+                      <>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={deselectAllRemoval}
+                          className="h-8"
+                        >
+                          Clear
+                        </Button>
+                        <Badge variant="destructive" className="ml-auto">
+                          {selectedForRemoval.length}
+                        </Badge>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Current Employees Scrollable List */}
@@ -364,9 +449,18 @@ export function DepartmentEmployeesDialog({ department, open, onOpenChange, onUp
                     {employees.map((emp) => (
                       <div
                         key={emp.employee_id}
-                        className="flex items-center justify-between p-2.5 rounded-md hover:bg-muted/50 transition-colors border border-transparent hover:border-border"
+                        className={`flex items-center justify-between p-2.5 rounded-md transition-colors border ${
+                          selectedForRemoval.includes(emp.employee_id)
+                            ? "bg-destructive/10 border-destructive/30"
+                            : "hover:bg-muted/50 border-transparent hover:border-border"
+                        }`}
+                        onClick={() => toggleRemovalSelection(emp.employee_id)}
                       >
-                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <div className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer">
+                          <Checkbox
+                            checked={selectedForRemoval.includes(emp.employee_id)}
+                            onCheckedChange={() => toggleRemovalSelection(emp.employee_id)}
+                          />
                           <Avatar className="h-9 w-9">
                             <AvatarImage src={emp.avatar_url || undefined} />
                             <AvatarFallback className="text-xs bg-primary/10 text-primary">
@@ -393,7 +487,10 @@ export function DepartmentEmployeesDialog({ department, open, onOpenChange, onUp
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleRemoveEmployee(emp)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRemoveEmployee(emp);
+                          }}
                           disabled={removing === emp.employee_id}
                           className="text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0"
                         >
@@ -408,6 +505,31 @@ export function DepartmentEmployeesDialog({ department, open, onOpenChange, onUp
                   </div>
                 )}
               </ScrollArea>
+
+              {/* Bulk Remove Button */}
+              {selectedForRemoval.length > 0 && (
+                <div className="p-3 border-t bg-destructive/5">
+                  <Button
+                    onClick={() => setShowRemoveConfirmDialog(true)}
+                    disabled={bulkRemoving}
+                    variant="destructive"
+                    className="w-full"
+                    size="sm"
+                  >
+                    {bulkRemoving ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Removing {selectedForRemoval.length}...
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Remove {selectedForRemoval.length} Employee{selectedForRemoval.length !== 1 ? "s" : ""}
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -459,6 +581,59 @@ export function DepartmentEmployeesDialog({ department, open, onOpenChange, onUp
                 </>
               ) : (
                 <>Confirm Assignment</>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk Removal Confirmation Dialog */}
+      <AlertDialog open={showRemoveConfirmDialog} onOpenChange={setShowRemoveConfirmDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Bulk Removal</AlertDialogTitle>
+            <AlertDialogDescription>
+              You are about to remove {selectedForRemoval.length} employee{selectedForRemoval.length !== 1 ? "s" : ""} from{" "}
+              <span className="font-semibold text-foreground">{department?.name}</span>.
+              {selectedForRemoval.length > 0 && (
+                <div className="mt-3 max-h-32 overflow-y-auto rounded-md border bg-muted/50 p-2">
+                  <ul className="space-y-1 text-sm">
+                    {selectedForRemoval.slice(0, 10).map((empId) => {
+                      const emp = employees.find((e) => e.employee_id === empId);
+                      return emp ? (
+                        <li key={empId} className="flex items-center gap-2">
+                          <span className="h-1.5 w-1.5 rounded-full bg-destructive" />
+                          {emp.full_name}
+                        </li>
+                      ) : null;
+                    })}
+                    {selectedForRemoval.length > 10 && (
+                      <li className="text-muted-foreground">
+                        ...and {selectedForRemoval.length - 10} more
+                      </li>
+                    )}
+                  </ul>
+                </div>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkRemoving}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setShowRemoveConfirmDialog(false);
+                handleBulkRemoveEmployees();
+              }}
+              disabled={bulkRemoving}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              {bulkRemoving ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Removing...
+                </>
+              ) : (
+                <>Confirm Removal</>
               )}
             </AlertDialogAction>
           </AlertDialogFooter>
