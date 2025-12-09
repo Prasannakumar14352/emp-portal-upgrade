@@ -48,6 +48,7 @@ export function DepartmentEmployeesDialog({ department, open, onOpenChange, onUp
   const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
   const [selectedForRemoval, setSelectedForRemoval] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [currentSearchQuery, setCurrentSearchQuery] = useState("");
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [showRemoveConfirmDialog, setShowRemoveConfirmDialog] = useState(false);
 
@@ -57,6 +58,7 @@ export function DepartmentEmployeesDialog({ department, open, onOpenChange, onUp
       setSelectedEmployees([]);
       setSelectedForRemoval([]);
       setSearchQuery("");
+      setCurrentSearchQuery("");
     }
   }, [open, department]);
 
@@ -215,7 +217,7 @@ export function DepartmentEmployeesDialog({ department, open, onOpenChange, onUp
   };
 
   const selectAllForRemoval = () => {
-    setSelectedForRemoval(employees.map((e) => e.employee_id));
+    setSelectedForRemoval(filteredCurrentEmployees.map((e) => e.employee_id));
   };
 
   const deselectAll = () => {
@@ -237,6 +239,14 @@ export function DepartmentEmployeesDialog({ department, open, onOpenChange, onUp
       e.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       e.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (e.department || "").toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  // Filter current employees by search query
+  const filteredCurrentEmployees = employees.filter(
+    (e) =>
+      e.full_name.toLowerCase().includes(currentSearchQuery.toLowerCase()) ||
+      (e.email || "").toLowerCase().includes(currentSearchQuery.toLowerCase()) ||
+      (e.position || "").toLowerCase().includes(currentSearchQuery.toLowerCase())
   );
 
   const getInitials = (name: string) => {
@@ -396,8 +406,19 @@ export function DepartmentEmployeesDialog({ department, open, onOpenChange, onUp
                     Current Employees
                   </h3>
                   <Badge variant="default" className="font-normal">
-                    {employees.length} assigned
+                    {currentSearchQuery ? `${filteredCurrentEmployees.length}/${employees.length}` : employees.length} assigned
                   </Badge>
+                </div>
+
+                {/* Search for current employees */}
+                <div className="relative mb-3">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search by name, email, position..."
+                    value={currentSearchQuery}
+                    onChange={(e) => setCurrentSearchQuery(e.target.value)}
+                    className="pl-9 h-9"
+                  />
                 </div>
 
                 {/* Bulk Removal Actions */}
@@ -407,6 +428,7 @@ export function DepartmentEmployeesDialog({ department, open, onOpenChange, onUp
                       variant="outline"
                       size="sm"
                       onClick={selectAllForRemoval}
+                      disabled={filteredCurrentEmployees.length === 0}
                       className="flex-1 h-8"
                     >
                       <CheckSquare className="h-3.5 w-3.5 mr-1.5" />
@@ -444,9 +466,15 @@ export function DepartmentEmployeesDialog({ department, open, onOpenChange, onUp
                     <p className="text-sm font-medium">No employees assigned yet</p>
                     <p className="text-xs mt-1">Select employees from the left to add them</p>
                   </div>
+                ) : filteredCurrentEmployees.length === 0 ? (
+                  <div className="py-12 text-center text-muted-foreground">
+                    <Search className="h-12 w-12 mx-auto mb-3 opacity-20" />
+                    <p className="text-sm font-medium">No matching employees found</p>
+                    <p className="text-xs mt-1">Try adjusting your search</p>
+                  </div>
                 ) : (
                   <div className="p-2 space-y-1">
-                    {employees.map((emp) => (
+                    {filteredCurrentEmployees.map((emp) => (
                       <div
                         key={emp.employee_id}
                         className={`flex items-center justify-between p-2.5 rounded-md transition-colors border ${
