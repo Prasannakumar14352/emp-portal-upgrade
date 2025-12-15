@@ -564,6 +564,80 @@ export type Database = {
         }
         Relationships: []
       }
+      project_employees: {
+        Row: {
+          assigned_at: string
+          assigned_by: string | null
+          id: string
+          project_id: string
+          role: string | null
+          user_id: string
+        }
+        Insert: {
+          assigned_at?: string
+          assigned_by?: string | null
+          id?: string
+          project_id: string
+          role?: string | null
+          user_id: string
+        }
+        Update: {
+          assigned_at?: string
+          assigned_by?: string | null
+          id?: string
+          project_id?: string
+          role?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_employees_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      projects: {
+        Row: {
+          client_name: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          end_date: string | null
+          id: string
+          name: string
+          start_date: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          client_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          name: string
+          start_date?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          client_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          name?: string
+          start_date?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       role_audit_log: {
         Row: {
           action: string
@@ -596,6 +670,68 @@ export type Database = {
           role?: string
         }
         Relationships: []
+      }
+      time_logs: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          date: string
+          description: string | null
+          duration_minutes: number | null
+          hours: number
+          id: string
+          is_billable: boolean
+          minutes: number
+          project_id: string
+          status: string
+          task: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          date?: string
+          description?: string | null
+          duration_minutes?: number | null
+          hours?: number
+          id?: string
+          is_billable?: boolean
+          minutes?: number
+          project_id: string
+          status?: string
+          task?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          date?: string
+          description?: string | null
+          duration_minutes?: number | null
+          hours?: number
+          id?: string
+          is_billable?: boolean
+          minutes?: number
+          project_id?: string
+          status?: string
+          task?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "time_logs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_preferences: {
         Row: {
