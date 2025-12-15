@@ -42,6 +42,8 @@ import NotificationPreferences from "./pages/NotificationPreferences";
 import PayslipManagement from "./pages/PayslipManagement";
 import PayslipNotificationHistory from "./pages/PayslipNotificationHistory";
 import DepartmentManagement from "./pages/DepartmentManagement";
+import TimeLogs from "./pages/TimeLogs";
+import ProjectManagement from "./pages/ProjectManagement";
 
 const queryClient = new QueryClient();
 
@@ -87,6 +89,8 @@ const App = () => (
             <Route path="/hr-attendance-dashboard" element={<ProtectedRoute><DashboardLayout><HRAttendanceDashboard /></DashboardLayout></ProtectedRoute>} />
             <Route path="/role-management" element={<ProtectedRoute><DashboardLayout><RoleManagement /></DashboardLayout></ProtectedRoute>} />
             <Route path="/department-management" element={<ProtectedRoute><DashboardLayout><DepartmentManagement /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/time-logs" element={<ProtectedRoute><DashboardLayout><TimeLogs /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/projects" element={<ProtectedRoute><DashboardLayout><ProjectManagement /></DashboardLayout></ProtectedRoute>} />
             <Route path="/auth/callback" element={<OAuthCallback />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />

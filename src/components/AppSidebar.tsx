@@ -13,7 +13,8 @@ import {
   Upload,
   Clock,
   Shield,
-  Building2
+  Building2,
+  Folder
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -40,7 +41,8 @@ const mainItems = [
   { title: "Employees", url: "/employees", icon: Users },
   { title: "Attendance", url: "/attendance", icon: Clock },
   { title: "Attendance Summary", url: "/attendance-summary", icon: BarChart3 },
-  // { title: "Performance Review", url: "/performance-review", icon: TrendingUp },
+  { title: "Projects", url: "/projects", icon: Folder },
+  { title: "Time Logs", url: "/time-logs", icon: Clock },
 ];
 
 const hrManagerItems = [
