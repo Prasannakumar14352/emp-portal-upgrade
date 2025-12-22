@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_settings: {
+        Row: {
+          created_at: string | null
+          id: string
+          key: string
+          updated_at: string | null
+          value: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          key: string
+          updated_at?: string | null
+          value?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          key?: string
+          updated_at?: string | null
+          value?: string | null
+        }
+        Relationships: []
+      }
       attendance_records: {
         Row: {
           check_in_time: string | null
@@ -834,6 +858,10 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      setup_demo_user: {
+        Args: { p_email: string; p_full_name: string; p_role: string }
+        Returns: undefined
       }
     }
     Enums: {
