@@ -8,10 +8,12 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Loader2, Building2, Users, Shield, User, Settings } from "lucide-react";
 import { authService } from "@/services/authService";
+import { supabaseAuthService } from "@/services/supabaseAuthService";
 import { z } from "zod";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { DEMO_MODE, DEMO_USERS, DemoUser } from "@/config/demoAuth";
+import { supabase } from "@/integrations/supabase/client";
 
 const loginSchema = z.object({
   email: z.string().trim().email("Invalid email address").max(255, "Email must be less than 255 characters"),
@@ -58,8 +60,16 @@ export default function Auth() {
   const [fullName, setFullName] = useState("");
 
   useEffect(() => {
-    // Check if user is already logged in
+    // Check if user is already logged in (check both Supabase and backend sessions)
     const checkUser = async () => {
+      // First check Supabase session (for demo mode)
+      const { data: { session: supabaseSession } } = await supabase.auth.getSession();
+      if (supabaseSession) {
+        navigate("/");
+        return;
+      }
+      
+      // Then check backend session
       const session = await authService.getSession();
       if (session) {
         navigate("/");
@@ -74,34 +84,37 @@ export default function Auth() {
     setPassword(demoUser.password);
 
     try {
-      // First try to login
-      let result = await authService.signIn(demoUser.email, demoUser.password);
+      // Use Supabase auth directly for demo logins (works in Lovable preview)
+      let result = await supabaseAuthService.signIn(demoUser.email, demoUser.password);
 
       // If login fails, try to create the demo user first
-      if (result.error && (result.error.includes("Invalid login credentials") || result.error.includes("Invalid"))) {
+      if (!result.success && result.error?.includes("Invalid login credentials")) {
         toast.info("Setting up demo account...");
         
-        // Sign up the demo user
-        const signupResult = await authService.signUp(demoUser.email, demoUser.password, demoUser.name);
+        // Sign up the demo user via Supabase
+        const signupResult = await supabaseAuthService.signUp(demoUser.email, demoUser.password, demoUser.name);
         
-        if (signupResult.error) {
+        if (!signupResult.success) {
           // If already exists, try login again
-          if (signupResult.error.includes("already registered")) {
-            result = await authService.signIn(demoUser.email, demoUser.password);
+          if (signupResult.error?.includes("already registered") || signupResult.error?.includes("already been registered")) {
+            result = await supabaseAuthService.signIn(demoUser.email, demoUser.password);
           } else {
-            toast.error(signupResult.error);
+            toast.error(signupResult.error || "Failed to create demo account");
             return;
           }
-        } else {
-          // Signup successful, user is logged in
+        } else if (signupResult.user) {
+          // Signup successful - assign the demo role
+          const roleToAssign = demoUser.role.toLowerCase() as 'hr' | 'manager' | 'employee';
+          await supabaseAuthService.assignDemoRole(signupResult.user.id, roleToAssign);
+          
           toast.success(`Demo account created! Welcome, ${demoUser.name}!`);
           navigate("/");
           return;
         }
       }
 
-      if (result.error) {
-        toast.error(result.error);
+      if (!result.success) {
+        toast.error(result.error || "Login failed");
         return;
       }
 
