@@ -74,21 +74,41 @@ export default function Auth() {
     setPassword(demoUser.password);
 
     try {
-      const { error } = await authService.signIn(demoUser.email, demoUser.password);
+      // First try to login
+      let result = await authService.signIn(demoUser.email, demoUser.password);
 
-      if (error) {
-        // If demo user doesn't exist, create it first
-        if (error.includes("Invalid login credentials") || error.includes("Invalid")) {
-          toast.error("Demo user not found. Please ask an administrator to set up demo accounts.");
+      // If login fails, try to create the demo user first
+      if (result.error && (result.error.includes("Invalid login credentials") || result.error.includes("Invalid"))) {
+        toast.info("Setting up demo account...");
+        
+        // Sign up the demo user
+        const signupResult = await authService.signUp(demoUser.email, demoUser.password, demoUser.name);
+        
+        if (signupResult.error) {
+          // If already exists, try login again
+          if (signupResult.error.includes("already registered")) {
+            result = await authService.signIn(demoUser.email, demoUser.password);
+          } else {
+            toast.error(signupResult.error);
+            return;
+          }
         } else {
-          toast.error(error);
+          // Signup successful, user is logged in
+          toast.success(`Demo account created! Welcome, ${demoUser.name}!`);
+          navigate("/");
+          return;
         }
+      }
+
+      if (result.error) {
+        toast.error(result.error);
         return;
       }
 
       toast.success(`Welcome, ${demoUser.name}!`);
       navigate("/");
     } catch (error) {
+      console.error("Demo login error:", error);
       toast.error("An error occurred during demo login");
     } finally {
       setLoading(false);
