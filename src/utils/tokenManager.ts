@@ -1,6 +1,8 @@
 import { jwtDecode } from 'jwt-decode';
 import { getAPIBaseURL } from '@/config/api';
 import { showAuthError } from './authErrorHandler';
+import { supabase } from '@/integrations/supabase/client';
+import { DEMO_MODE } from '@/config/demoAuth';
 
 // We'll use a simple event system to communicate with the UI
 let authLoadingCallback: ((loading: boolean, message?: string) => void) | null = null;
@@ -43,8 +45,18 @@ class TokenManager {
 
   /**
    * Get valid token, refreshing if necessary
+   * Supports both backend tokens and Supabase session tokens
    */
   async getValidToken(): Promise<string | null> {
+    // In demo mode, check Supabase session first
+    if (DEMO_MODE) {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        return session.access_token;
+      }
+    }
+
+    // Fall back to localStorage token (backend auth)
     const token = localStorage.getItem('token');
     
     if (!token) {
