@@ -103,12 +103,14 @@ export default function Auth() {
             return;
           }
         } else if (signupResult.user) {
-          // Signup successful - assign the demo role
+          // Signup successful - assign the demo role using the database function
           const roleToAssign = demoUser.role.toLowerCase() as 'hr' | 'manager' | 'employee';
           await supabaseAuthService.assignDemoRole(signupResult.user.id, roleToAssign);
           
           toast.success(`Demo account created! Welcome, ${demoUser.name}!`);
-          navigate("/");
+          
+          // Navigate to role-specific dashboard
+          navigateToRoleDashboard(roleToAssign);
           return;
         }
       }
@@ -118,13 +120,31 @@ export default function Auth() {
         return;
       }
 
-      toast.success(`Welcome, ${demoUser.name}!`);
-      navigate("/");
+      // For existing users, get role and navigate to appropriate dashboard
+      const roleToAssign = demoUser.role.toLowerCase() as 'hr' | 'manager' | 'employee';
+      // Ensure role is set correctly for existing demo users
+      await supabaseAuthService.assignDemoRole('', roleToAssign);
+      
+      toast.success(`Welcome back, ${demoUser.name}!`);
+      navigateToRoleDashboard(roleToAssign);
     } catch (error) {
       console.error("Demo login error:", error);
       toast.error("An error occurred during demo login");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const navigateToRoleDashboard = (role: string) => {
+    switch (role) {
+      case 'hr':
+        navigate("/hr-dashboard");
+        break;
+      case 'manager':
+        navigate("/approve-leaves");
+        break;
+      default:
+        navigate("/dashboard");
     }
   };
 

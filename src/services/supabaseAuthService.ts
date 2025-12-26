@@ -88,31 +88,29 @@ class SupabaseAuthService {
 
   async assignDemoRole(userId: string, role: 'hr' | 'manager' | 'employee'): Promise<boolean> {
     try {
-      // Check if role already exists
-      const { data: existingRole } = await supabase
-        .from('user_roles')
-        .select('id')
-        .eq('user_id', userId)
-        .eq('role', role)
-        .maybeSingle();
-
-      if (existingRole) {
-        return true; // Role already assigned
+      // Get user email to use with setup_demo_user function
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.email) {
+        console.error("No user email found for role assignment");
+        return false;
       }
 
-      // Insert the role
-      const { error } = await supabase
-        .from('user_roles')
-        .insert({ user_id: userId, role });
+      // Use the setup_demo_user database function which runs with SECURITY DEFINER
+      // This bypasses RLS and properly sets up the demo user with the correct role
+      const { error } = await supabase.rpc('setup_demo_user', {
+        p_email: user.email,
+        p_full_name: user.user_metadata?.full_name || user.email,
+        p_role: role
+      });
 
       if (error) {
-        console.error("Failed to assign role:", error);
+        console.error("Failed to setup demo user role:", error);
         return false;
       }
 
       return true;
     } catch (error) {
-      console.error("Error assigning role:", error);
+      console.error("Error assigning demo role:", error);
       return false;
     }
   }
